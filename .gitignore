@@ -1,0 +1,30 @@
+# Runtime envs / secrets
+.venv/
+.env
+.env.*
+
+# Compiled artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+
+# Logs / temp files
+*.log
+*.tmp
+
+# Data + outputs
+data/
+artifacts/
+
+# IDE & OS clutter
+.DS_Store
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+.pytest_cache/
+coverage/
+
+

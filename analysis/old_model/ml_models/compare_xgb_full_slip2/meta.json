@@ -1,0 +1,23 @@
+{
+  "feature_set": "practice_v1",
+  "timeframe": 5,
+  "horizon_minutes": 15,
+  "neutral_return": 0.0,
+  "threshold": 0.7,
+  "fast_span": 21,
+  "slow_span": 55,
+  "tick_size": 0.25,
+  "tick_value": 12.5,
+  "slippage_ticks": 2.0,
+  "commission": 2.35,
+  "train_frac": 0.6,
+  "val_frac": 0.2,
+  "use_rmt": false,
+  "use_ensemble": false,
+  "models": [
+    "xgb"
+  ],
+  "max_daily_loss": 500.0,
+  "trailing_dd": 2000.0,
+  "starting_balance": 50000.0
+}

@@ -1,0 +1,279 @@
+{
+  "splits": [
+    {
+      "val": {
+        "auc": 0.6722898752361507,
+        "net_return_mean": 2.110651424955339,
+        "net_return_median": 0.0004094107751188495,
+        "coverage": 1.0,
+        "hit_rate": 0.5953292496171516,
+        "threshold": 0.5,
+        "precision": 0.6356018049544157,
+        "recall": 0.5701305137948125,
+        "brier": 0.22629245426996597
+      },
+      "test": {
+        "auc": 0.6361239859838557,
+        "net_return_mean": 2.4030577081774847,
+        "net_return_median": 0.00030597771023303983,
+        "coverage": 1.0,
+        "hit_rate": 0.5750563613935089,
+        "precision": 0.6166767860756932,
+        "recall": 0.5087235996326905,
+        "brier": 0.2373412536978394,
+        "threshold": 0.5,
+        "mc": {
+          "mc_sims": 2000,
+          "pnl_median": 56531.22448039458,
+          "pnl_p05": 45311.66444762995,
+          "pnl_p95": 68310.85843391414,
+          "dd_median": 0.9748995405097958,
+          "dd_p95": 0.9749138453771593
+        },
+        "primary_model": "xgb"
+      },
+      "model_val_auc": {
+        "xgb": 0.6722898752361507
+      },
+      "rmt": {
+        "lambda_max": 1.0395306072477604,
+        "q": 2612.0,
+        "eigval_p95": 3.887187805639743,
+        "eigval_p99": 6.8083579583307205
+      },
+      "feature_importance": [
+        [
+          "log_return_1",
+          0.0916230644886847
+        ],
+        [
+          "lower_wick",
+          0.04054470818444783
+        ],
+        [
+          "body_range",
+          0.010443253360558083
+        ],
+        [
+          "ret_15",
+          0.0048121915943508675
+        ],
+        [
+          "rv_5",
+          0.003908244002041858
+        ],
+        [
+          "ema_slow",
+          0.0038550706142589652
+        ],
+        [
+          "upper_wick",
+          0.00303088310362426
+        ],
+        [
+          "atr",
+          0.0028235068912710465
+        ],
+        [
+          "vol_roll_max",
+          -0.0025895439850263935
+        ],
+        [
+          "ret_5",
+          -0.002307725029777108
+        ],
+        [
+          "atr_pct",
+          -0.0022439169644376533
+        ],
+        [
+          "ema_spread_pct",
+          -0.002164156882763335
+        ],
+        [
+          "session_sin",
+          -0.0021375701888718956
+        ],
+        [
+          "ema_slow_slope",
+          0.0019248766377403248
+        ],
+        [
+          "ret_3",
+          0.0016643270376042185
+        ]
+      ],
+      "split": 0
+    }
+  ],
+  "best_split": {
+    "val": {
+      "auc": 0.6722898752361507,
+      "net_return_mean": 2.110651424955339,
+      "net_return_median": 0.0004094107751188495,
+      "coverage": 1.0,
+      "hit_rate": 0.5953292496171516,
+      "threshold": 0.5,
+      "precision": 0.6356018049544157,
+      "recall": 0.5701305137948125,
+      "brier": 0.22629245426996597
+    },
+    "test": {
+      "auc": 0.6361239859838557,
+      "net_return_mean": 2.4030577081774847,
+      "net_return_median": 0.00030597771023303983,
+      "coverage": 1.0,
+      "hit_rate": 0.5750563613935089,
+      "precision": 0.6166767860756932,
+      "recall": 0.5087235996326905,
+      "brier": 0.2373412536978394,
+      "threshold": 0.5,
+      "mc": {
+        "mc_sims": 2000,
+        "pnl_median": 56531.22448039458,
+        "pnl_p05": 45311.66444762995,
+        "pnl_p95": 68310.85843391414,
+        "dd_median": 0.9748995405097958,
+        "dd_p95": 0.9749138453771593
+      },
+      "primary_model": "xgb"
+    },
+    "model_val_auc": {
+      "xgb": 0.6722898752361507
+    },
+    "rmt": {
+      "lambda_max": 1.0395306072477604,
+      "q": 2612.0,
+      "eigval_p95": 3.887187805639743,
+      "eigval_p99": 6.8083579583307205
+    },
+    "feature_importance": [
+      [
+        "log_return_1",
+        0.0916230644886847
+      ],
+      [
+        "lower_wick",
+        0.04054470818444783
+      ],
+      [
+        "body_range",
+        0.010443253360558083
+      ],
+      [
+        "ret_15",
+        0.0048121915943508675
+      ],
+      [
+        "rv_5",
+        0.003908244002041858
+      ],
+      [
+        "ema_slow",
+        0.0038550706142589652
+      ],
+      [
+        "upper_wick",
+        0.00303088310362426
+      ],
+      [
+        "atr",
+        0.0028235068912710465
+      ],
+      [
+        "vol_roll_max",
+        -0.0025895439850263935
+      ],
+      [
+        "ret_5",
+        -0.002307725029777108
+      ],
+      [
+        "atr_pct",
+        -0.0022439169644376533
+      ],
+      [
+        "ema_spread_pct",
+        -0.002164156882763335
+      ],
+      [
+        "session_sin",
+        -0.0021375701888718956
+      ],
+      [
+        "ema_slow_slope",
+        0.0019248766377403248
+      ],
+      [
+        "ret_3",
+        0.0016643270376042185
+      ]
+    ],
+    "split": 0
+  },
+  "feature_cols": [
+    "log_return_1",
+    "ret_1",
+    "ret_3",
+    "ret_5",
+    "ret_15",
+    "vol_roll_max",
+    "rv_5",
+    "rv_10",
+    "rv_20",
+    "rv_50",
+    "hl_range",
+    "body_range",
+    "upper_wick",
+    "lower_wick",
+    "ema_fast",
+    "ema_slow",
+    "ema_spread_pct",
+    "pullback_to_fast",
+    "ema_fast_slope",
+    "ema_slow_slope",
+    "atr",
+    "atr_pct",
+    "vwap_dist",
+    "volume_z",
+    "range_compression",
+    "session_sin",
+    "session_cos"
+  ],
+  "meta": {
+    "feature_set": "practice_v1",
+    "timeframe": 5,
+    "horizon_minutes": 15,
+    "neutral_return": 0.0,
+    "threshold": 0.5,
+    "fast_span": 21,
+    "slow_span": 55,
+    "tick_size": 0.25,
+    "tick_value": 12.5,
+    "slippage_ticks": 1.0,
+    "commission": 2.35,
+    "train_frac": 0.6,
+    "val_frac": 0.2,
+    "use_rmt": true,
+    "use_ensemble": false,
+    "models": [
+      "xgb"
+    ]
+  },
+  "promotion": {
+    "passes": true,
+    "gates": {
+      "min_auc": 0.52,
+      "min_val_net": 0.0,
+      "min_mc_p05": -1.0
+    },
+    "best_mc": {
+      "mc_sims": 2000,
+      "pnl_median": 56531.22448039458,
+      "pnl_p05": 45311.66444762995,
+      "pnl_p95": 68310.85843391414,
+      "dd_median": 0.9748995405097958,
+      "dd_p95": 0.9749138453771593
+    }
+  }
+}

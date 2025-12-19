@@ -1,0 +1,33 @@
+{
+  "threshold": 0.75,
+  "threshold_alt": 0.6,
+  "timeframe": 5,
+  "seq_len": 64,
+  "tp_pct": 0.0025,
+  "sl_pct": 0.0015,
+  "label_mode": "pnl",
+  "horizon": 20,
+  "use_rmt": true,
+  "use_pca": true,
+  "pca_components": 12,
+  "feature_cols": [
+    "log_return",
+    "hl_range",
+    "body_range",
+    "volume_z",
+    "rolling_vol",
+    "rolling_ret",
+    "ema_fast",
+    "ema_slow",
+    "ema_fast_slope",
+    "ema_slow_slope",
+    "vwap_dist",
+    "atr",
+    "atr_norm_move",
+    "range_compression",
+    "session_sin",
+    "session_cos"
+  ],
+  "model_dir": "artifacts/ml/latest",
+  "metrics_path": "artifacts/ml/metrics.json"
+}

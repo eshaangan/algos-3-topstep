@@ -1,0 +1,13 @@
+{
+  "n_rows": 117541,
+  "train_rows": 94032,
+  "test_rows": 23509,
+  "test_auc": 0.7561217748289921,
+  "test_trade_metrics": {
+    "net_return_mean": 2.4068412288166736,
+    "net_return_median": 0.00018258402819570463,
+    "coverage": 0.7111744438300226,
+    "hit_rate": 0.5294993406780382,
+    "threshold": 0.6
+  }
+}
