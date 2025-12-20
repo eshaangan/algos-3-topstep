@@ -139,9 +139,13 @@ def add_features(bars_df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame:
 
     df["trade_affordable"] = (df["estimated_risk_usd"] <= 200).astype(int)
 
-    df["max_contracts_by_risk"] = (200 / (df["estimated_risk_usd"] + 1)).clip(1, 5).astype(int)
+    # Fill NaN/inf values: use high risk (200) for NaN to default to 1 contract
+    # Replace inf with a large finite value to avoid division issues
+    risk_usd = df["estimated_risk_usd"].fillna(200).replace([np.inf, -np.inf], 200)
+    max_contracts = (200 / (risk_usd + 1)).clip(1, 5)
+    df["max_contracts_by_risk"] = max_contracts.fillna(1).astype(int)
 
-    df["expected_rr_15x"] = 1.5
+    # FIXED: Removed expected_rr_15x (constant value, provides zero information)
 
     if verbose:
         print("\nOK: feature engineering complete")

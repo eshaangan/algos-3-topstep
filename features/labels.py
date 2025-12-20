@@ -23,20 +23,25 @@ def simulate_trade_outcome(
     """
     Simulate a trade from entry_idx forward.
 
+    CRITICAL FIX: Entry uses NEXT bar's open (matching backtest execution)
+    to eliminate 1-bar lookahead bias.
+
     Returns:
         "win": Trade would be profitable
         "loss": Trade would hit stop
         "neutral": Unclear outcome (skip in training)
     """
-    if entry_idx + max_hold_bars >= len(bars_df):
+    # Need extra bar for next-bar entry
+    if entry_idx + max_hold_bars + 1 >= len(bars_df):
         return "neutral"
 
-    entry_bar = bars_df.iloc[entry_idx]
+    # FIXED: Entry is next bar's open, not current bar's close
+    next_bar = bars_df.iloc[entry_idx + 1]
 
     if direction == "long":
-        entry_price = entry_bar["close"] + (slippage_ticks * tick_size)
+        entry_price = next_bar["open"] + (slippage_ticks * tick_size)
     else:
-        entry_price = entry_bar["close"] - (slippage_ticks * tick_size)
+        entry_price = next_bar["open"] - (slippage_ticks * tick_size)
 
     stop_distance = stop_ticks * tick_size
     target_distance = stop_distance * target_multiplier
@@ -48,7 +53,8 @@ def simulate_trade_outcome(
         stop_price = entry_price + stop_distance
         target_price = entry_price - target_distance
 
-    for i in range(entry_idx + 1, min(entry_idx + max_hold_bars + 1, len(bars_df))):
+    # FIXED: Start from entry_idx + 2 (first bar after next-bar entry)
+    for i in range(entry_idx + 2, min(entry_idx + max_hold_bars + 2, len(bars_df))):
         bar = bars_df.iloc[i]
 
         if direction == "long":
@@ -73,7 +79,8 @@ def simulate_trade_outcome(
                 pnl -= (2 * commission + slippage_ticks * tick_value)
                 return "win" if pnl > 0 else "neutral"
 
-    exit_price = bars_df.iloc[entry_idx + max_hold_bars]["close"]
+    # FIXED: Max hold exit at entry_idx + max_hold_bars + 1 (accounting for next-bar entry)
+    exit_price = bars_df.iloc[entry_idx + max_hold_bars + 1]["close"]
 
     if direction == "long":
         pnl = (exit_price - entry_price) / tick_size * tick_value
@@ -120,9 +127,10 @@ def create_labels(
     labels = []
     label_map = {"loss": 0, "win": 1, "neutral": 2}
 
-    for i in range(lookback, len(bars_df) - max_hold_bars):
+    # FIXED: Account for next-bar entry by subtracting 1 from range
+    for i in range(lookback, len(bars_df) - max_hold_bars - 1):
         if i % 1000 == 0:
-            pct = (i - lookback) / (len(bars_df) - max_hold_bars - lookback) * 100
+            pct = (i - lookback) / (len(bars_df) - max_hold_bars - lookback - 1) * 100
             print(f"  Progress: {pct:.1f}% ({i:,}/{len(bars_df):,} bars)")
 
         long_outcome = simulate_trade_outcome(

@@ -14,6 +14,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from datetime import time
+
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from features.engineer import add_features, select_features
 
@@ -210,11 +212,8 @@ def run_backtest(
         else:
             direction = "long" if long_ok else "short"
 
-        stop_ticks = probs.get("estimated_stop_ticks", TRAINING_CONFIG.stop_loss_ticks)
-        if pd.isna(stop_ticks):
-            stop_ticks = TRAINING_CONFIG.stop_loss_ticks
-        stop_ticks = int(round(stop_ticks))
-        stop_ticks = max(6, min(stop_ticks, 30))
+        # FIXED: Use fixed stops from config (matching training) instead of ATR-based dynamic stops
+        stop_ticks = TRAINING_CONFIG.stop_loss_ticks
 
         risk_per_contract = stop_ticks * RISK_CONFIG.tick_value
         contracts = int(RISK_CONFIG.fixed_risk_per_trade / max(risk_per_contract, 1e-6))
@@ -300,6 +299,16 @@ def run_backtest(
     drawdowns = peaks - equity_arr
     max_drawdown = float(drawdowns.max()) if drawdowns.size else 0.0
 
+    # Convert config to dict and serialize time objects to strings
+    risk_dict = asdict(RISK_CONFIG)
+    training_dict = asdict(TRAINING_CONFIG)
+    
+    # Convert time objects to strings for JSON serialization
+    if "session_start" in risk_dict and isinstance(risk_dict["session_start"], time):
+        risk_dict["session_start"] = risk_dict["session_start"].isoformat()
+    if "session_end" in risk_dict and isinstance(risk_dict["session_end"], time):
+        risk_dict["session_end"] = risk_dict["session_end"].isoformat()
+    
     summary = {
         "trades": int(len(trades)),
         "win_rate": win_rate,
@@ -309,8 +318,8 @@ def run_backtest(
         "ending_equity": equity,
         "starting_balance": RISK_CONFIG.starting_balance,
         "config": {
-            "risk": asdict(RISK_CONFIG),
-            "training": asdict(TRAINING_CONFIG),
+            "risk": risk_dict,
+            "training": training_dict,
         },
     }
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict
+from datetime import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -163,9 +164,12 @@ def _train_model(
     sample_weight = np.where(y_train == 0, weights[0], weights[1])
 
     model = RandomForestClassifier(
-        n_estimators=300,
-        max_depth=6,
-        min_samples_leaf=50,
+        n_estimators=500,           # Increased from 300 for more stability
+        max_depth=12,               # Increased from 6 to capture complex patterns
+        min_samples_leaf=10,        # Reduced from 50 to allow finer splits
+        min_samples_split=30,       # Added to prevent excessive splitting
+        max_features='sqrt',        # Feature sampling (~6 of 36 features)
+        class_weight='balanced',    # Built-in class balancing
         random_state=seed,
         n_jobs=-1,
     )
@@ -298,12 +302,22 @@ def main() -> None:
     long_gate = _gate_performance(results["metrics"]["long"])
     short_gate = _gate_performance(results["metrics"]["short"])
 
+    # Convert config to dict and serialize time objects to strings
+    risk_dict = asdict(RISK_CONFIG)
+    training_dict = asdict(TRAINING_CONFIG)
+    
+    # Convert time objects to strings for JSON serialization
+    if "session_start" in risk_dict and isinstance(risk_dict["session_start"], time):
+        risk_dict["session_start"] = risk_dict["session_start"].isoformat()
+    if "session_end" in risk_dict and isinstance(risk_dict["session_end"], time):
+        risk_dict["session_end"] = risk_dict["session_end"].isoformat()
+    
     metadata = {
         "created": pd.Timestamp.utcnow().isoformat(),
         "feature_cols": results["feature_cols"],
         "config": {
-            "risk": asdict(RISK_CONFIG),
-            "training": asdict(TRAINING_CONFIG),
+            "risk": risk_dict,
+            "training": training_dict,
         },
         "metrics": results["metrics"],
         "gates": {"long": long_gate, "short": short_gate},

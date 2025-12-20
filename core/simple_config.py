@@ -29,8 +29,8 @@ class TrainingConfig:
     """ML training parameters."""
 
     lookback_bars: int = 100
-    stop_loss_ticks: int = 12
-    target_multiplier: float = 1.5
+    stop_loss_ticks: int = 24  # OPTIMIZED: 24 ticks (6 points) based on stop optimization experiment
+    target_multiplier: float = 2.0  # OPTIMIZED: 2:1 R:R for baseline profitability (was 1.5)
     max_hold_bars: int = 12
 
     # Walk-forward splits

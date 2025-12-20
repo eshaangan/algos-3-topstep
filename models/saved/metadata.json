@@ -1,0 +1,160 @@
+{
+  "created": "2025-12-19T08:01:46.186132+00:00",
+  "feature_cols": [
+    "returns_1",
+    "returns_5",
+    "returns_12",
+    "log_returns_1",
+    "body_pct",
+    "upper_wick",
+    "lower_wick",
+    "is_bullish",
+    "ema_9_dist",
+    "ema_21_dist",
+    "ema_50_dist",
+    "ema_9_slope",
+    "ema_21_slope",
+    "ema_spread_9_21",
+    "ema_spread_21_50",
+    "price_above_ema9",
+    "price_above_ema21",
+    "price_above_ema50",
+    "atr_ticks",
+    "vol_20",
+    "vol_percentile",
+    "bb_width",
+    "volume_ratio",
+    "volume_surge",
+    "time_of_day",
+    "session_open",
+    "session_close",
+    "lunch_period",
+    "day_of_week",
+    "range_position_12",
+    "range_position_50",
+    "dist_from_high_12",
+    "dist_from_low_12",
+    "estimated_stop_ticks",
+    "trade_affordable",
+    "max_contracts_by_risk"
+  ],
+  "config": {
+    "risk": {
+      "starting_balance": 50000.0,
+      "max_daily_loss": 500.0,
+      "trailing_drawdown": 1800.0,
+      "fixed_risk_per_trade": 200.0,
+      "max_contracts": 5,
+      "tick_size": 0.25,
+      "tick_value": 1.25,
+      "session_start": "08:30:00",
+      "session_end": "14:55:00"
+    },
+    "training": {
+      "lookback_bars": 100,
+      "stop_loss_ticks": 12,
+      "target_multiplier": 1.5,
+      "max_hold_bars": 12,
+      "train_fraction": 0.6,
+      "val_fraction": 0.2,
+      "test_fraction": 0.2,
+      "min_probability_long": 0.65,
+      "min_probability_short": 0.65,
+      "min_win_rate": 0.52,
+      "min_profit_factor": 1.3,
+      "max_drawdown": 1500.0
+    }
+  },
+  "metrics": {
+    "long": {
+      "validation": {
+        "accuracy": 0.773932384341637,
+        "precision": 0.6251232336510023,
+        "recall": 0.9361466535433071,
+        "f1": 0.7496551724137931,
+        "roc_auc": 0.8639777255385406,
+        "tp": 7609.0,
+        "fp": 4563.0,
+        "tn": 9789.0,
+        "fn": 519.0,
+        "trades": 10088,
+        "win_rate": 0.6513679619349723,
+        "profit_factor": 2.8025305658231447,
+        "expectancy_r": 0.6284199048374306,
+        "max_drawdown_r": 40.0
+      },
+      "test": {
+        "accuracy": 0.746365535944516,
+        "precision": 0.5529362061681453,
+        "recall": 0.9405001437194597,
+        "f1": 0.6964295216303943,
+        "roc_auc": 0.861818591904547,
+        "tp": 6544.0,
+        "fp": 5291.0,
+        "tn": 10244.0,
+        "fn": 414.0,
+        "trades": 9557,
+        "win_rate": 0.5911897038819713,
+        "profit_factor": 2.169183516764781,
+        "expectancy_r": 0.47797425970492835,
+        "max_drawdown_r": 108.5
+      }
+    },
+    "short": {
+      "validation": {
+        "accuracy": 0.8434960252253852,
+        "precision": 0.589208525860784,
+        "recall": 0.8373226011438255,
+        "f1": 0.6916885389326334,
+        "roc_auc": 0.9137136791281205,
+        "tp": 3953.0,
+        "fp": 2756.0,
+        "tn": 15040.0,
+        "fn": 768.0,
+        "trades": 3176,
+        "win_rate": 0.6804156171284634,
+        "profit_factor": 3.1935960591133004,
+        "expectancy_r": 0.7010390428211587,
+        "max_drawdown_r": 10.0
+      },
+      "test": {
+        "accuracy": 0.8280514869063471,
+        "precision": 0.5391941391941392,
+        "recall": 0.8346563846677251,
+        "f1": 0.6551539967954424,
+        "roc_auc": 0.9062463276243292,
+        "tp": 3680.0,
+        "fp": 3145.0,
+        "tn": 14976.0,
+        "fn": 729.0,
+        "trades": 3257,
+        "win_rate": 0.6401596561252687,
+        "profit_factor": 2.6685153583617747,
+        "expectancy_r": 0.6003991403131717,
+        "max_drawdown_r": 15.0
+      }
+    }
+  },
+  "gates": {
+    "long": {
+      "passed": false,
+      "win_rate": 0.5911897038819713,
+      "profit_factor": 2.169183516764781,
+      "max_drawdown_usd": 21700.0
+    },
+    "short": {
+      "passed": false,
+      "win_rate": 0.6401596561252687,
+      "profit_factor": 2.6685153583617747,
+      "max_drawdown_usd": 3000.0
+    }
+  },
+  "data": {
+    "bars": 130399,
+    "dataset_rows": 113533,
+    "label_rows": {
+      "long": 112522,
+      "short": 112706
+    }
+  }
+}

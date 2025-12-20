@@ -6,3 +6,7 @@ tables
 python-dotenv
 requests
 PyYAML
+matplotlib
+seaborn
+jupyter
+ipykernel

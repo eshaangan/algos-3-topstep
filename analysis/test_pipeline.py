@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict
+from datetime import time
 from pathlib import Path
 
 import joblib
@@ -57,8 +58,18 @@ def main() -> None:
         joblib.dump(results["long_model"], output_dir / "model_long.joblib")
         joblib.dump(results["short_model"], output_dir / "model_short.joblib")
 
+        # Convert config to dict and serialize time objects to strings
+        risk_dict = asdict(RISK_CONFIG)
+        training_dict = asdict(TRAINING_CONFIG)
+        
+        # Convert time objects to strings for JSON serialization
+        if "session_start" in risk_dict and isinstance(risk_dict["session_start"], time):
+            risk_dict["session_start"] = risk_dict["session_start"].isoformat()
+        if "session_end" in risk_dict and isinstance(risk_dict["session_end"], time):
+            risk_dict["session_end"] = risk_dict["session_end"].isoformat()
+        
         metadata = {
-            "config": {"risk": asdict(RISK_CONFIG), "training": asdict(TRAINING_CONFIG)},
+            "config": {"risk": risk_dict, "training": training_dict},
             "feature_cols": results["feature_cols"],
             "metrics": results["metrics"],
         }
