@@ -3,9 +3,19 @@ Create labels by simulating what would happen if we took trades
 rather than predicting raw price direction.
 """
 
+from __future__ import annotations
+
+from datetime import time
 from typing import Literal
 
 import pandas as pd
+
+
+def _to_chicago(ts: pd.Timestamp) -> pd.Timestamp:
+    ts = pd.to_datetime(ts)
+    if ts.tzinfo is None:
+        ts = ts.tz_localize("UTC")
+    return ts.tz_convert("America/Chicago")
 
 
 def simulate_trade_outcome(
@@ -59,25 +69,21 @@ def simulate_trade_outcome(
 
         if direction == "long":
             if bar["low"] <= stop_price:
-                pnl = (stop_price - entry_price) / tick_size * tick_value
-                pnl -= (2 * commission + slippage_ticks * tick_value)
-                return "loss" if pnl < 0 else "neutral"
+                return "loss"
 
             if bar["high"] >= target_price:
                 pnl = (target_price - entry_price) / tick_size * tick_value
                 pnl -= (2 * commission + slippage_ticks * tick_value)
-                return "win" if pnl > 0 else "neutral"
+                return "win" if pnl > 0 else "loss"
 
         else:
             if bar["high"] >= stop_price:
-                pnl = (entry_price - stop_price) / tick_size * tick_value
-                pnl -= (2 * commission + slippage_ticks * tick_value)
-                return "loss" if pnl < 0 else "neutral"
+                return "loss"
 
             if bar["low"] <= target_price:
                 pnl = (entry_price - target_price) / tick_size * tick_value
                 pnl -= (2 * commission + slippage_ticks * tick_value)
-                return "win" if pnl > 0 else "neutral"
+                return "win" if pnl > 0 else "loss"
 
     # FIXED: Max hold exit at entry_idx + max_hold_bars + 1 (accounting for next-bar entry)
     exit_price = bars_df.iloc[entry_idx + max_hold_bars + 1]["close"]
@@ -89,13 +95,241 @@ def simulate_trade_outcome(
 
     pnl -= (2 * commission + 2 * slippage_ticks * tick_value)
 
-    risk_amount = stop_distance / tick_size * tick_value
+    # Match execution: max-hold exits are realized P&L, not "neutral".
+    return "win" if pnl > 0 else "loss"
 
-    if pnl > risk_amount * 0.3:
-        return "win"
-    if pnl < -risk_amount * 0.5:
-        return "loss"
-    return "neutral"
+
+def simulate_trade(
+    bars_df: pd.DataFrame,
+    entry_idx: int,
+    *,
+    direction: Literal["long", "short"],
+    stop_ticks: int,
+    target_multiplier: float,
+    max_hold_bars: int,
+    tick_size: float,
+    tick_value: float,
+    session_end: time,
+    slippage_ticks: int = 1,
+    commission: float = 2.35,
+) -> dict:
+    """
+    Simulate a single trade and return realized P&L and exit index.
+
+    Mirrors `backtesting/backtest.py`:
+      - Entry is next bar open with slippage applied to entry price.
+      - Stop/target are evaluated on subsequent bars.
+      - Forced exit at session_end close.
+      - Max-hold exit at close.
+    """
+    if entry_idx + 2 >= len(bars_df):
+        raise ValueError("Not enough bars for next-bar entry")
+
+    next_bar = bars_df.iloc[entry_idx + 1]
+    if direction == "long":
+        entry_price = float(next_bar["open"]) + slippage_ticks * tick_size
+    else:
+        entry_price = float(next_bar["open"]) - slippage_ticks * tick_size
+
+    stop_distance = stop_ticks * tick_size
+    target_distance = stop_distance * target_multiplier
+
+    if direction == "long":
+        stop_price = entry_price - stop_distance
+        target_price = entry_price + target_distance
+    else:
+        stop_price = entry_price + stop_distance
+        target_price = entry_price - target_distance
+
+    entry_time = pd.to_datetime(next_bar["timestamp"], utc=True)
+
+    last_bar_idx = min(entry_idx + max_hold_bars + 1, len(bars_df) - 1)
+    exit_idx = last_bar_idx
+    exit_price = float(bars_df.iloc[last_bar_idx]["close"])
+    exit_reason = "MAX_HOLD"
+
+    for i in range(entry_idx + 2, last_bar_idx + 1):
+        bar = bars_df.iloc[i]
+        bar_time = _to_chicago(pd.to_datetime(bar["timestamp"], utc=True))
+
+        if bar_time.time() >= session_end:
+            exit_idx = i
+            exit_price = float(bar["close"])
+            exit_reason = "SESSION_FLAT"
+            break
+
+        if direction == "long":
+            if float(bar["low"]) <= stop_price:
+                exit_idx = i
+                exit_price = stop_price
+                exit_reason = "STOP"
+                break
+            if float(bar["high"]) >= target_price:
+                exit_idx = i
+                exit_price = target_price
+                exit_reason = "TARGET"
+                break
+        else:
+            if float(bar["high"]) >= stop_price:
+                exit_idx = i
+                exit_price = stop_price
+                exit_reason = "STOP"
+                break
+            if float(bar["low"]) <= target_price:
+                exit_idx = i
+                exit_price = target_price
+                exit_reason = "TARGET"
+                break
+
+    ticks = (exit_price - entry_price) / tick_size
+    if direction == "short":
+        ticks *= -1
+    raw_pnl = ticks * tick_value
+    fees = 2 * commission + slippage_ticks * tick_value
+    pnl = raw_pnl - fees
+
+    return {
+        "entry_idx": entry_idx + 1,
+        "exit_idx": int(exit_idx),
+        "entry_time": entry_time,
+        "exit_time": pd.to_datetime(bars_df.iloc[exit_idx]["timestamp"], utc=True),
+        "direction": direction,
+        "entry_price": float(entry_price),
+        "exit_price": float(exit_price),
+        "pnl": float(pnl),
+        "reason": exit_reason,
+    }
+
+
+def create_sequential_trade_labels(
+    bars_df: pd.DataFrame,
+    *,
+    direction: Literal["long", "short"],
+    lookback: int,
+    stop_ticks: int,
+    target_multiplier: float,
+    max_hold_bars: int,
+    tick_size: float,
+    tick_value: float,
+    session_start: time,
+    session_end: time,
+    slippage_ticks: int = 1,
+    commission: float = 2.35,
+    max_trades: int | None = None,
+) -> pd.DataFrame:
+    """
+    Create a label dataset consisting of NON-OVERLAPPING sequential trades.
+
+    This matches the backtest reality (one position at a time), addressing the
+    mismatch between per-bar overlapping labels and sequential execution.
+    """
+    records = []
+    i = int(lookback)
+    n = len(bars_df)
+    max_i = n - max_hold_bars - 2
+
+    while i <= max_i:
+        bar_time = _to_chicago(pd.to_datetime(bars_df.iloc[i]["timestamp"], utc=True))
+        if bar_time.time() < session_start or bar_time.time() >= session_end:
+            i += 1
+            continue
+
+        trade = simulate_trade(
+            bars_df,
+            i,
+            direction=direction,
+            stop_ticks=stop_ticks,
+            target_multiplier=target_multiplier,
+            max_hold_bars=max_hold_bars,
+            tick_size=tick_size,
+            tick_value=tick_value,
+            session_end=session_end,
+            slippage_ticks=slippage_ticks,
+            commission=commission,
+        )
+        label = 1 if trade["pnl"] > 0 else 0
+        records.append(
+            {
+                "idx": int(i),
+                "entry_time": trade["entry_time"],
+                "exit_time": trade["exit_time"],
+                "label": int(label),
+                "pnl": float(trade["pnl"]),
+                "reason": trade["reason"],
+            }
+        )
+
+        # After exit, you can re-enter immediately on the same bar in the backtest loop.
+        i = int(trade["exit_idx"])
+
+        if max_trades is not None and len(records) >= int(max_trades):
+            break
+
+    return pd.DataFrame(records)
+
+
+def create_per_bar_trade_labels(
+    bars_df: pd.DataFrame,
+    *,
+    direction: Literal["long", "short"],
+    lookback: int,
+    stop_ticks: int,
+    target_multiplier: float,
+    max_hold_bars: int,
+    tick_size: float,
+    tick_value: float,
+    session_start: time,
+    session_end: time,
+    slippage_ticks: int = 1,
+    commission: float = 2.35,
+    max_trades: int | None = None,
+) -> pd.DataFrame:
+    """
+    Create a label dataset for EVERY eligible bar independently (no sequential skipping).
+
+    This answers: "If we enter on bar i (next-bar open), would this trade win or lose?"
+    The backtest still enforces one-position-at-a-time; these labels just provide more
+    training examples than the sequential 'always-enter' path.
+    """
+    records = []
+    i0 = int(lookback)
+    n = len(bars_df)
+    max_i = n - max_hold_bars - 2
+
+    for i in range(i0, max_i + 1):
+        bar_time = _to_chicago(pd.to_datetime(bars_df.iloc[i]["timestamp"], utc=True))
+        if bar_time.time() < session_start or bar_time.time() >= session_end:
+            continue
+
+        trade = simulate_trade(
+            bars_df,
+            i,
+            direction=direction,
+            stop_ticks=stop_ticks,
+            target_multiplier=target_multiplier,
+            max_hold_bars=max_hold_bars,
+            tick_size=tick_size,
+            tick_value=tick_value,
+            session_end=session_end,
+            slippage_ticks=slippage_ticks,
+            commission=commission,
+        )
+        label = 1 if trade["pnl"] > 0 else 0
+        records.append(
+            {
+                "idx": int(i),
+                "entry_time": trade["entry_time"],
+                "exit_time": trade["exit_time"],
+                "label": int(label),
+                "pnl": float(trade["pnl"]),
+                "reason": trade["reason"],
+            }
+        )
+
+        if max_trades is not None and len(records) >= int(max_trades):
+            break
+
+    return pd.DataFrame(records)
 
 
 def create_labels(

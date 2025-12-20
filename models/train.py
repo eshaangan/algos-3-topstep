@@ -27,7 +27,7 @@ from sklearn.metrics import (
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features, select_features
-from features.labels import create_labels
+from features.labels import create_per_bar_trade_labels, create_sequential_trade_labels
 
 
 def load_bars(h5_path: str) -> pd.DataFrame:
@@ -39,25 +39,48 @@ def load_bars(h5_path: str) -> pd.DataFrame:
     return bars
 
 
-def _prepare_dataset(bars_df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
+def _prepare_datasets(bars_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
     features_df = add_features(bars_df)
-    labels_df = create_labels(
+    features_df = features_df.reset_index().rename(columns={"index": "idx"})
+    feature_cols = select_features()
+
+    label_mode = (getattr(TRAINING_CONFIG, "label_mode", "sequential") or "sequential").strip().lower()
+    if label_mode not in {"sequential", "per_bar"}:
+        raise ValueError(f"Unsupported label_mode={label_mode!r} (expected 'sequential' or 'per_bar')")
+
+    label_fn = create_sequential_trade_labels if label_mode == "sequential" else create_per_bar_trade_labels
+
+    # Generate trade labels per direction.
+    long_labels = label_fn(
         bars_df,
+        direction="long",
         lookback=TRAINING_CONFIG.lookback_bars,
         stop_ticks=TRAINING_CONFIG.stop_loss_ticks,
         target_multiplier=TRAINING_CONFIG.target_multiplier,
         max_hold_bars=TRAINING_CONFIG.max_hold_bars,
         tick_size=RISK_CONFIG.tick_size,
         tick_value=RISK_CONFIG.tick_value,
-    )
+        session_start=RISK_CONFIG.session_start,
+        session_end=RISK_CONFIG.session_end,
+    ).rename(columns={"label": "label_long"})
 
-    features_df = features_df.reset_index().rename(columns={"index": "idx"})
-    feature_cols = select_features()
+    short_labels = label_fn(
+        bars_df,
+        direction="short",
+        lookback=TRAINING_CONFIG.lookback_bars,
+        stop_ticks=TRAINING_CONFIG.stop_loss_ticks,
+        target_multiplier=TRAINING_CONFIG.target_multiplier,
+        max_hold_bars=TRAINING_CONFIG.max_hold_bars,
+        tick_size=RISK_CONFIG.tick_size,
+        tick_value=RISK_CONFIG.tick_value,
+        session_start=RISK_CONFIG.session_start,
+        session_end=RISK_CONFIG.session_end,
+    ).rename(columns={"label": "label_short"})
 
-    dataset = labels_df.merge(features_df, on="idx", how="inner")
-    dataset = dataset.dropna(subset=feature_cols).reset_index(drop=True)
+    long_df = long_labels.merge(features_df, on="idx", how="inner").dropna(subset=feature_cols).reset_index(drop=True)
+    short_df = short_labels.merge(features_df, on="idx", how="inner").dropna(subset=feature_cols).reset_index(drop=True)
 
-    return dataset, feature_cols
+    return long_df, short_df, feature_cols
 
 
 def _walk_forward_split(
@@ -199,29 +222,32 @@ def train_models(
     bars_df: pd.DataFrame,
     seed: int = 42,
 ) -> Dict[str, object]:
-    dataset, feature_cols = _prepare_dataset(bars_df)
+    long_df, short_df, feature_cols = _prepare_datasets(bars_df)
 
     # Purge/embargo needs to cover both feature lookback and label horizon.
     purge_bars = TRAINING_CONFIG.lookback_bars + TRAINING_CONFIG.max_hold_bars + 1
 
-    long_df = dataset[dataset["label_long"] != 2].copy()
-    short_df = dataset[dataset["label_short"] != 2].copy()
-
-    long_train, long_val, long_test = _walk_forward_split(
-        long_df,
+    # Bar-based windows ensure labels never peek across train/val/test boundaries.
+    train_w, val_w, test_w = _walk_forward_split_bars(
+        bars_df,
         TRAINING_CONFIG.train_fraction,
         TRAINING_CONFIG.val_fraction,
         TRAINING_CONFIG.test_fraction,
         purge_bars,
     )
 
-    short_train, short_val, short_test = _walk_forward_split(
-        short_df,
-        TRAINING_CONFIG.train_fraction,
-        TRAINING_CONFIG.val_fraction,
-        TRAINING_CONFIG.test_fraction,
-        purge_bars,
-    )
+    def _slice_by_window(df: pd.DataFrame, window: tuple[int, int]) -> pd.DataFrame:
+        start, end = (int(window[0]), int(window[1]))
+        out = df[(df["idx"] >= start) & (df["idx"] < end)].copy()
+        return out.reset_index(drop=True)
+
+    long_train = _slice_by_window(long_df, train_w)
+    long_val = _slice_by_window(long_df, val_w)
+    long_test = _slice_by_window(long_df, test_w)
+
+    short_train = _slice_by_window(short_df, train_w)
+    short_val = _slice_by_window(short_df, val_w)
+    short_test = _slice_by_window(short_df, test_w)
 
     if min(len(long_train), len(long_val), len(long_test)) == 0:
         raise ValueError("Not enough long samples after split; adjust fractions or dataset size")
@@ -246,15 +272,6 @@ def train_models(
         "label_short",
         TRAINING_CONFIG.min_probability_short,
         seed + 1,
-    )
-
-    # Trade-identical evaluation uses contiguous BAR splits (not sample rows).
-    train_w, val_w, test_w = _walk_forward_split_bars(
-        bars_df,
-        TRAINING_CONFIG.train_fraction,
-        TRAINING_CONFIG.val_fraction,
-        TRAINING_CONFIG.test_fraction,
-        purge_bars,
     )
 
     # Tune thresholds on validation window using the real backtest logic.
@@ -283,7 +300,7 @@ def train_models(
         "backtest_metrics": backtest_eval,
         "policy": tuned_policy,
         "windows": {"training": train_w, "validation": val_w, "test": test_w},
-        "dataset_rows": len(dataset),
+        "dataset_rows": int(len(long_df) + len(short_df)),
         "label_rows": {"long": len(long_df), "short": len(short_df)},
     }
 
@@ -323,9 +340,10 @@ def _evaluate_splits_with_backtest(
     windows: Dict[str, tuple[int, int]],
     policy: Dict[str, object],
 ) -> Dict[str, Dict[str, object]]:
-    from backtesting.backtest import run_backtest
+    from backtesting.backtest import compute_probabilities, run_backtest
 
     out: Dict[str, Dict[str, object]] = {}
+    prob_df = compute_probabilities(bars_df, long_model, short_model, feature_cols)
     for name, (start, end) in windows.items():
         if end <= start:
             out[name] = {"summary": {"trades": 0, "win_rate": 0.0, "profit_factor": 0.0, "net_pnl": 0.0}}
@@ -335,12 +353,20 @@ def _evaluate_splits_with_backtest(
             long_model,
             short_model,
             feature_cols,
+            prob_df=prob_df,
             start_idx=start,
             end_idx=end,
             min_probability_long=float(policy["min_probability_long"]),
             min_probability_short=float(policy["min_probability_short"]),
             enable_long=bool(policy["enable_long"]),
             enable_short=bool(policy["enable_short"]),
+            blocked_hours=policy.get("blocked_hours"),
+            allowed_hours=policy.get("allowed_hours"),
+            exclude_lunch=policy.get("exclude_lunch"),
+            require_trend_long=policy.get("require_trend_long"),
+            require_trend_short=policy.get("require_trend_short"),
+            min_atr_ticks=policy.get("min_atr_ticks"),
+            max_atr_ticks=policy.get("max_atr_ticks"),
         )
         out[name] = result
     return out
@@ -359,12 +385,12 @@ def _tune_policy_with_backtest(
     This directly optimizes the objective we care about (net P&L / DD) under
     real execution constraints (session, max hold, one-position-at-a-time).
     """
-    from backtesting.backtest import run_backtest
+    from backtesting.backtest import compute_probabilities, run_backtest
 
     enable_long = bool(TRAINING_CONFIG.enable_long)
 
-    # Default: shorts off unless explicitly enabled in config.
-    enable_short = bool(TRAINING_CONFIG.enable_short)
+    # Long-only policy search (shorts are off by default).
+    enable_short_candidates = [False]
 
     start, end = validation_window
     start = int(start)
@@ -372,77 +398,257 @@ def _tune_policy_with_backtest(
     if end - start < 2:
         return {
             "enable_long": enable_long,
-            "enable_short": enable_short,
+            "enable_short": False,
             "min_probability_long": TRAINING_CONFIG.min_probability_long,
             "min_probability_short": TRAINING_CONFIG.min_probability_short,
         }
 
-    # Objective: maximize net P&L, break ties by lower max DD, require minimum trades.
-    min_trades = 15
-    long_grid = np.round(np.arange(0.50, 0.91, 0.05), 2)
-    short_grid = np.round(np.arange(0.50, 0.91, 0.05), 2)
+    # Objective: find a profitable validation policy under REAL execution.
+    min_trades = 20
+    min_profit_factor = 1.00
+    min_win_rate = 0.50
+    max_drawdown = float(TRAINING_CONFIG.max_drawdown)
+    min_trades_half = 5
 
-    best = None
+    prob_df = compute_probabilities(bars_df, long_model, short_model, feature_cols)
 
-    for long_thr in long_grid:
-        if not enable_short:
-            short_thr = 1.0  # effectively disabled
-            res = run_backtest(
-                bars_df,
-                long_model,
-                short_model,
-                feature_cols,
-                start_idx=start,
-                end_idx=end,
-                min_probability_long=float(long_thr),
-                min_probability_short=float(short_thr),
-                enable_long=enable_long,
-                enable_short=False,
-            )["summary"]
-            trades = int(res.get("trades", 0))
-            if trades < min_trades:
-                continue
-            score = (float(res.get("net_pnl", 0.0)), -float(res.get("max_drawdown", 0.0)))
-            cand = (score, long_thr, short_thr, res)
-            if best is None or cand[0] > best[0]:
-                best = cand
-            continue
-
-        for short_thr in short_grid:
-            res = run_backtest(
-                bars_df,
-                long_model,
-                short_model,
-                feature_cols,
-                start_idx=start,
-                end_idx=end,
-                min_probability_long=float(long_thr),
-                min_probability_short=float(short_thr),
-                enable_long=enable_long,
-                enable_short=True,
-            )["summary"]
-            trades = int(res.get("trades", 0))
-            if trades < min_trades:
-                continue
-            score = (float(res.get("net_pnl", 0.0)), -float(res.get("max_drawdown", 0.0)))
-            cand = (score, long_thr, short_thr, res)
-            if best is None or cand[0] > best[0]:
-                best = cand
-
-    if best is None:
+    # Adaptive threshold grid based on validation probability distribution.
+    val_probs = prob_df.iloc[start:end]["long_prob"].dropna().astype(float)
+    if val_probs.empty:
         return {
-            "enable_long": enable_long,
-            "enable_short": enable_short,
+            "enable_long": False,
+            "enable_short": False,
             "min_probability_long": TRAINING_CONFIG.min_probability_long,
             "min_probability_short": TRAINING_CONFIG.min_probability_short,
         }
 
-    _, long_thr, short_thr, _ = best
+    quantiles = [0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95]
+    long_grid = np.unique(np.round(val_probs.quantile(quantiles).values, 3))
+    # Keep within [0, 1] and add a couple of fixed points for stability.
+    long_grid = np.unique(np.clip(np.concatenate([long_grid, [0.5, 0.65]]), 0.0, 1.0))
+    short_grid = np.array([0.50, 0.55, 0.60, 0.65])
+
+    # Candidate gating configurations (keep small + interpretable).
+    gate_candidates: List[Dict[str, object]] = []
+    atr_ranges = [(None, None), (6.0, 40.0)]
+    for blocked in ([], [14], [13, 14]):
+        for exclude_lunch in (False, True):
+            for trend in (False, True):
+                for min_atr, max_atr in atr_ranges:
+                    gate_candidates.append(
+                        {
+                            "blocked_hours": blocked,
+                            "allowed_hours": None,
+                            "exclude_lunch": exclude_lunch,
+                            "require_trend_long": trend,
+                            "require_trend_short": False,
+                            "min_atr_ticks": min_atr,
+                            "max_atr_ticks": max_atr,
+                        }
+                    )
+
+    # Use a small stability check: require that the policy is not only profitable in aggregate
+    # on validation, but also not clearly losing in either half of the validation window.
+    mid = start + (end - start) // 2
+
+    def _passes_stability(half: Dict[str, object]) -> bool:
+        trades_h = int(half.get("trades", 0) or 0)
+        if trades_h < min_trades_half:
+            return True  # too few trades to judge; don't over-penalize
+        return float(half.get("net_pnl", 0.0) or 0.0) > 0 and float(half.get("profit_factor", 0.0) or 0.0) > 1.0
+
+    best_profitable = None  # (score, long_thr, short_thr, trades, pf, gates, enable_short)
+
+    for gates in gate_candidates:
+        for enable_short in enable_short_candidates:
+            for long_thr in long_grid:
+                if not enable_short:
+                    short_thr = 1.0  # effectively disabled
+                    full = run_backtest(
+                        bars_df,
+                        long_model,
+                        short_model,
+                        feature_cols,
+                        prob_df=prob_df,
+                        start_idx=start,
+                        end_idx=end,
+                        min_probability_long=float(long_thr),
+                        min_probability_short=float(short_thr),
+                        enable_long=enable_long,
+                        enable_short=False,
+                        blocked_hours=gates.get("blocked_hours"),
+                        allowed_hours=gates.get("allowed_hours"),
+                        exclude_lunch=gates.get("exclude_lunch"),
+                        require_trend_long=gates.get("require_trend_long"),
+                        require_trend_short=False,
+                        min_atr_ticks=gates.get("min_atr_ticks"),
+                        max_atr_ticks=gates.get("max_atr_ticks"),
+                    )["summary"]
+
+                    first_half = run_backtest(
+                        bars_df,
+                        long_model,
+                        short_model,
+                        feature_cols,
+                        prob_df=prob_df,
+                        start_idx=start,
+                        end_idx=mid,
+                        min_probability_long=float(long_thr),
+                        min_probability_short=float(short_thr),
+                        enable_long=enable_long,
+                        enable_short=False,
+                        blocked_hours=gates.get("blocked_hours"),
+                        allowed_hours=gates.get("allowed_hours"),
+                        exclude_lunch=gates.get("exclude_lunch"),
+                        require_trend_long=gates.get("require_trend_long"),
+                        require_trend_short=False,
+                        min_atr_ticks=gates.get("min_atr_ticks"),
+                        max_atr_ticks=gates.get("max_atr_ticks"),
+                    )["summary"]
+                    second_half = run_backtest(
+                        bars_df,
+                        long_model,
+                        short_model,
+                        feature_cols,
+                        prob_df=prob_df,
+                        start_idx=mid,
+                        end_idx=end,
+                        min_probability_long=float(long_thr),
+                        min_probability_short=float(short_thr),
+                        enable_long=enable_long,
+                        enable_short=False,
+                        blocked_hours=gates.get("blocked_hours"),
+                        allowed_hours=gates.get("allowed_hours"),
+                        exclude_lunch=gates.get("exclude_lunch"),
+                        require_trend_long=gates.get("require_trend_long"),
+                        require_trend_short=False,
+                        min_atr_ticks=gates.get("min_atr_ticks"),
+                        max_atr_ticks=gates.get("max_atr_ticks"),
+                    )["summary"]
+
+                    trades = int(full.get("trades", 0) or 0)
+                    win_rate = float(full.get("win_rate", 0.0) or 0.0)
+                    profit_factor = float(full.get("profit_factor", 0.0) or 0.0)
+                    net_pnl = float(full.get("net_pnl", 0.0) or 0.0)
+                    dd = float(full.get("max_drawdown", 0.0) or 0.0)
+
+                    if (
+                        trades >= min_trades
+                        and net_pnl > 0
+                        and win_rate >= min_win_rate
+                        and profit_factor >= min_profit_factor
+                        and dd <= max_drawdown
+                        and _passes_stability(first_half)
+                        and _passes_stability(second_half)
+                    ):
+                        score = net_pnl - 0.25 * dd
+                        cand = (score, long_thr, short_thr, trades, profit_factor, gates, False)
+                        if best_profitable is None or cand[0] > best_profitable[0]:
+                            best_profitable = cand
+                    continue
+
+                for short_thr in short_grid:
+                    full = run_backtest(
+                        bars_df,
+                        long_model,
+                        short_model,
+                        feature_cols,
+                        prob_df=prob_df,
+                        start_idx=start,
+                        end_idx=end,
+                        min_probability_long=float(long_thr),
+                        min_probability_short=float(short_thr),
+                        enable_long=enable_long,
+                        enable_short=True,
+                        blocked_hours=gates.get("blocked_hours"),
+                        allowed_hours=gates.get("allowed_hours"),
+                        exclude_lunch=gates.get("exclude_lunch"),
+                        require_trend_long=gates.get("require_trend_long"),
+                        require_trend_short=gates.get("require_trend_short"),
+                        min_atr_ticks=gates.get("min_atr_ticks"),
+                        max_atr_ticks=gates.get("max_atr_ticks"),
+                    )["summary"]
+
+                    first_half = run_backtest(
+                        bars_df,
+                        long_model,
+                        short_model,
+                        feature_cols,
+                        prob_df=prob_df,
+                        start_idx=start,
+                        end_idx=mid,
+                        min_probability_long=float(long_thr),
+                        min_probability_short=float(short_thr),
+                        enable_long=enable_long,
+                        enable_short=True,
+                        blocked_hours=gates.get("blocked_hours"),
+                        allowed_hours=gates.get("allowed_hours"),
+                        exclude_lunch=gates.get("exclude_lunch"),
+                        require_trend_long=gates.get("require_trend_long"),
+                        require_trend_short=gates.get("require_trend_short"),
+                        min_atr_ticks=gates.get("min_atr_ticks"),
+                        max_atr_ticks=gates.get("max_atr_ticks"),
+                    )["summary"]
+                    second_half = run_backtest(
+                        bars_df,
+                        long_model,
+                        short_model,
+                        feature_cols,
+                        prob_df=prob_df,
+                        start_idx=mid,
+                        end_idx=end,
+                        min_probability_long=float(long_thr),
+                        min_probability_short=float(short_thr),
+                        enable_long=enable_long,
+                        enable_short=True,
+                        blocked_hours=gates.get("blocked_hours"),
+                        allowed_hours=gates.get("allowed_hours"),
+                        exclude_lunch=gates.get("exclude_lunch"),
+                        require_trend_long=gates.get("require_trend_long"),
+                        require_trend_short=gates.get("require_trend_short"),
+                        min_atr_ticks=gates.get("min_atr_ticks"),
+                        max_atr_ticks=gates.get("max_atr_ticks"),
+                    )["summary"]
+
+                    trades = int(full.get("trades", 0) or 0)
+                    win_rate = float(full.get("win_rate", 0.0) or 0.0)
+                    profit_factor = float(full.get("profit_factor", 0.0) or 0.0)
+                    net_pnl = float(full.get("net_pnl", 0.0) or 0.0)
+                    dd = float(full.get("max_drawdown", 0.0) or 0.0)
+
+                    if (
+                        trades >= min_trades
+                        and net_pnl > 0
+                        and win_rate >= min_win_rate
+                        and profit_factor >= min_profit_factor
+                        and dd <= max_drawdown
+                        and _passes_stability(first_half)
+                        and _passes_stability(second_half)
+                    ):
+                        score = net_pnl - 0.25 * dd
+                        cand = (score, long_thr, short_thr, trades, profit_factor, gates, True)
+                        if best_profitable is None or cand[0] > best_profitable[0]:
+                            best_profitable = cand
+
+    if best_profitable is None:
+        return {
+            "enable_long": False,
+            "enable_short": False,
+            "min_probability_long": TRAINING_CONFIG.min_probability_long,
+            "min_probability_short": TRAINING_CONFIG.min_probability_short,
+        }
+
+    _, long_thr, short_thr, _, _, gates, enable_short = best_profitable
+    enable_short = False
+    if gates:
+        gates = dict(gates)
+        gates["require_trend_short"] = False
     return {
         "enable_long": enable_long,
-        "enable_short": enable_short,
+        "enable_short": bool(enable_short),
         "min_probability_long": float(long_thr),
         "min_probability_short": float(short_thr),
+        **(gates or {}),
     }
 
 
@@ -498,9 +704,22 @@ def main() -> None:
     parser.add_argument("--output-dir", default="models/saved")
     parser.add_argument("--recent-bars", type=int, default=None)
     parser.add_argument("--recent-days", type=int, default=None)
+    parser.add_argument("--label-mode", choices=["per_bar", "sequential"], default=None)
+    parser.add_argument("--stop-loss-ticks", type=int, default=None)
+    parser.add_argument("--target-multiplier", type=float, default=None)
+    parser.add_argument("--max-hold-bars", type=int, default=None)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-save", action="store_true")
     args = parser.parse_args()
+
+    if args.label_mode:
+        TRAINING_CONFIG.label_mode = args.label_mode
+    if args.stop_loss_ticks is not None:
+        TRAINING_CONFIG.stop_loss_ticks = int(args.stop_loss_ticks)
+    if args.target_multiplier is not None:
+        TRAINING_CONFIG.target_multiplier = float(args.target_multiplier)
+    if args.max_hold_bars is not None:
+        TRAINING_CONFIG.max_hold_bars = int(args.max_hold_bars)
 
     bars = load_bars(args.data_path)
 
@@ -578,6 +797,7 @@ def main() -> None:
     }
 
     print("\nTraining complete.")
+    print(json.dumps({"policy": results.get("policy", {})}, indent=2))
     print(json.dumps(metadata["gates"], indent=2))
 
     if args.no_save:

@@ -33,9 +33,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run end-to-end pipeline test")
     parser.add_argument("--data-path", default="data/processed/mes_bars.h5")
     parser.add_argument("--bars", type=int, default=5000)
+    parser.add_argument("--label-mode", choices=["per_bar", "sequential"], default=None)
+    parser.add_argument("--stop-loss-ticks", type=int, default=None)
+    parser.add_argument("--target-multiplier", type=float, default=None)
+    parser.add_argument("--max-hold-bars", type=int, default=None)
     parser.add_argument("--save-models", action="store_true")
     parser.add_argument("--save-trades", default=None)
     args = parser.parse_args()
+
+    if args.label_mode:
+        TRAINING_CONFIG.label_mode = args.label_mode
+    if args.stop_loss_ticks is not None:
+        TRAINING_CONFIG.stop_loss_ticks = int(args.stop_loss_ticks)
+    if args.target_multiplier is not None:
+        TRAINING_CONFIG.target_multiplier = float(args.target_multiplier)
+    if args.max_hold_bars is not None:
+        TRAINING_CONFIG.max_hold_bars = int(args.max_hold_bars)
 
     _maybe_prepare_data(args.data_path)
 
@@ -56,6 +69,18 @@ def main() -> None:
         min_probability_short=policy.get("min_probability_short"),
         enable_long=policy.get("enable_long"),
         enable_short=policy.get("enable_short"),
+        blocked_hours=policy.get("blocked_hours"),
+        allowed_hours=policy.get("allowed_hours"),
+        exclude_lunch=policy.get("exclude_lunch"),
+        require_trend_long=policy.get("require_trend_long"),
+        require_trend_short=policy.get("require_trend_short"),
+        min_atr_ticks=policy.get("min_atr_ticks"),
+        max_atr_ticks=policy.get("max_atr_ticks"),
+        stop_loss_ticks=policy.get("stop_loss_ticks"),
+        target_multiplier=policy.get("target_multiplier"),
+        max_hold_bars=policy.get("max_hold_bars"),
+        slippage_ticks=policy.get("slippage_ticks"),
+        commission_per_contract=policy.get("commission_per_contract"),
     )
 
     print("\nQuick pipeline results:")

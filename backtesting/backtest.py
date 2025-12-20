@@ -28,6 +28,56 @@ def _to_chicago(ts: pd.Timestamp) -> pd.Timestamp:
     return ts.tz_convert("America/Chicago")
 
 
+def compute_probabilities(
+    bars_df: pd.DataFrame,
+    long_model: object,
+    short_model: object,
+    feature_cols: List[str],
+) -> pd.DataFrame:
+    """
+    Compute per-bar long/short probabilities and attach a small set of features
+    used for optional trade gating.
+    """
+    # Backtest gets called in loops (threshold tuning, split eval); keep it quiet by default.
+    features_df = add_features(bars_df, verbose=False)
+    features_df = features_df.reset_index().rename(columns={"index": "idx"})
+
+    valid_mask = features_df[feature_cols].notna().all(axis=1)
+    valid_idx = features_df.loc[valid_mask, "idx"].values
+
+    X = features_df.loc[valid_mask, feature_cols].values
+    long_prob = long_model.predict_proba(X)[:, 1]
+    short_prob = short_model.predict_proba(X)[:, 1]
+
+    prob_df = pd.DataFrame(
+        {
+            "idx": valid_idx,
+            "long_prob": long_prob,
+            "short_prob": short_prob,
+        }
+    )
+
+    full = pd.DataFrame({"idx": features_df["idx"].values})
+    full = full.merge(prob_df, on="idx", how="left")
+
+    # Gating helpers (all derived from non-lookahead features).
+    for col in [
+        "estimated_stop_ticks",
+        "trade_affordable",
+        "max_contracts_by_risk",
+        "ema_spread_21_50",
+        "price_above_ema50",
+        "atr_ticks",
+        "lunch_period",
+    ]:
+        if col in features_df.columns:
+            full[col] = features_df[col].values
+        else:
+            full[col] = np.nan
+
+    return full
+
+
 def load_models(model_dir: str) -> Tuple[object, object, Dict[str, object]]:
     model_path = Path(model_dir)
     long_model = joblib.load(model_path / "model_long.joblib")
@@ -51,37 +101,9 @@ def load_bars(h5_path: str) -> pd.DataFrame:
     return bars
 
 
-def _compute_probabilities(
-    bars_df: pd.DataFrame,
-    long_model: object,
-    short_model: object,
-    feature_cols: List[str],
-) -> pd.DataFrame:
-    # Backtest gets called in loops (threshold tuning, split eval); keep it quiet by default.
-    features_df = add_features(bars_df, verbose=False)
-    features_df = features_df.reset_index().rename(columns={"index": "idx"})
-
-    valid_mask = features_df[feature_cols].notna().all(axis=1)
-    valid_idx = features_df.loc[valid_mask, "idx"].values
-
-    X = features_df.loc[valid_mask, feature_cols].values
-    long_prob = long_model.predict_proba(X)[:, 1]
-    short_prob = short_model.predict_proba(X)[:, 1]
-
-    prob_df = pd.DataFrame(
-        {
-            "idx": valid_idx,
-            "long_prob": long_prob,
-            "short_prob": short_prob,
-        }
-    )
-
-    full = pd.DataFrame({"idx": features_df["idx"].values})
-    full = full.merge(prob_df, on="idx", how="left")
-    full["estimated_stop_ticks"] = features_df["estimated_stop_ticks"].values
-    full["trade_affordable"] = features_df["trade_affordable"].values
-    full["max_contracts_by_risk"] = features_df["max_contracts_by_risk"].values
-    return full
+def _compute_probabilities(*args, **kwargs) -> pd.DataFrame:  # pragma: no cover
+    # Backward-compatible alias.
+    return compute_probabilities(*args, **kwargs)
 
 
 def _position_pnl(entry_price: float, exit_price: float, direction: str, contracts: int) -> float:
@@ -98,16 +120,28 @@ def run_backtest(
     feature_cols: List[str],
     save_trades_path: Optional[str] = None,
     *,
+    prob_df: Optional[pd.DataFrame] = None,
     start_idx: Optional[int] = None,
     end_idx: Optional[int] = None,
     min_probability_long: Optional[float] = None,
     min_probability_short: Optional[float] = None,
     enable_long: Optional[bool] = None,
     enable_short: Optional[bool] = None,
+    blocked_hours: Optional[List[int]] = None,
+    allowed_hours: Optional[List[int]] = None,
+    exclude_lunch: Optional[bool] = None,
+    require_trend_long: Optional[bool] = None,
+    require_trend_short: Optional[bool] = None,
+    min_atr_ticks: Optional[float] = None,
+    max_atr_ticks: Optional[float] = None,
+    stop_loss_ticks: Optional[int] = None,
+    target_multiplier: Optional[float] = None,
+    max_hold_bars: Optional[int] = None,
     slippage_ticks: Optional[int] = None,
     commission_per_contract: Optional[float] = None,
 ) -> Dict[str, object]:
-    prob_df = _compute_probabilities(bars_df, long_model, short_model, feature_cols)
+    if prob_df is None:
+        prob_df = compute_probabilities(bars_df, long_model, short_model, feature_cols)
 
     start = 0 if start_idx is None else int(start_idx)
     end = len(bars_df) if end_idx is None else int(end_idx)
@@ -122,6 +156,14 @@ def run_backtest(
     )
     allow_long = TRAINING_CONFIG.enable_long if enable_long is None else bool(enable_long)
     allow_short = TRAINING_CONFIG.enable_short if enable_short is None else bool(enable_short)
+    blocked_hours_set = set(int(h) for h in (blocked_hours or []))
+    allowed_hours_set = set(int(h) for h in (allowed_hours or []))
+    exclude_lunch = False if exclude_lunch is None else bool(exclude_lunch)
+    require_trend_long = False if require_trend_long is None else bool(require_trend_long)
+    require_trend_short = False if require_trend_short is None else bool(require_trend_short)
+    stop_loss_ticks = TRAINING_CONFIG.stop_loss_ticks if stop_loss_ticks is None else int(stop_loss_ticks)
+    target_multiplier = TRAINING_CONFIG.target_multiplier if target_multiplier is None else float(target_multiplier)
+    max_hold_bars = TRAINING_CONFIG.max_hold_bars if max_hold_bars is None else int(max_hold_bars)
     slippage_ticks = 1 if slippage_ticks is None else int(slippage_ticks)
     commission = 2.35 if commission_per_contract is None else float(commission_per_contract)
 
@@ -135,6 +177,37 @@ def run_backtest(
     current_day = None
 
     position = None
+
+    def _gate_direction(direction: str, bar_time: pd.Timestamp, row: pd.Series) -> bool:
+        hour = int(bar_time.hour)
+        if allowed_hours_set and hour not in allowed_hours_set:
+            return False
+        if blocked_hours_set and hour in blocked_hours_set:
+            return False
+        if exclude_lunch and int(row.get("lunch_period", 0) or 0) == 1:
+            return False
+        atr = row.get("atr_ticks")
+        if min_atr_ticks is not None and pd.notna(atr) and float(atr) < float(min_atr_ticks):
+            return False
+        if max_atr_ticks is not None and pd.notna(atr) and float(atr) > float(max_atr_ticks):
+            return False
+
+        if direction == "long" and require_trend_long:
+            spread = row.get("ema_spread_21_50")
+            above = row.get("price_above_ema50")
+            if pd.isna(spread) or float(spread) <= 0:
+                return False
+            if pd.isna(above) or int(above) != 1:
+                return False
+        if direction == "short" and require_trend_short:
+            spread = row.get("ema_spread_21_50")
+            above = row.get("price_above_ema50")
+            if pd.isna(spread) or float(spread) >= 0:
+                return False
+            if pd.isna(above) or int(above) != 0:
+                return False
+
+        return True
 
     for i in range(start, end - 1):
         bar = bars_df.iloc[i]
@@ -154,7 +227,7 @@ def run_backtest(
             if bar_time.time() >= RISK_CONFIG.session_end:
                 exit_reason = "SESSION_FLAT"
                 exit_price = bar["close"]
-            elif hold_bars >= TRAINING_CONFIG.max_hold_bars:
+            elif hold_bars >= max_hold_bars:
                 exit_reason = "MAX_HOLD"
                 exit_price = bar["close"]
             else:
@@ -230,8 +303,8 @@ def run_backtest(
         if probs.get("trade_affordable", 1) < 1:
             continue
 
-        long_ok = allow_long and long_prob >= min_prob_long
-        short_ok = allow_short and short_prob >= min_prob_short
+        long_ok = allow_long and long_prob >= min_prob_long and _gate_direction("long", bar_time, probs)
+        short_ok = allow_short and short_prob >= min_prob_short and _gate_direction("short", bar_time, probs)
         if not long_ok and not short_ok:
             continue
 
@@ -240,8 +313,7 @@ def run_backtest(
         else:
             direction = "long" if long_ok else "short"
 
-        # FIXED: Use fixed stops from config (matching training) instead of ATR-based dynamic stops
-        stop_ticks = TRAINING_CONFIG.stop_loss_ticks
+        stop_ticks = stop_loss_ticks
 
         risk_per_contract = stop_ticks * RISK_CONFIG.tick_value
         contracts = int(RISK_CONFIG.fixed_risk_per_trade / max(risk_per_contract, 1e-6))
@@ -262,7 +334,7 @@ def run_backtest(
             entry_price -= slippage
 
         stop_distance = stop_ticks * RISK_CONFIG.tick_size
-        target_distance = stop_distance * TRAINING_CONFIG.target_multiplier
+        target_distance = stop_distance * target_multiplier
 
         if direction == "long":
             stop_price = entry_price - stop_distance
@@ -316,7 +388,10 @@ def run_backtest(
 
     gross_win = wins.sum() if wins.size else 0.0
     gross_loss = abs(losses.sum()) if losses.size else 0.0
-    profit_factor = gross_win / gross_loss if gross_loss > 0 else float("inf")
+    if gross_loss > 0:
+        profit_factor = gross_win / gross_loss
+    else:
+        profit_factor = float("inf") if gross_win > 0 else 0.0
 
     win_rate = float((pnl_values > 0).mean()) if pnl_values.size else 0.0
     net_pnl = float(pnl_values.sum()) if pnl_values.size else 0.0
@@ -350,6 +425,16 @@ def run_backtest(
             "enable_short": allow_short,
             "min_probability_long": min_prob_long,
             "min_probability_short": min_prob_short,
+            "blocked_hours": sorted(blocked_hours_set),
+            "allowed_hours": sorted(allowed_hours_set),
+            "exclude_lunch": exclude_lunch,
+            "require_trend_long": require_trend_long,
+            "require_trend_short": require_trend_short,
+            "min_atr_ticks": min_atr_ticks,
+            "max_atr_ticks": max_atr_ticks,
+            "stop_loss_ticks": stop_loss_ticks,
+            "target_multiplier": target_multiplier,
+            "max_hold_bars": max_hold_bars,
             "slippage_ticks": slippage_ticks,
             "commission_per_contract": commission,
         },
@@ -377,6 +462,16 @@ def main() -> None:
     parser.add_argument("--end", default=None, help="End timestamp/date (inclusive), e.g. 2024-06-01")
     parser.add_argument("--min-prob-long", type=float, default=None)
     parser.add_argument("--min-prob-short", type=float, default=None)
+    parser.add_argument("--blocked-hours", default=None, help="Comma-separated hours (CT) to skip, e.g. 14,13")
+    parser.add_argument("--allowed-hours", default=None, help="Comma-separated hours (CT) to allow, e.g. 9,10,11")
+    parser.add_argument("--exclude-lunch", action="store_true", default=False)
+    parser.add_argument("--require-trend-long", action="store_true", default=False)
+    parser.add_argument("--require-trend-short", action="store_true", default=False)
+    parser.add_argument("--min-atr-ticks", type=float, default=None)
+    parser.add_argument("--max-atr-ticks", type=float, default=None)
+    parser.add_argument("--stop-ticks", type=int, default=None)
+    parser.add_argument("--target-mult", type=float, default=None)
+    parser.add_argument("--max-hold-bars", type=int, default=None)
     parser.add_argument("--enable-long", action="store_true", default=False)
     parser.add_argument("--disable-long", action="store_true", default=False)
     parser.add_argument("--enable-short", action="store_true", default=False)
@@ -408,6 +503,32 @@ def main() -> None:
         enable_short = False
     if enable_short is None:
         enable_short = policy.get("enable_short", None)
+
+    def _parse_hours(s: Optional[str]) -> Optional[List[int]]:
+        if not s:
+            return None
+        vals = []
+        for part in str(s).split(","):
+            part = part.strip()
+            if not part:
+                continue
+            vals.append(int(part))
+        return vals or None
+
+    blocked_hours = _parse_hours(args.blocked_hours)
+    allowed_hours = _parse_hours(args.allowed_hours)
+    exclude_lunch = bool(args.exclude_lunch) if args.exclude_lunch else bool(policy.get("exclude_lunch", False))
+    require_trend_long = bool(args.require_trend_long) if args.require_trend_long else bool(policy.get("require_trend_long", False))
+    require_trend_short = bool(args.require_trend_short) if args.require_trend_short else bool(policy.get("require_trend_short", False))
+    min_atr_ticks = args.min_atr_ticks if args.min_atr_ticks is not None else policy.get("min_atr_ticks", None)
+    max_atr_ticks = args.max_atr_ticks if args.max_atr_ticks is not None else policy.get("max_atr_ticks", None)
+    stop_ticks = args.stop_ticks if args.stop_ticks is not None else policy.get("stop_loss_ticks", None)
+    target_mult = args.target_mult if args.target_mult is not None else policy.get("target_multiplier", None)
+    max_hold_bars = args.max_hold_bars if args.max_hold_bars is not None else policy.get("max_hold_bars", None)
+    if blocked_hours is None:
+        blocked_hours = policy.get("blocked_hours", None)
+    if allowed_hours is None:
+        allowed_hours = policy.get("allowed_hours", None)
 
     # Window selection: keep full history for feature context, but restrict trading to indices.
     window_start_idx: Optional[int] = None
@@ -447,6 +568,16 @@ def main() -> None:
         min_probability_short=min_prob_short,
         enable_long=enable_long,
         enable_short=enable_short,
+        blocked_hours=blocked_hours,
+        allowed_hours=allowed_hours,
+        exclude_lunch=exclude_lunch,
+        require_trend_long=require_trend_long,
+        require_trend_short=require_trend_short,
+        min_atr_ticks=min_atr_ticks,
+        max_atr_ticks=max_atr_ticks,
+        stop_loss_ticks=stop_ticks,
+        target_multiplier=target_mult,
+        max_hold_bars=max_hold_bars,
     )
     print(json.dumps(results["summary"], indent=2))
 

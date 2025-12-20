@@ -29,8 +29,9 @@ class TrainingConfig:
     """ML training parameters."""
 
     lookback_bars: int = 100
-    stop_loss_ticks: int = 24  # OPTIMIZED: 24 ticks (6 points) based on stop optimization experiment
-    target_multiplier: float = 2.0  # OPTIMIZED: 2:1 R:R for baseline profitability (was 1.5)
+    label_mode: str = "per_bar"  # "per_bar" (independent) or "sequential" (one-trade-at-a-time labels)
+    stop_loss_ticks: int = 32  # tuned on clean dataset: positive EV at 2.0R
+    target_multiplier: float = 2.0
     max_hold_bars: int = 12
 
     # Walk-forward splits
@@ -45,10 +46,10 @@ class TrainingConfig:
     enable_short: bool = False  # Default off: shorts are currently structurally unfavorable
 
     # RandomForest regularization defaults (reduce overfitting)
-    rf_n_estimators: int = 300
-    rf_max_depth: int = 6
-    rf_min_samples_leaf: int = 50
-    rf_min_samples_split: int = 200
+    rf_n_estimators: int = 500
+    rf_max_depth: int = 12
+    rf_min_samples_leaf: int = 10
+    rf_min_samples_split: int = 30
     rf_max_features: str = "sqrt"
 
     # Performance gates (must pass to use live)

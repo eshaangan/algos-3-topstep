@@ -88,18 +88,33 @@ def main():
     print("="*60)
     print("STOP SIZE OPTIMIZATION EXPERIMENT")
     print("="*60)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Optimize stop/target parameters via label simulation")
+    parser.add_argument("--data-path", default="data/processed/mes_bars.h5")
+    parser.add_argument("--bars", type=int, default=20000, help="Use last N bars for faster iteration")
+    parser.add_argument("--target-multiplier", type=float, default=1.5)
+    parser.add_argument("--stop-sizes", default="18,20,22,24,26,28,30")
+    args = parser.parse_args()
+
     print("\nLoading data...")
 
     # Load data
-    with pd.HDFStore("data/processed/mes_bars.h5", "r") as store:
+    with pd.HDFStore(args.data_path, "r") as store:
         bars = store["bars_5min"]
+
+    bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
+    bars = bars.sort_values("timestamp").reset_index(drop=True)
+
+    if args.bars:
+        bars = bars.tail(args.bars).reset_index(drop=True)
 
     print(f"Loaded {len(bars):,} bars")
     print(f"Date range: {bars['timestamp'].min()} to {bars['timestamp'].max()}")
 
     # Test different stop sizes
-    stop_sizes = [18, 20, 22, 24, 26, 28, 30]
-    target_multiplier = 1.5
+    stop_sizes = [int(x.strip()) for x in args.stop_sizes.split(",") if x.strip()]
+    target_multiplier = float(args.target_multiplier)
 
     results = []
     for stop_ticks in stop_sizes:
