@@ -1,0 +1,9 @@
+
+Trade Statistics:
+Total trades: 58
+Winning trades: 32
+Losing trades: 26
+Average win: $270.25
+Average loss: $-179.75
+Largest win: $270.25
+Largest loss: $-179.75

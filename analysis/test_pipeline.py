@@ -9,9 +9,13 @@ import json
 from dataclasses import asdict
 from datetime import time
 from pathlib import Path
+import sys
 
 import joblib
 import pandas as pd
+
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 from backtesting.backtest import run_backtest
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
@@ -41,16 +45,27 @@ def main() -> None:
         bars = bars.tail(args.bars).reset_index(drop=True)
 
     results = train_models(bars)
+    policy = results.get("policy", {})
     backtest = run_backtest(
         bars,
         results["long_model"],
         results["short_model"],
         results["feature_cols"],
         save_trades_path=args.save_trades,
+        min_probability_long=policy.get("min_probability_long"),
+        min_probability_short=policy.get("min_probability_short"),
+        enable_long=policy.get("enable_long"),
+        enable_short=policy.get("enable_short"),
     )
 
     print("\nQuick pipeline results:")
     print(json.dumps(backtest["summary"], indent=2))
+    if results.get("backtest_metrics"):
+        print("\nSplit backtest summaries (trade-identical evaluation):")
+        summaries = {}
+        for split_name, split_res in results["backtest_metrics"].items():
+            summaries[split_name] = split_res.get("summary", {})
+        print(json.dumps({"policy": policy, "splits": summaries}, indent=2))
 
     if args.save_models:
         output_dir = Path("models/saved")

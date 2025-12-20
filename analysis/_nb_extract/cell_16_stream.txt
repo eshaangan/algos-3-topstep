@@ -1,0 +1,4 @@
+/var/folders/2n/wfddn5mn0d18dcql5s1h9lhm0000gn/T/ipykernel_29328/2350844859.py:164: UserWarning: Tight layout not applied. tight_layout cannot make Axes width small enough to accommodate all Axes decorations
+  plt.tight_layout()
+
+3D visualizations complete!

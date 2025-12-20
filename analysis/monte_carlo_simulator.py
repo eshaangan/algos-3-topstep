@@ -3,12 +3,16 @@ Monte Carlo simulator for backtest analysis.
 
 Bootstraps trade outcomes to generate distribution of possible equity curves,
 drawdowns, and performance metrics.
+
+Supports two bootstrap methods:
+1. Simple bootstrap: Randomly samples individual trades (assumes independence)
+2. Block bootstrap: Preserves temporal structure by sampling blocks of consecutive trades
 """
 
 from __future__ import annotations
 
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Literal
 
 
 class MonteCarloSimulator:
@@ -27,17 +31,25 @@ class MonteCarloSimulator:
         self.initial_equity = initial_equity
         self.rng = np.random.default_rng(seed)
         
-        # Extract P&L values
+        # Extract P&L values (preserve original order for block bootstrap)
         self.pnl_values = np.array([t.get("pnl", 0.0) for t in trades])
         self.n_trades = len(self.pnl_values)
 
-    def run(self, runs: int = 500, sample_size: int | None = None) -> Dict[str, Any]:
+    def run(
+        self, 
+        runs: int = 500, 
+        sample_size: int | None = None,
+        method: Literal["simple", "block"] = "block",
+        block_size: int | None = None,
+    ) -> Dict[str, Any]:
         """
         Run Monte Carlo simulation.
         
         Args:
             runs: Number of simulation trials
             sample_size: Number of trades to sample per trial (defaults to n_trades)
+            method: Bootstrap method - "simple" (independent sampling) or "block" (preserves temporal structure)
+            block_size: Size of blocks for block bootstrap (defaults to sqrt(n_trades) or 10, whichever is larger)
             
         Returns:
             Dictionary with summary statistics and raw results
@@ -46,6 +58,7 @@ class MonteCarloSimulator:
             return {
                 "runs": 0,
                 "sample_size": 0,
+                "method": method,
                 "summary": {
                     "ending_equity": {"p05": self.initial_equity, "p50": self.initial_equity, "p95": self.initial_equity},
                     "max_drawdown": {"p05": 0.0, "p50": 0.0, "p95": 0.0},
@@ -57,6 +70,22 @@ class MonteCarloSimulator:
         
         sample_size = sample_size or self.n_trades
         
+        # Prepare blocks for block bootstrap
+        if method == "block":
+            if block_size is None:
+                # Default block size: sqrt of number of trades, but at least 5 and at most 20
+                block_size = max(5, min(20, int(np.sqrt(self.n_trades))))
+            
+            # Create overlapping blocks (sliding window)
+            # This preserves more temporal structure than non-overlapping blocks
+            n_blocks = self.n_trades - block_size + 1
+            blocks = []
+            for i in range(n_blocks):
+                blocks.append(self.pnl_values[i:i + block_size])
+            
+            # Calculate how many blocks we need to get approximately sample_size trades
+            blocks_needed = int(np.ceil(sample_size / block_size))
+        
         ending_equities = []
         max_drawdowns = []
         win_rates = []
@@ -64,10 +93,20 @@ class MonteCarloSimulator:
         net_pnls = []
         
         for _ in range(runs):
-            # Sample trades with replacement
-            sampled_pnl = self.rng.choice(self.pnl_values, size=sample_size, replace=True)
+            if method == "block":
+                # Block bootstrap: sample blocks with replacement, then concatenate
+                sampled_blocks = []
+                for _ in range(blocks_needed):
+                    block_idx = self.rng.integers(0, len(blocks))
+                    sampled_blocks.append(blocks[block_idx])
+                
+                # Concatenate blocks and trim to desired size
+                sampled_pnl = np.concatenate(sampled_blocks)[:sample_size]
+            else:
+                # Simple bootstrap: randomly sample individual trades
+                sampled_pnl = self.rng.choice(self.pnl_values, size=sample_size, replace=True)
             
-            # Build equity curve
+            # Build equity curve (cumulative sum preserves temporal ordering)
             equity_curve = self.initial_equity + np.cumsum(sampled_pnl)
             
             # Calculate metrics
@@ -108,9 +147,10 @@ class MonteCarloSimulator:
                 "std": float(np.std(arr)),
             }
         
-        return {
+        result = {
             "runs": runs,
             "sample_size": sample_size,
+            "method": method,
             "summary": {
                 "ending_equity": percentiles(ending_equities),
                 "max_drawdown": percentiles(max_drawdowns),
@@ -126,4 +166,10 @@ class MonteCarloSimulator:
                 "net_pnls": net_pnls,
             }
         }
+        
+        if method == "block":
+            result["block_size"] = block_size
+            result["n_blocks"] = n_blocks
+        
+        return result
 

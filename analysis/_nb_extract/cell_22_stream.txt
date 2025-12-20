@@ -1,0 +1,19 @@
+
+============================================================
+OVERFITTING ASSESSMENT
+============================================================
+
+LONG Model:
+
+SHORT Model:
+
+⚠️  OVERFITTING DETECTED:
+   - long: Train-Val accuracy gap 0.138
+   - short: Val-Test accuracy gap 0.052
+
+   Recommendations:
+   • Reduce model complexity (lower max_depth, increase min_samples_leaf)
+   • Add more regularization
+   • Increase training data
+   • Use feature selection to reduce dimensionality
+   • Try simpler models (fewer trees, shallower trees)

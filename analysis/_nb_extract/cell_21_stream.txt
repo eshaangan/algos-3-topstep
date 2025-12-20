@@ -1,0 +1,60 @@
+============================================================
+OVERFITTING DETECTION ANALYSIS
+============================================================
+
+1. TRAIN vs VALIDATION vs TEST METRICS GAP
+   Overfitting occurs when:
+   - Training metrics >> Validation metrics >> Test metrics
+   - Large drop in performance from train to validation to test
+   - Current code now tracks training metrics (after train.py update)
+
+2. CURRENT METRICS COMPARISON (Train vs Validation vs Test):
+
+   LONG Model:
+     accuracy       :
+       Train=0.7340, Val=0.5962, Test=0.5538
+       ⚠️  Train-Val gap: 0.1378 (+18.8%) - OVERFITTING!
+       💡 Val-Test gap: 0.0424 (+7.1%) - Monitor
+     roc_auc        :
+       Train=0.8510, Val=0.6668, Test=0.6488
+       ⚠️  Train-Val gap: 0.1842 (+21.6%) - OVERFITTING!
+     win_rate       :
+       Train=0.7848, Val=0.6234, Test=0.6014
+       ⚠️  Train-Val gap: 0.1614 (+20.6%) - OVERFITTING!
+     profit_factor  :
+       Train=7.2940, Val=3.3101, Test=3.0171
+       ⚠️  Train-Val gap: 3.9838 (+54.6%) - OVERFITTING!
+       💡 Val-Test gap: 0.2930 (+8.9%) - Monitor
+
+   SHORT Model:
+     accuracy       :
+       Train=0.2088, Val=0.2706, Test=0.2183
+       ⚠️  Val-Test gap: 0.0523 (+19.3%) - Distribution shift!
+     roc_auc        :
+       Train=0.8124, Val=0.5353, Test=0.5030
+       ⚠️  Train-Val gap: 0.2772 (+34.1%) - OVERFITTING!
+       💡 Val-Test gap: 0.0323 (+6.0%) - Monitor
+     win_rate       :
+       Train=0.1797, Val=0.2325, Test=0.2030
+       ⚠️  Val-Test gap: 0.0295 (+12.7%) - Distribution shift!
+     profit_factor  :
+       Train=0.4380, Val=0.6058, Test=0.5095
+       ⚠️  Val-Test gap: 0.0963 (+15.9%) - Distribution shift!
+
+3. KEY INDICATORS OF OVERFITTING:
+   ✓ Training accuracy >> Validation accuracy (>5% gap)
+   ✓ Training ROC-AUC >> Validation ROC-AUC (>0.05 gap)
+   ✓ Training win rate >> Validation win rate (>5% gap)
+   ✓ Training profit factor >> Validation profit factor (>0.3 gap)
+   ✓ High training accuracy but poor generalization
+   ✓ Model performs well on training data but poorly on new data
+
+4. YOUR CURRENT SITUATION:
+   Based on backtest results:
+   - Test set shows: 59% long WR, 64% short WR
+   - Actual backtest shows: 38% overall WR
+   - This suggests:
+     • Possible overfitting to test set
+     • Distribution shift between training and live data
+     • Issues with walk-forward validation
+     • Label leakage or data leakage

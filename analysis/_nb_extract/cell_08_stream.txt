@@ -1,0 +1,70 @@
+Training models (this may take several minutes)...
+
+============================================================
+FEATURE ENGINEERING
+============================================================
+
+[1/7] Price features...
+[2/7] Trend features...
+[3/7] Volatility features...
+[4/7] Volume features...
+[5/7] Time features...
+[6/7] Market structure features...
+[7/7] Risk-aware features...
+
+OK: feature engineering complete
+  Total features: 52
+
+============================================================
+LABEL CREATION - TRADE SIMULATION
+============================================================
+
+Simulating trades for 20,000 bars...
+(This can take a few minutes...)
+
+  Progress: 4.5% (1,000/20,000 bars)
+  Progress: 9.6% (2,000/20,000 bars)
+  Progress: 14.6% (3,000/20,000 bars)
+  Progress: 19.6% (4,000/20,000 bars)
+  Progress: 24.6% (5,000/20,000 bars)
+  Progress: 29.7% (6,000/20,000 bars)
+  Progress: 34.7% (7,000/20,000 bars)
+  Progress: 39.7% (8,000/20,000 bars)
+  Progress: 44.8% (9,000/20,000 bars)
+  Progress: 49.8% (10,000/20,000 bars)
+  Progress: 54.8% (11,000/20,000 bars)
+  Progress: 59.8% (12,000/20,000 bars)
+  Progress: 64.9% (13,000/20,000 bars)
+  Progress: 69.9% (14,000/20,000 bars)
+  Progress: 74.9% (15,000/20,000 bars)
+  Progress: 80.0% (16,000/20,000 bars)
+  Progress: 85.0% (17,000/20,000 bars)
+  Progress: 90.0% (18,000/20,000 bars)
+  Progress: 95.0% (19,000/20,000 bars)
+
+============================================================
+LABEL DISTRIBUTION
+============================================================
+
+LONG TRADES:
+  Win     :  8,890 ( 44.7%)
+  Loss    : 10,997 ( 55.3%)
+  Neutral :      0 (  0.0%)
+
+SHORT TRADES:
+  Win     :  3,605 ( 18.1%)
+  Loss    : 16,282 ( 81.9%)
+  Neutral :      0 (  0.0%)
+
+============================================================
+SANITY CHECKS
+============================================================
+
+Long win rate (excl. neutral): 44.7%
+Short win rate (excl. neutral): 18.1%
+WARNING: Short win rate outside 35-65% range (check stop/target ratio)
+
+============================================================
+
+
+Training Results:

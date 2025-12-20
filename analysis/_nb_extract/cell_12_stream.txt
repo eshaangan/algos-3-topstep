@@ -1,0 +1,24 @@
+
+============================================================
+MONTE CARLO INSIGHTS
+============================================================
+
+Ending Equity:
+  Baseline: $53974.50
+  MC Median (p50): $53974.50
+  MC Range (p05-p95): $51274.50 - $56674.50
+
+Max Drawdown:
+  Baseline: $1883.00
+  MC Median (p50): $897.50
+  MC Range (p05-p95): $539.25 - $1615.31
+
+Win Rate:
+  Baseline: 55.17%
+  MC Median (p50): 55.17%
+  MC Range (p05-p95): 44.83% - 65.52%
+
+Risk Assessment:
+  Worst case (p95) drawdown: $1615.31
+  Worst case (p05) ending equity: $51274.50
+  ✅ Low risk: Even worst case preserves capital

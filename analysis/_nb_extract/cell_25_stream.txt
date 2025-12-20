@@ -1,0 +1,71 @@
+============================================================
+HOW TO FIX OVERFITTING - ACTIONABLE STEPS
+============================================================
+
+1. REDUCE MODEL COMPLEXITY:
+   Current settings (may be too complex):
+   - max_depth=12 (try reducing to 4-6)
+   - min_samples_leaf=10 (try increasing to 50-100)
+   - min_samples_split=30 (try increasing to 100-200)
+
+   Modified RandomForestClassifier:
+   RandomForestClassifier(
+       n_estimators=200,        # Reduce from 500
+       max_depth=5,             # Reduce from 12
+       min_samples_leaf=50,     # Increase from 10
+       min_samples_split=100,   # Increase from 30
+       max_features='sqrt',
+       class_weight='balanced',
+       random_state=seed,
+       n_jobs=-1,
+   )
+
+2. FEATURE SELECTION:
+   - Remove features with <1% importance
+   - Use recursive feature elimination
+   - Try reducing from 53 to 20-30 most important features
+
+3. INCREASE REGULARIZATION:
+   - Increase min_samples_leaf and min_samples_split
+   - Reduce max_depth
+   - Use fewer trees (n_estimators)
+
+4. CHECK DATA QUALITY:
+   - Verify walk-forward validation is correct
+   - Ensure purge gaps are properly implemented
+   - Check for data leakage between splits
+   - Verify labels are created correctly
+
+5. HANDLE CLASS IMBALANCE BETTER:
+   - Current: ~29% win rate (very imbalanced)
+   - Consider SMOTE or other oversampling techniques
+   - Try different class_weight strategies
+   - Consider focal loss or other imbalanced learning methods
+
+6. VALIDATION STRATEGY:
+   - Use nested cross-validation
+   - Implement proper time-series cross-validation
+   - Ensure test set is truly "future" data
+   - Check for distribution shifts
+
+7. MONITORING:
+   - Track train/val/test metrics on every training run
+   - Set up alerts for large gaps
+   - Compare metrics across different time periods
+
+
+============================================================
+QUICK DIAGNOSTIC CHECKS
+============================================================
+
+Current Model Hyperparameters (from train.py):
+   - n_estimators: 500
+   - max_depth: 12
+   - min_samples_leaf: 10
+   - min_samples_split: 30
+
+   ⚠️  These settings are quite complex and may cause overfitting!
+   Recommendation: Reduce complexity as shown above
+
+✅ Training metrics are now being tracked!
+   You can now properly detect overfitting.

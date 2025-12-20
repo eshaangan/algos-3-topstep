@@ -17,6 +17,7 @@ import pandas as pd
 from datetime import time
 
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
+from data.clean_bars import clean_bars
 from features.engineer import add_features, select_features
 
 
@@ -46,6 +47,7 @@ def load_bars(h5_path: str) -> pd.DataFrame:
         bars = store["bars_5min"].copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
+    bars, _ = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
     return bars
 
 
@@ -55,7 +57,8 @@ def _compute_probabilities(
     short_model: object,
     feature_cols: List[str],
 ) -> pd.DataFrame:
-    features_df = add_features(bars_df)
+    # Backtest gets called in loops (threshold tuning, split eval); keep it quiet by default.
+    features_df = add_features(bars_df, verbose=False)
     features_df = features_df.reset_index().rename(columns={"index": "idx"})
 
     valid_mask = features_df[feature_cols].notna().all(axis=1)
@@ -94,8 +97,33 @@ def run_backtest(
     short_model: object,
     feature_cols: List[str],
     save_trades_path: Optional[str] = None,
+    *,
+    start_idx: Optional[int] = None,
+    end_idx: Optional[int] = None,
+    min_probability_long: Optional[float] = None,
+    min_probability_short: Optional[float] = None,
+    enable_long: Optional[bool] = None,
+    enable_short: Optional[bool] = None,
+    slippage_ticks: Optional[int] = None,
+    commission_per_contract: Optional[float] = None,
 ) -> Dict[str, object]:
     prob_df = _compute_probabilities(bars_df, long_model, short_model, feature_cols)
+
+    start = 0 if start_idx is None else int(start_idx)
+    end = len(bars_df) if end_idx is None else int(end_idx)
+    if start < 0 or end > len(bars_df) or start >= end:
+        raise ValueError(f"Invalid start/end window: start={start}, end={end}, rows={len(bars_df)}")
+    if end - start < 2:
+        raise ValueError("Backtest window must contain at least 2 bars")
+
+    min_prob_long = TRAINING_CONFIG.min_probability_long if min_probability_long is None else float(min_probability_long)
+    min_prob_short = (
+        TRAINING_CONFIG.min_probability_short if min_probability_short is None else float(min_probability_short)
+    )
+    allow_long = TRAINING_CONFIG.enable_long if enable_long is None else bool(enable_long)
+    allow_short = TRAINING_CONFIG.enable_short if enable_short is None else bool(enable_short)
+    slippage_ticks = 1 if slippage_ticks is None else int(slippage_ticks)
+    commission = 2.35 if commission_per_contract is None else float(commission_per_contract)
 
     trades: List[Dict[str, object]] = []
     equity_curve: List[float] = [RISK_CONFIG.starting_balance]
@@ -107,9 +135,8 @@ def run_backtest(
     current_day = None
 
     position = None
-    slippage_ticks = 1
 
-    for i in range(0, len(bars_df) - 1):
+    for i in range(start, end - 1):
         bar = bars_df.iloc[i]
         bar_time = _to_chicago(bar["timestamp"])
         bar_day = bar_time.date()
@@ -153,8 +180,9 @@ def run_backtest(
                     position["direction"],
                     position["contracts"],
                 )
-                fees = 2 * position["contracts"] * 2.35 + (
-                    slippage_ticks * position["contracts"] * RISK_CONFIG.tick_value
+                fees = (
+                    2 * position["contracts"] * commission
+                    + slippage_ticks * position["contracts"] * RISK_CONFIG.tick_value
                 )
                 pnl = raw_pnl - fees
 
@@ -202,8 +230,8 @@ def run_backtest(
         if probs.get("trade_affordable", 1) < 1:
             continue
 
-        long_ok = long_prob >= TRAINING_CONFIG.min_probability_long
-        short_ok = short_prob >= TRAINING_CONFIG.min_probability_short
+        long_ok = allow_long and long_prob >= min_prob_long
+        short_ok = allow_short and short_prob >= min_prob_short
         if not long_ok and not short_ok:
             continue
 
@@ -255,7 +283,8 @@ def run_backtest(
         }
 
     if position is not None:
-        last_bar = bars_df.iloc[-1]
+        # Force flat at the end of the requested window to avoid leaking beyond split.
+        last_bar = bars_df.iloc[end - 1]
         exit_price = last_bar["close"]
         raw_pnl = _position_pnl(
             position["entry_price"],
@@ -263,9 +292,7 @@ def run_backtest(
             position["direction"],
             position["contracts"],
         )
-        fees = 2 * position["contracts"] * 2.35 + (
-            slippage_ticks * position["contracts"] * RISK_CONFIG.tick_value
-        )
+        fees = 2 * position["contracts"] * commission + slippage_ticks * position["contracts"] * RISK_CONFIG.tick_value
         pnl = raw_pnl - fees
         equity += pnl
         equity_curve.append(equity)
@@ -278,7 +305,7 @@ def run_backtest(
                 "entry_price": position["entry_price"],
                 "exit_price": exit_price,
                 "pnl": pnl,
-                "reason": "FINAL_BAR",
+                "reason": "SEGMENT_END" if end < len(bars_df) else "FINAL_BAR",
                 "stop_ticks": position["stop_ticks"],
             }
         )
@@ -317,6 +344,15 @@ def run_backtest(
         "max_drawdown": max_drawdown,
         "ending_equity": equity,
         "starting_balance": RISK_CONFIG.starting_balance,
+        "window": {"start_idx": start, "end_idx": end},
+        "policy": {
+            "enable_long": allow_long,
+            "enable_short": allow_short,
+            "min_probability_long": min_prob_long,
+            "min_probability_short": min_prob_short,
+            "slippage_ticks": slippage_ticks,
+            "commission_per_contract": commission,
+        },
         "config": {
             "risk": risk_dict,
             "training": training_dict,
@@ -336,13 +372,82 @@ def main() -> None:
     parser.add_argument("--data-path", default="data/processed/mes_bars.h5")
     parser.add_argument("--model-dir", default="models/saved")
     parser.add_argument("--save-trades", default=None)
+    parser.add_argument("--split", choices=["full", "training", "validation", "test"], default="full")
+    parser.add_argument("--start", default=None, help="Start timestamp/date (inclusive), e.g. 2024-01-01")
+    parser.add_argument("--end", default=None, help="End timestamp/date (inclusive), e.g. 2024-06-01")
+    parser.add_argument("--min-prob-long", type=float, default=None)
+    parser.add_argument("--min-prob-short", type=float, default=None)
+    parser.add_argument("--enable-long", action="store_true", default=False)
+    parser.add_argument("--disable-long", action="store_true", default=False)
+    parser.add_argument("--enable-short", action="store_true", default=False)
+    parser.add_argument("--disable-short", action="store_true", default=False)
     args = parser.parse_args()
 
-    bars = load_bars(args.data_path)
     long_model, short_model, metadata = load_models(args.model_dir)
     feature_cols = metadata.get("feature_cols") or select_features()
 
-    results = run_backtest(bars, long_model, short_model, feature_cols, args.save_trades)
+    bars = load_bars(args.data_path)
+
+    # Allow metadata to provide tuned policy unless explicitly overridden.
+    policy = (metadata.get("policy") or {}) if isinstance(metadata, dict) else {}
+    min_prob_long = args.min_prob_long if args.min_prob_long is not None else policy.get("min_probability_long")
+    min_prob_short = args.min_prob_short if args.min_prob_short is not None else policy.get("min_probability_short")
+
+    enable_long = None
+    if args.enable_long:
+        enable_long = True
+    if args.disable_long:
+        enable_long = False
+    if enable_long is None:
+        enable_long = policy.get("enable_long", None)
+
+    enable_short = None
+    if args.enable_short:
+        enable_short = True
+    if args.disable_short:
+        enable_short = False
+    if enable_short is None:
+        enable_short = policy.get("enable_short", None)
+
+    # Window selection: keep full history for feature context, but restrict trading to indices.
+    window_start_idx: Optional[int] = None
+    window_end_idx: Optional[int] = None
+
+    if args.start or args.end:
+        start_ts = pd.to_datetime(args.start, utc=True) if args.start else None
+        end_ts = pd.to_datetime(args.end, utc=True) if args.end else None
+        ts = bars["timestamp"]
+        if start_ts is not None:
+            window_start_idx = int(ts.searchsorted(start_ts, side="left"))
+        if end_ts is not None:
+            window_end_idx = int(ts.searchsorted(end_ts, side="right"))
+    elif args.split != "full":
+        bt_meta = (metadata.get("backtest_metrics") or {}) if isinstance(metadata, dict) else {}
+        win_ts = (bt_meta.get("window_timestamps") or {}).get(args.split) if isinstance(bt_meta, dict) else None
+        if not win_ts or not win_ts.get("start_timestamp") or not win_ts.get("end_timestamp"):
+            raise SystemExit(
+                f"metadata.json missing window timestamps for split '{args.split}'. "
+                "Re-train models with updated trainer or use --start/--end."
+            )
+        start_ts = pd.to_datetime(win_ts["start_timestamp"], utc=True)
+        end_ts = pd.to_datetime(win_ts["end_timestamp"], utc=True)
+        ts = bars["timestamp"]
+        window_start_idx = int(ts.searchsorted(start_ts, side="left"))
+        window_end_idx = int(ts.searchsorted(end_ts, side="right"))
+
+    results = run_backtest(
+        bars,
+        long_model,
+        short_model,
+        feature_cols,
+        args.save_trades,
+        start_idx=window_start_idx,
+        end_idx=window_end_idx,
+        min_probability_long=min_prob_long,
+        min_probability_short=min_prob_short,
+        enable_long=enable_long,
+        enable_short=enable_short,
+    )
     print(json.dumps(results["summary"], indent=2))
 
 

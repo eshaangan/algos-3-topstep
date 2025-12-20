@@ -1,0 +1,12 @@
+3D Parameter Space Analysis Template
+============================================================
+To use this effectively, run backtests with different parameter combinations
+and collect the results. Then plot them in 3D space.
+
+Example dimensions to explore:
+  - Stop Loss Ticks vs Target Multiplier vs Win Rate
+  - Min Probability Threshold vs Contracts vs Profit Factor
+  - Max Hold Bars vs Stop Ticks vs Ending Equity
+
+/var/folders/2n/wfddn5mn0d18dcql5s1h9lhm0000gn/T/ipykernel_29328/1874059633.py:123: UserWarning: Tight layout not applied. The left and right margins cannot be made large enough to accommodate all Axes decorations.
+  plt.tight_layout()

@@ -41,6 +41,15 @@ class TrainingConfig:
     # Model thresholds
     min_probability_long: float = 0.65
     min_probability_short: float = 0.65
+    enable_long: bool = True
+    enable_short: bool = False  # Default off: shorts are currently structurally unfavorable
+
+    # RandomForest regularization defaults (reduce overfitting)
+    rf_n_estimators: int = 300
+    rf_max_depth: int = 6
+    rf_min_samples_leaf: int = 50
+    rf_min_samples_split: int = 200
+    rf_max_features: str = "sqrt"
 
     # Performance gates (must pass to use live)
     min_win_rate: float = 0.52
