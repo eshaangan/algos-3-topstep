@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import random
 import sys
 from dataclasses import asdict
@@ -16,6 +17,7 @@ from typing import Dict, List, Optional, Tuple
 import joblib
 import numpy as np
 import pandas as pd
+import sklearn
 import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, roc_auc_score
@@ -51,12 +53,19 @@ def set_seeds(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 
-def load_bars(h5_path: str) -> pd.DataFrame:
+def load_bars(h5_path: str, *, dataset_key: str = "bars_5min", max_bars: Optional[int] = None) -> pd.DataFrame:
     with pd.HDFStore(h5_path, "r") as store:
-        bars = store["bars_5min"].copy()
+        if dataset_key not in store:
+            raise KeyError(f"Dataset key {dataset_key!r} not found in H5.")
+        bars = store[dataset_key].copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
     bars = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
+    if max_bars is not None:
+        max_bars = int(max_bars)
+        if max_bars <= 0:
+            raise ValueError("max_bars must be > 0")
+        bars = bars.tail(max_bars).reset_index(drop=True)
     return bars
 
 
@@ -217,12 +226,13 @@ def _train_direction(
     input_dim: int,
     device: torch.device,
     seed: int,
+    hidden_dims: tuple[int, int],
     max_epochs: int = 60,
     patience: int = 5,
     batch_size: int = 256,
 ) -> Tuple[TinyMLP, Dict[str, float]]:
     set_seeds(seed)
-    model = TinyMLP(input_dim).to(device)
+    model = TinyMLP(input_dim, hidden_dims=hidden_dims).to(device)
 
     pos = float((y_train == 1).sum())
     neg = float((y_train == 0).sum())
@@ -306,6 +316,8 @@ def train_fold(
     device: torch.device,
     seed: int,
     score_quantile: float,
+    hidden_dims: tuple[int, int],
+    max_epochs: int,
 ) -> Dict[str, object]:
     X_train, y_train_long, y_train_short = slice_window(merged_df, feature_cols, windows["train"])
     X_val, y_val_long, y_val_short = slice_window(merged_df, feature_cols, windows["val"])
@@ -326,6 +338,8 @@ def train_fold(
         input_dim=input_dim,
         device=device,
         seed=seed,
+        hidden_dims=hidden_dims,
+        max_epochs=max_epochs,
     )
 
     if NN_CONFIG.enable_short:
@@ -337,6 +351,8 @@ def train_fold(
             input_dim=input_dim,
             device=device,
             seed=seed + 1,
+            hidden_dims=hidden_dims,
+            max_epochs=max_epochs,
         )
     else:
         short_model = None
@@ -366,6 +382,14 @@ def train_fold(
     train_score = np.maximum(long_train_prob, short_train_prob)
 
     score_threshold = float(np.quantile(train_score, score_quantile))
+    score_percentiles = {
+        "p50": float(np.quantile(train_score, 0.50)),
+        "p90": float(np.quantile(train_score, 0.90)),
+        "p95": float(np.quantile(train_score, 0.95)),
+        "p97": float(np.quantile(train_score, 0.97)),
+        "p98": float(np.quantile(train_score, 0.98)),
+        "p99": float(np.quantile(train_score, 0.99)),
+    }
 
     long_val_prob = _apply_calibrator(long_cal, long_val_logits)
     short_val_prob = _apply_calibrator(short_cal, short_val_logits) if short_model is not None else np.zeros_like(long_val_prob)
@@ -393,6 +417,7 @@ def train_fold(
             "score_quantile": score_quantile,
             "score_threshold": score_threshold,
         },
+        "score_percentiles": score_percentiles,
     }
 
     return {
@@ -404,25 +429,51 @@ def train_fold(
         "short_calibrator": short_cal,
         "metrics": metrics,
         "score_threshold": score_threshold,
+        "score_percentiles": score_percentiles,
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train tiny MLP models with fixed-horizon labels")
-    parser.add_argument("--data-path", default="data/processed/mes_bars.h5")
-    parser.add_argument("--output-dir", default="models/nn_saved")
+    parser.add_argument("--data-path", default="/mnt/data/es_bars_2010_2025.h5")
+    parser.add_argument("--dataset-key", default="bars_5min")
+    parser.add_argument("--output-dir", dest="output_dir", default="models/nn_saved")
+    parser.add_argument("--out-dir", dest="output_dir")
     parser.add_argument("--seed", type=int, default=NN_CONFIG.seed)
-    parser.add_argument("--folds", type=int, default=NN_CONFIG.folds)
+    parser.add_argument("--folds", type=int, default=None)
+    parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--max-bars", type=int, default=None)
+    parser.add_argument("--fast", action="store_true")
     parser.add_argument("--no-save", action="store_true")
+    parser.set_defaults(output_dir="models/nn_saved")
     args = parser.parse_args()
+
+    fast_max_bars = 250_000
+    fast_epochs = 5
+    fast_folds = 2
+    fast_hidden_dims = (16, 8)
+    full_hidden_dims = (32, 16)
+
+    folds = args.folds if args.folds is not None else (fast_folds if args.fast else NN_CONFIG.folds)
+    max_epochs = args.epochs if args.epochs is not None else (fast_epochs if args.fast else 60)
+    max_bars = args.max_bars if args.max_bars is not None else (fast_max_bars if args.fast else None)
+    hidden_dims = fast_hidden_dims if args.fast else full_hidden_dims
 
     set_seeds(args.seed)
 
     print("\n" + "=" * 60)
     print("NN TRAINING: TINY MLP")
     print("=" * 60)
+    if args.fast:
+        print("FAST MODE ENABLED")
+    print(f"Dataset key: {args.dataset_key}")
+    if max_bars is not None:
+        print(f"Max bars: {max_bars:,}")
+    print(f"Epochs: {max_epochs}")
+    print(f"Folds: {folds}")
+    print(f"Hidden dims: {hidden_dims}")
 
-    bars = load_bars(args.data_path)
+    bars = load_bars(args.data_path, dataset_key=args.dataset_key, max_bars=max_bars)
     print(f"\nLoaded {len(bars):,} bars from {args.data_path}")
 
     features_df, feature_cols = build_features(bars)
@@ -447,7 +498,7 @@ def main() -> None:
         train_fraction=NN_CONFIG.train_fraction,
         val_fraction=NN_CONFIG.val_fraction,
         test_fraction=NN_CONFIG.test_fraction,
-        folds=args.folds,
+        folds=folds,
     )
     min_embargo = NN_CONFIG.horizon_bars + NN_CONFIG.feature_lookback + 1
     assert embargo >= min_embargo, "Embargo must be >= feature_lookback + horizon_bars + 1"
@@ -486,19 +537,24 @@ def main() -> None:
             device=device,
             seed=args.seed + fold_idx * 10,
             score_quantile=score_quantile,
+            hidden_dims=hidden_dims,
+            max_epochs=max_epochs,
         )
 
         print(
-            f"Fold {fold_idx} metrics - "
-            f"Long AUC (val/test): {results['metrics']['long']['val_auc']:.3f}/"
+            f"Fold {fold_idx} AUC (train/val/test) - "
+            f"Long: {results['metrics']['long']['train_auc']:.3f}/"
+            f"{results['metrics']['long']['val_auc']:.3f}/"
             f"{results['metrics']['long']['test_auc']:.3f} | "
-            f"Short AUC (val/test): {results['metrics']['short']['val_auc']:.3f}/"
+            f"Short: {results['metrics']['short']['train_auc']:.3f}/"
+            f"{results['metrics']['short']['val_auc']:.3f}/"
             f"{results['metrics']['short']['test_auc']:.3f}"
         )
         print(
             f"Score threshold: {results['score_threshold']:.4f} "
             f"(quantile {score_quantile})"
         )
+        print(f"Score percentiles: {json.dumps(results['score_percentiles'], indent=2)}")
 
         if args.no_save:
             continue
@@ -527,6 +583,7 @@ def main() -> None:
         nn_cfg["score_threshold"] = results["score_threshold"]
         nn_cfg["score_quantile"] = score_quantile
         nn_cfg["max_hold_bars"] = NN_CONFIG.horizon_bars
+        nn_cfg["model_hidden_dims"] = list(hidden_dims)
         nn_cfg["label_version"] = "aligned_fixed_horizon_v1"
         nn_cfg["label_entry_price_col"] = "open"
         nn_cfg["label_exit_price_col"] = "close"
@@ -548,6 +605,21 @@ def main() -> None:
             "risk_config": risk_dict,
             "windows": windows,
             "metrics": results["metrics"],
+            "versions": {
+                "python": platform.python_version(),
+                "numpy": np.__version__,
+                "pandas": pd.__version__,
+                "sklearn": sklearn.__version__,
+                "torch": torch.__version__,
+            },
+            "training_meta": {
+                "dataset_key": args.dataset_key,
+                "max_bars": max_bars,
+                "fast_mode": bool(args.fast),
+                "epochs": max_epochs,
+                "folds": folds,
+                "hidden_dims": list(hidden_dims),
+            },
         }
 
         with open(fold_dir / "config.json", "w", encoding="utf-8") as f:

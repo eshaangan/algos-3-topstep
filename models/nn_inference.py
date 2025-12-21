@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import joblib
 import numpy as np
@@ -43,6 +43,7 @@ REQUIRED_NN_CONFIG_KEYS = [
     "label_version",
     "label_entry_price_col",
     "label_exit_price_col",
+    "model_hidden_dims",
 ]
 
 
@@ -69,6 +70,44 @@ def validate_nn_config(nn_cfg: Dict[str, object]) -> None:
         raise ValueError("exit_price_mode must be 'bar_close' for aligned labels.")
     if int(nn_cfg.get("max_hold_bars")) != int(nn_cfg.get("horizon_bars")):
         raise ValueError("max_hold_bars must equal horizon_bars for aligned labels.")
+
+    hidden_dims = nn_cfg.get("model_hidden_dims")
+    if not isinstance(hidden_dims, Sequence) or len(hidden_dims) != 2:
+        raise ValueError("model_hidden_dims must be a sequence of length 2.")
+
+
+def artifact_compatibility_issues(config: Dict[str, object], *, strict_versions: bool = True) -> List[str]:
+    issues: List[str] = []
+    nn_cfg = config.get("nn_config", {})
+    try:
+        validate_nn_config(nn_cfg)
+    except Exception as exc:
+        issues.append(str(exc))
+
+    versions = config.get("versions", {})
+    required_versions = ["python", "numpy", "pandas", "sklearn", "torch"]
+    missing_versions = [k for k in required_versions if k not in versions]
+    if missing_versions:
+        issues.append(f"Missing versions in config.json: {missing_versions}")
+    elif strict_versions:
+        import platform
+        import numpy as np
+        import pandas as pd
+        import sklearn
+        import torch
+
+        current = {
+            "python": platform.python_version(),
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+            "sklearn": sklearn.__version__,
+            "torch": torch.__version__,
+        }
+        mismatched = [k for k in required_versions if str(versions.get(k)) != str(current.get(k))]
+        if mismatched:
+            issues.append(f"Version mismatch for: {mismatched}")
+
+    return issues
 
 
 @dataclass
@@ -113,6 +152,11 @@ def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = Non
     if not feature_cols:
         raise ValueError("config.json missing feature_cols")
 
+    nn_cfg = config.get("nn_config", {})
+    issues = artifact_compatibility_issues(config, strict_versions=True)
+    if issues:
+        raise ValueError(f"Artifact incompatible, retrain required: {issues}")
+
     scaler_path = model_path / "scaler.pkl"
     if not scaler_path.exists():
         raise FileNotFoundError(f"Missing scaler.pkl in {model_path}")
@@ -120,17 +164,19 @@ def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = Non
 
     dev = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
 
+    hidden_dims = tuple(int(x) for x in nn_cfg.get("model_hidden_dims", (32, 16)))
+
     long_model_path = model_path / "model_long.pt"
     if not long_model_path.exists():
         raise FileNotFoundError(f"Missing model_long.pt in {model_path}")
-    long_model = TinyMLP(len(feature_cols))
+    long_model = TinyMLP(len(feature_cols), hidden_dims=hidden_dims)
     long_model.load_state_dict(torch.load(long_model_path, map_location=dev))
     long_model.to(dev).eval()
 
     short_model_path = model_path / "model_short.pt"
     short_model = None
     if short_model_path.exists():
-        short_model = TinyMLP(len(feature_cols))
+        short_model = TinyMLP(len(feature_cols), hidden_dims=hidden_dims)
         short_model.load_state_dict(torch.load(short_model_path, map_location=dev))
         short_model.to(dev).eval()
 
@@ -138,9 +184,6 @@ def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = Non
     short_cal_path = model_path / "calibrator_short.pkl"
     long_cal = joblib.load(long_cal_path) if long_cal_path.exists() else None
     short_cal = joblib.load(short_cal_path) if short_cal_path.exists() else None
-
-    nn_cfg = config.get("nn_config", {})
-    validate_nn_config(nn_cfg)
 
     if isinstance(nn_cfg.get("deadline_time"), str):
         try:

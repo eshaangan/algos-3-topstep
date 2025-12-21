@@ -478,7 +478,16 @@ def run_backtest_nn(
     if save_trades_path:
         trades_df.to_csv(save_trades_path, index=False)
 
-    return {"summary": summary, "trades": trades, "daily_stats": daily_stats}
+    exit_reason_counts = {}
+    if not trades_df.empty and "reason" in trades_df.columns:
+        exit_reason_counts = trades_df["reason"].value_counts().to_dict()
+
+    return {
+        "summary": summary,
+        "trades": trades,
+        "daily_stats": daily_stats,
+        "exit_reason_counts": exit_reason_counts,
+    }
 
 def load_models(model_dir: str) -> Tuple[object, object, Dict[str, object]]:
     model_path = Path(model_dir)
@@ -494,9 +503,11 @@ def load_models(model_dir: str) -> Tuple[object, object, Dict[str, object]]:
     return long_model, short_model, metadata
 
 
-def load_bars(h5_path: str) -> pd.DataFrame:
+def load_bars(h5_path: str, *, dataset_key: str = "bars_5min") -> pd.DataFrame:
     with pd.HDFStore(h5_path, "r") as store:
-        bars = store["bars_5min"].copy()
+        if dataset_key not in store:
+            raise KeyError(f"Dataset key {dataset_key!r} not found in H5.")
+        bars = store[dataset_key].copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
     bars = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
@@ -868,14 +879,22 @@ def run_backtest(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backtest ML strategy")
-    parser.add_argument("--data-path", default="data/processed/mes_bars.h5")
-    parser.add_argument("--model-dir", default="models/saved")
+    parser.add_argument("--data-path", default="/mnt/data/es_bars_2010_2025.h5")
+    parser.add_argument("--dataset-key", default="bars_5min")
+    parser.add_argument("--model-dir", default="models/nn_saved")
+    parser.add_argument("--artifact-dir", dest="model_dir")
     parser.add_argument("--strategy", choices=["auto", "rf", "nn"], default="auto")
     parser.add_argument("--fold", type=int, default=0, help="Fold index for NN artifacts")
-    parser.add_argument("--save-trades", default=None)
+    parser.add_argument("--save-trades", dest="save_trades", default=None)
+    parser.add_argument("--out-trades-csv", dest="save_trades")
     parser.add_argument("--split", choices=["full", "training", "validation", "test"], default="full")
     parser.add_argument("--start", default=None, help="Start timestamp/date (inclusive), e.g. 2024-01-01")
     parser.add_argument("--end", default=None, help="End timestamp/date (inclusive), e.g. 2024-06-01")
+    parser.add_argument("--fast", action="store_true")
+    parser.add_argument("--max-bars", type=int, default=None)
+    parser.add_argument("--max-days", type=int, default=None)
+    parser.add_argument("--rth-only", action="store_true", default=False)
+    parser.set_defaults(save_trades=None)
     parser.add_argument("--min-prob-long", type=float, default=None)
     parser.add_argument("--min-prob-short", type=float, default=None)
     parser.add_argument("--blocked-hours", default=None, help="Comma-separated hours (CT) to skip, e.g. 14,13")
@@ -895,7 +914,26 @@ def main() -> None:
     args = parser.parse_args()
 
     use_nn = args.strategy == "nn" or (args.strategy == "auto" and _is_nn_model_dir(args.model_dir))
-    bars = load_bars(args.data_path)
+    bars = load_bars(args.data_path, dataset_key=args.dataset_key)
+    if args.fast and args.max_bars is None and args.max_days is None:
+        args.max_days = 90
+
+    if args.max_bars is not None:
+        max_bars = int(args.max_bars)
+        if max_bars <= 0:
+            raise ValueError("--max-bars must be > 0")
+        bars = bars.tail(max_bars).reset_index(drop=True)
+    elif args.max_days is not None:
+        max_days = int(args.max_days)
+        if max_days <= 0:
+            raise ValueError("--max-days must be > 0")
+        bar_times = pd.to_datetime(bars["timestamp"], utc=True).dt.tz_convert("America/Chicago")
+        bar_days = bar_times.dt.date
+        unique_days = np.array(sorted(bar_days.unique()))
+        if len(unique_days) > max_days:
+            start_day = unique_days[-max_days]
+            mask = bar_days >= start_day
+            bars = bars.loc[mask].reset_index(drop=True)
 
     if use_nn:
         bundle = load_nn_bundle(args.model_dir, fold=args.fold)
@@ -910,6 +948,8 @@ def main() -> None:
         execution_mode = str(nn_cfg.get("execution_mode", "time_exit"))
         exit_price_mode = str(nn_cfg.get("exit_price_mode", "bar_close"))
         session_mode = str(nn_cfg.get("session_mode", "RTH"))
+        if args.rth_only:
+            session_mode = "RTH"
         deadline_time = nn_cfg.get("deadline_time")
         deadline_relax_factor = float(nn_cfg.get("deadline_relax_factor", 0.98))
         bar_minutes = int(nn_cfg.get("bar_minutes", 5))
@@ -969,6 +1009,8 @@ def main() -> None:
         )
         print(json.dumps(results["summary"], indent=2))
         print(json.dumps(results["daily_stats"], indent=2))
+        if results.get("exit_reason_counts"):
+            print(json.dumps(results["exit_reason_counts"], indent=2))
         return
 
     long_model, short_model, metadata = load_models(args.model_dir)

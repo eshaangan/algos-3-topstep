@@ -22,7 +22,7 @@ from backtesting.backtest import run_backtest_nn
 from core.selection import bars_per_day
 from core.risk_presets import RISK_PRESET_NAME, get_risk_config
 from data.clean_bars import clean_bars
-from models.nn_inference import load_nn_bundle, predict_scores_for_bars, validate_nn_config
+from models.nn_inference import load_nn_bundle, predict_scores_for_bars, artifact_compatibility_issues
 
 RISK_CONFIG = get_risk_config(RISK_PRESET_NAME)
 
@@ -46,12 +46,11 @@ def _ensure_model(
 ) -> None:
     model_path = Path(model_dir) / f"fold_{fold}" / "config.json"
     if model_path.exists() and not force_train:
-        try:
-            cfg = json.loads(model_path.read_text())
-            validate_nn_config(cfg.get("nn_config", {}))
+        cfg = json.loads(model_path.read_text())
+        issues = artifact_compatibility_issues(cfg, strict_versions=True)
+        if not issues:
             return
-        except Exception as exc:
-            print(f"Model config invalid ({exc}); retraining.")
+        print(f"Model config invalid ({issues}); retraining.")
     cmd = [
         sys.executable,
         str(project_root / "models" / "nn_train.py"),

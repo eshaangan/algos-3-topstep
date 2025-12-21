@@ -1,5 +1,5 @@
 {
-  "created": "2025-12-21T08:34:38.583147+00:00",
+  "created": "2025-12-21T20:12:27.542002+00:00",
   "model_type": "tiny_mlp",
   "bar_minutes": 5,
   "fold_idx": 0,
@@ -31,7 +31,7 @@
     "feature_lookback": 100,
     "embargo_bars": 113,
     "score_quantile": 0.974025974025974,
-    "score_threshold": 0.4313840911540351,
+    "score_threshold": 0.46113247542707364,
     "max_trades_per_day": 2,
     "min_bars_between_trades": 12,
     "enable_long": true,
@@ -52,6 +52,10 @@
     "seed": 42,
     "feature_selection_mode": "recommended",
     "max_hold_bars": 12,
+    "model_hidden_dims": [
+      16,
+      8
+    ],
     "label_version": "aligned_fixed_horizon_v1",
     "label_entry_price_col": "open",
     "label_exit_price_col": "close",
@@ -75,35 +79,61 @@
   "windows": {
     "train": [
       100,
-      184064
+      149904
     ],
     "val": [
-      184177,
-      245498
+      150017,
+      199951
     ],
     "test": [
-      245611,
-      306932
+      200064,
+      249998
     ]
   },
   "metrics": {
     "long": {
-      "train_auc": 0.678671467145022,
-      "val_auc": 0.5912956260544862,
-      "test_auc": 0.5475949945429831,
-      "val_log_loss": 0.6603807846876597,
-      "test_log_loss": 0.6835512728947389
+      "train_auc": 0.6779367596048806,
+      "val_auc": 0.5646328014099273,
+      "test_auc": 0.5540944326390741,
+      "val_log_loss": 0.6720403663945005,
+      "test_log_loss": 0.679341908261701
     },
     "short": {
-      "train_auc": 0.6643795952835176,
-      "val_auc": 0.6068536165175317,
-      "test_auc": 0.5502314896206508,
-      "val_log_loss": 0.6252737838211587,
-      "test_log_loss": 0.6555522666483397
+      "train_auc": 0.65324430839439,
+      "val_auc": 0.5828151946433615,
+      "test_auc": 0.5466056270741046,
+      "val_log_loss": 0.6428786983372791,
+      "test_log_loss": 0.6532444730855309
     },
     "threshold": {
       "score_quantile": 0.974025974025974,
-      "score_threshold": 0.4313840911540351
+      "score_threshold": 0.46113247542707364
+    },
+    "score_percentiles": {
+      "p50": 0.34004837918135894,
+      "p90": 0.4348485559612751,
+      "p95": 0.4473290636897064,
+      "p97": 0.45758602647378266,
+      "p98": 0.4684169713048771,
+      "p99": 0.4946377872066489
     }
+  },
+  "versions": {
+    "python": "3.11.12",
+    "numpy": "2.3.5",
+    "pandas": "2.3.3",
+    "sklearn": "1.8.0",
+    "torch": "2.9.1"
+  },
+  "training_meta": {
+    "dataset_key": "bars_5min",
+    "max_bars": 250000,
+    "fast_mode": true,
+    "epochs": 5,
+    "folds": 2,
+    "hidden_dims": [
+      16,
+      8
+    ]
   }
 }
