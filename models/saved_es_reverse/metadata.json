@@ -1,0 +1,54 @@
+{
+  "created": "2025-12-20T21:27:10.471836Z",
+  "feature_cols": [
+    "ema_spread_21_50",
+    "vol_20",
+    "atr_ticks",
+    "bb_width",
+    "ema_spread_9_21",
+    "ema_50_dist",
+    "time_of_day",
+    "vol_percentile",
+    "range_position_50",
+    "returns_12",
+    "ema_21_dist",
+    "ema_9_dist",
+    "price_above_ema50",
+    "price_above_ema21",
+    "returns_5",
+    "range_position_12",
+    "dist_from_high_12",
+    "vol_50",
+    "volume_ratio",
+    "is_bullish"
+  ],
+  "note": "REVERSE: Trained on 2019-2025, Testing on 2010-2019",
+  "windows": {
+    "training": [
+      175285,
+      280603
+    ],
+    "validation": [
+      280603,
+      306933
+    ],
+    "test": [
+      0,
+      175285
+    ]
+  },
+  "window_timestamps": {
+    "training": {
+      "start_timestamp": "2019-05-01 13:30:00+00:00",
+      "end_timestamp": "2024-08-21 18:25:00+00:00"
+    },
+    "validation": {
+      "start_timestamp": "2024-08-21 18:30:00+00:00",
+      "end_timestamp": "2025-12-19 20:55:00+00:00"
+    },
+    "test": {
+      "start_timestamp": "2010-06-07 13:30:00+00:00",
+      "end_timestamp": "2019-04-30 19:55:00+00:00"
+    }
+  }
+}

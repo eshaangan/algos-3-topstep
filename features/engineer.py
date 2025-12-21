@@ -239,6 +239,129 @@ def verify_no_lookahead(df: pd.DataFrame, feature_cols: List[str]) -> bool:
     return True
 
 
+def get_recommended_features() -> List[str]:
+    """
+    Return pre-selected top 20 features based on importance analysis.
+
+    Based on feature importance analysis showing:
+    - Top 10 features account for 55.8% of importance
+    - Top 20 features account for ~75-80% of importance
+
+    Top 10 (55.8% importance):
+    1. ema_spread_21_50 (7.69%) - Trend momentum
+    2. vol_20 (7.62%) - Volatility
+    3. atr_ticks (6.55%) - Volatility/risk
+    4. bb_width (5.48%) - Volatility bands
+    5. ema_spread_9_21 (5.08%) - Short-term momentum
+    6. ema_50_dist (4.99%) - Trend positioning
+    7. time_of_day (4.83%) - Temporal patterns
+    8. vol_percentile (4.79%) - Relative volatility
+    9. range_position_50 (4.74%) - Price momentum
+    10. returns_12 (3.98%) - Medium-term returns
+
+    Next 10 (~20-25% additional importance):
+    11-20. Additional trend, volatility, and structural features
+
+    Total: ~75-80% of model predictive power
+
+    Returns:
+        List of 20 most important feature names
+    """
+    return [
+        # Top 10 features (55.8% importance)
+        "ema_spread_21_50",
+        "vol_20",
+        "atr_ticks",
+        "bb_width",
+        "ema_spread_9_21",
+        "ema_50_dist",
+        "time_of_day",
+        "vol_percentile",
+        "range_position_50",
+        "returns_12",
+
+        # Next 10 features (additional ~20-25% importance)
+        "ema_21_dist",
+        "ema_9_dist",
+        "price_above_ema50",
+        "price_above_ema21",
+        "returns_5",
+        "range_position_12",
+        "dist_from_high_12",
+        "vol_50",
+        "volume_ratio",
+        "is_bullish",
+    ]
+
+
+def select_top_features(
+    model,
+    feature_cols: List[str],
+    top_n: int = 20,
+    importance_threshold: float = 0.01,
+) -> List[str]:
+    """
+    Select top N features based on Random Forest feature importance.
+
+    This allows dynamic feature selection based on actual model importance,
+    useful for auto-tuning feature sets.
+
+    Args:
+        model: Trained RandomForest model with feature_importances_ attribute
+        feature_cols: Full list of feature column names
+        top_n: Maximum number of features to select
+        importance_threshold: Minimum importance to consider (default 1%)
+
+    Returns:
+        List of selected feature names, sorted by importance (descending)
+
+    Example:
+        >>> model = RandomForestClassifier().fit(X_train, y_train)
+        >>> selected = select_top_features(model, feature_cols, top_n=20)
+        >>> print(f"Selected {len(selected)} features")
+    """
+    if not hasattr(model, 'feature_importances_'):
+        raise ValueError("Model must have feature_importances_ attribute")
+
+    if len(feature_cols) != len(model.feature_importances_):
+        raise ValueError(
+            f"Feature count mismatch: feature_cols={len(feature_cols)}, "
+            f"importances={len(model.feature_importances_)}"
+        )
+
+    # Create DataFrame of features and their importances
+    importance_df = pd.DataFrame({
+        'feature': feature_cols,
+        'importance': model.feature_importances_
+    }).sort_values('importance', ascending=False)
+
+    # Filter by threshold
+    important = importance_df[
+        importance_df['importance'] >= importance_threshold
+    ]
+
+    # Take top N
+    selected = important.head(top_n)
+
+    # Calculate total importance captured
+    total_importance = selected['importance'].sum()
+
+    # Log selection results
+    print(f"\n" + "="*60)
+    print("FEATURE SELECTION RESULTS")
+    print("="*60)
+    print(f"Original features: {len(feature_cols)}")
+    print(f"After threshold filter (>={importance_threshold:.2%}): {len(important)}")
+    print(f"Selected (top {top_n}): {len(selected)}")
+    print(f"Total importance captured: {total_importance:.1%}")
+
+    print(f"\nTop {len(selected)} features:")
+    for idx, row in selected.iterrows():
+        print(f"  {idx+1:2d}. {row['feature']:30s}: {row['importance']:.2%}")
+
+    return selected['feature'].tolist()
+
+
 if __name__ == "__main__":
     print("Loading data...")
     with pd.HDFStore("data/processed/mes_bars.h5", "r") as store:

@@ -136,7 +136,7 @@ def run_loop(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run live ML strategy")
-    parser.add_argument("--model-dir", default="models/saved")
+    parser.add_argument("--model-dir", default="models/nn_saved")
     parser.add_argument("--symbol", default="MES")
     parser.add_argument("--poll-seconds", type=int, default=30)
     parser.add_argument("--lookback-bars", type=int, default=200)

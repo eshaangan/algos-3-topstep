@@ -1,42 +1,26 @@
 {
-  "created": "2025-12-19T23:52:28.934097+00:00",
+  "created": "2025-12-20T08:37:26.103767+00:00",
   "feature_cols": [
-    "returns_1",
-    "returns_5",
-    "returns_12",
-    "log_returns_1",
-    "body_pct",
-    "upper_wick",
-    "lower_wick",
-    "is_bullish",
-    "ema_9_dist",
-    "ema_21_dist",
-    "ema_50_dist",
-    "ema_9_slope",
-    "ema_21_slope",
-    "ema_spread_9_21",
     "ema_spread_21_50",
-    "price_above_ema9",
-    "price_above_ema21",
-    "price_above_ema50",
-    "atr_ticks",
     "vol_20",
-    "vol_percentile",
+    "atr_ticks",
     "bb_width",
-    "volume_ratio",
-    "volume_surge",
+    "ema_spread_9_21",
+    "ema_50_dist",
     "time_of_day",
-    "session_open",
-    "session_close",
-    "lunch_period",
-    "day_of_week",
-    "range_position_12",
+    "vol_percentile",
     "range_position_50",
+    "returns_12",
+    "ema_21_dist",
+    "ema_9_dist",
+    "price_above_ema50",
+    "price_above_ema21",
+    "returns_5",
+    "range_position_12",
     "dist_from_high_12",
-    "dist_from_low_12",
-    "estimated_stop_ticks",
-    "trade_affordable",
-    "max_contracts_by_risk"
+    "vol_50",
+    "volume_ratio",
+    "is_bullish"
   ],
   "config": {
     "risk": {
@@ -52,109 +36,408 @@
     },
     "training": {
       "lookback_bars": 100,
-      "stop_loss_ticks": 18,
-      "target_multiplier": 1.5,
+      "label_mode": "per_bar",
+      "stop_loss_ticks": 32,
+      "target_multiplier": 2.0,
       "max_hold_bars": 12,
       "train_fraction": 0.6,
       "val_fraction": 0.2,
       "test_fraction": 0.2,
       "min_probability_long": 0.65,
       "min_probability_short": 0.65,
+      "enable_long": true,
+      "enable_short": false,
+      "rf_n_estimators": 500,
+      "rf_max_depth": 10,
+      "rf_min_samples_leaf": 15,
+      "rf_min_samples_split": 30,
+      "rf_max_features": "sqrt",
+      "feature_selection_mode": "recommended",
+      "top_n_features": 20,
       "min_win_rate": 0.52,
       "min_profit_factor": 1.3,
       "max_drawdown": 1500.0
     }
   },
+  "policy": {
+    "enable_long": false,
+    "enable_short": false,
+    "min_probability_long": 0.65,
+    "min_probability_short": 0.65
+  },
   "metrics": {
     "long": {
+      "training": {
+        "accuracy": 0.6450306636632336,
+        "precision": 0.5374079528718704,
+        "recall": 0.7223358627515671,
+        "f1": 0.6162983814215341,
+        "roc_auc": 0.7365038657099059,
+        "tp": 21894.0,
+        "fp": 18846.0,
+        "tn": 27645.0,
+        "fn": 8416.0,
+        "trades": 178,
+        "win_rate": 0.9831460674157303,
+        "profit_factor": 116.66666666666667,
+        "expectancy_r": 1.949438202247191,
+        "max_drawdown_r": 1.0
+      },
       "validation": {
-        "accuracy": 0.5563421562880462,
-        "precision": 0.5035335689045937,
-        "recall": 0.8585199317200523,
-        "f1": 0.634767437544081,
-        "roc_auc": 0.6519745073314257,
-        "tp": 8550.0,
-        "fp": 8430.0,
-        "tn": 3788.0,
-        "fn": 1409.0,
-        "trades": 4042,
-        "win_rate": 0.6259277585353785,
-        "profit_factor": 2.509920634920635,
-        "expectancy_r": 0.5648193963384464,
-        "max_drawdown_r": 25.5
+        "accuracy": 0.4967982714594382,
+        "precision": 0.43377403846153845,
+        "recall": 0.6806223479490806,
+        "f1": 0.529858689667829,
+        "roc_auc": 0.5337995386840271,
+        "tp": 7218.0,
+        "fp": 9422.0,
+        "tn": 5428.0,
+        "fn": 3387.0,
+        "trades": 40,
+        "win_rate": 0.3,
+        "profit_factor": 0.8571428571428571,
+        "expectancy_r": -0.1,
+        "max_drawdown_r": 16.0
       },
       "test": {
-        "accuracy": 0.5188823794502028,
-        "precision": 0.4502694470477976,
-        "recall": 0.8562040543550902,
-        "f1": 0.590172744721689,
-        "roc_auc": 0.6303850391649328,
-        "tp": 7687.0,
-        "fp": 9385.0,
-        "tn": 3827.0,
-        "fn": 1291.0,
-        "trades": 4394,
-        "win_rate": 0.5498406918525262,
-        "profit_factor": 1.832153690596562,
-        "expectancy_r": 0.37460172963131544,
-        "max_drawdown_r": 38.5
+        "accuracy": 0.5171199373899432,
+        "precision": 0.40179934131255524,
+        "recall": 0.5055078322385043,
+        "f1": 0.4477264590046545,
+        "roc_auc": 0.5186576486053756,
+        "tp": 5002.0,
+        "fp": 7447.0,
+        "tn": 8213.0,
+        "fn": 4893.0,
+        "trades": 9,
+        "win_rate": 0.4444444444444444,
+        "profit_factor": 1.6,
+        "expectancy_r": 0.3333333333333333,
+        "max_drawdown_r": 4.0
       }
     },
     "short": {
+      "training": {
+        "accuracy": 0.6779599223968438,
+        "precision": 0.5310230338244449,
+        "recall": 0.7547281105990783,
+        "f1": 0.62341458958235,
+        "roc_auc": 0.7659196080926989,
+        "tp": 20472.0,
+        "fp": 18080.0,
+        "tn": 31596.0,
+        "fn": 6653.0,
+        "trades": 139,
+        "win_rate": 0.9568345323741008,
+        "profit_factor": 44.333333333333336,
+        "expectancy_r": 1.870503597122302,
+        "max_drawdown_r": 3.0
+      },
       "validation": {
-        "accuracy": 0.8218618024979782,
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
-        "roc_auc": 0.5332715842367259,
-        "tp": 0.0,
-        "fp": 2.0,
-        "tn": 18293.0,
-        "fn": 3963.0,
-        "trades": 0,
-        "win_rate": 0.0,
-        "profit_factor": 0.0,
-        "expectancy_r": 0.0,
-        "max_drawdown_r": 0.0
+        "accuracy": 0.4678059320369279,
+        "precision": 0.3740899868719418,
+        "recall": 0.6721346628069047,
+        "f1": 0.48065938278704234,
+        "roc_auc": 0.5163298389340727,
+        "tp": 6269.0,
+        "fp": 10489.0,
+        "tn": 5639.0,
+        "fn": 3058.0,
+        "trades": 10,
+        "win_rate": 0.6,
+        "profit_factor": 3.0,
+        "expectancy_r": 0.8,
+        "max_drawdown_r": 3.0
       },
       "test": {
-        "accuracy": 0.83714247227336,
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
-        "roc_auc": 0.5199421080081468,
-        "tp": 0.0,
-        "fp": 0.0,
-        "tn": 18644.0,
-        "fn": 3627.0,
+        "accuracy": 0.4873410291528077,
+        "precision": 0.3691183843013679,
+        "recall": 0.5456277789540547,
+        "f1": 0.44034345764449573,
+        "roc_auc": 0.4957360143139829,
+        "tp": 5154.0,
+        "fp": 8809.0,
+        "tn": 7300.0,
+        "fn": 4292.0,
         "trades": 0,
         "win_rate": 0.0,
         "profit_factor": 0.0,
         "expectancy_r": 0.0,
         "max_drawdown_r": 0.0
+      }
+    }
+  },
+  "backtest_metrics": {
+    "windows": {
+      "training": [
+        0,
+        77899
+      ],
+      "validation": [
+        78125,
+        103903
+      ],
+      "test": [
+        104129,
+        130021
+      ]
+    },
+    "window_timestamps": {
+      "training": {
+        "start_timestamp": "2019-05-06T13:30:00+00:00",
+        "end_timestamp": "2023-04-12T18:55:00+00:00"
+      },
+      "validation": {
+        "start_timestamp": "2023-04-17T18:20:00+00:00",
+        "end_timestamp": "2024-08-02T19:35:00+00:00"
+      },
+      "test": {
+        "start_timestamp": "2024-08-07T19:00:00+00:00",
+        "end_timestamp": "2025-12-02T20:55:00+00:00"
+      }
+    },
+    "training": {
+      "trades": 0,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "net_pnl": 0.0,
+      "max_drawdown": 0.0,
+      "ending_equity": 50000.0,
+      "starting_balance": 50000.0,
+      "window": {
+        "start_idx": 0,
+        "end_idx": 77899
+      },
+      "policy": {
+        "enable_long": false,
+        "enable_short": false,
+        "min_probability_long": 0.65,
+        "min_probability_short": 0.65,
+        "blocked_hours": [],
+        "allowed_hours": [],
+        "exclude_lunch": false,
+        "require_trend_long": false,
+        "require_trend_short": false,
+        "min_atr_ticks": null,
+        "max_atr_ticks": null,
+        "stop_loss_ticks": 32,
+        "target_multiplier": 2.0,
+        "max_hold_bars": 12,
+        "slippage_ticks": 1,
+        "commission_per_contract": 2.35
+      },
+      "config": {
+        "risk": {
+          "starting_balance": 50000.0,
+          "max_daily_loss": 500.0,
+          "trailing_drawdown": 1800.0,
+          "fixed_risk_per_trade": 200.0,
+          "max_contracts": 5,
+          "tick_size": 0.25,
+          "tick_value": 1.25,
+          "session_start": "08:30:00",
+          "session_end": "14:55:00"
+        },
+        "training": {
+          "lookback_bars": 100,
+          "label_mode": "per_bar",
+          "stop_loss_ticks": 32,
+          "target_multiplier": 2.0,
+          "max_hold_bars": 12,
+          "train_fraction": 0.6,
+          "val_fraction": 0.2,
+          "test_fraction": 0.2,
+          "min_probability_long": 0.65,
+          "min_probability_short": 0.65,
+          "enable_long": true,
+          "enable_short": false,
+          "rf_n_estimators": 500,
+          "rf_max_depth": 10,
+          "rf_min_samples_leaf": 15,
+          "rf_min_samples_split": 30,
+          "rf_max_features": "sqrt",
+          "feature_selection_mode": "recommended",
+          "top_n_features": 20,
+          "min_win_rate": 0.52,
+          "min_profit_factor": 1.3,
+          "max_drawdown": 1500.0
+        }
+      }
+    },
+    "validation": {
+      "trades": 0,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "net_pnl": 0.0,
+      "max_drawdown": 0.0,
+      "ending_equity": 50000.0,
+      "starting_balance": 50000.0,
+      "window": {
+        "start_idx": 78125,
+        "end_idx": 103903
+      },
+      "policy": {
+        "enable_long": false,
+        "enable_short": false,
+        "min_probability_long": 0.65,
+        "min_probability_short": 0.65,
+        "blocked_hours": [],
+        "allowed_hours": [],
+        "exclude_lunch": false,
+        "require_trend_long": false,
+        "require_trend_short": false,
+        "min_atr_ticks": null,
+        "max_atr_ticks": null,
+        "stop_loss_ticks": 32,
+        "target_multiplier": 2.0,
+        "max_hold_bars": 12,
+        "slippage_ticks": 1,
+        "commission_per_contract": 2.35
+      },
+      "config": {
+        "risk": {
+          "starting_balance": 50000.0,
+          "max_daily_loss": 500.0,
+          "trailing_drawdown": 1800.0,
+          "fixed_risk_per_trade": 200.0,
+          "max_contracts": 5,
+          "tick_size": 0.25,
+          "tick_value": 1.25,
+          "session_start": "08:30:00",
+          "session_end": "14:55:00"
+        },
+        "training": {
+          "lookback_bars": 100,
+          "label_mode": "per_bar",
+          "stop_loss_ticks": 32,
+          "target_multiplier": 2.0,
+          "max_hold_bars": 12,
+          "train_fraction": 0.6,
+          "val_fraction": 0.2,
+          "test_fraction": 0.2,
+          "min_probability_long": 0.65,
+          "min_probability_short": 0.65,
+          "enable_long": true,
+          "enable_short": false,
+          "rf_n_estimators": 500,
+          "rf_max_depth": 10,
+          "rf_min_samples_leaf": 15,
+          "rf_min_samples_split": 30,
+          "rf_max_features": "sqrt",
+          "feature_selection_mode": "recommended",
+          "top_n_features": 20,
+          "min_win_rate": 0.52,
+          "min_profit_factor": 1.3,
+          "max_drawdown": 1500.0
+        }
+      }
+    },
+    "test": {
+      "trades": 0,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "net_pnl": 0.0,
+      "max_drawdown": 0.0,
+      "ending_equity": 50000.0,
+      "starting_balance": 50000.0,
+      "window": {
+        "start_idx": 104129,
+        "end_idx": 130021
+      },
+      "policy": {
+        "enable_long": false,
+        "enable_short": false,
+        "min_probability_long": 0.65,
+        "min_probability_short": 0.65,
+        "blocked_hours": [],
+        "allowed_hours": [],
+        "exclude_lunch": false,
+        "require_trend_long": false,
+        "require_trend_short": false,
+        "min_atr_ticks": null,
+        "max_atr_ticks": null,
+        "stop_loss_ticks": 32,
+        "target_multiplier": 2.0,
+        "max_hold_bars": 12,
+        "slippage_ticks": 1,
+        "commission_per_contract": 2.35
+      },
+      "config": {
+        "risk": {
+          "starting_balance": 50000.0,
+          "max_daily_loss": 500.0,
+          "trailing_drawdown": 1800.0,
+          "fixed_risk_per_trade": 200.0,
+          "max_contracts": 5,
+          "tick_size": 0.25,
+          "tick_value": 1.25,
+          "session_start": "08:30:00",
+          "session_end": "14:55:00"
+        },
+        "training": {
+          "lookback_bars": 100,
+          "label_mode": "per_bar",
+          "stop_loss_ticks": 32,
+          "target_multiplier": 2.0,
+          "max_hold_bars": 12,
+          "train_fraction": 0.6,
+          "val_fraction": 0.2,
+          "test_fraction": 0.2,
+          "min_probability_long": 0.65,
+          "min_probability_short": 0.65,
+          "enable_long": true,
+          "enable_short": false,
+          "rf_n_estimators": 500,
+          "rf_max_depth": 10,
+          "rf_min_samples_leaf": 15,
+          "rf_min_samples_split": 30,
+          "rf_max_features": "sqrt",
+          "feature_selection_mode": "recommended",
+          "top_n_features": 20,
+          "min_win_rate": 0.52,
+          "min_profit_factor": 1.3,
+          "max_drawdown": 1500.0
+        }
       }
     }
   },
   "gates": {
-    "long": {
-      "passed": false,
-      "win_rate": 0.5498406918525262,
-      "profit_factor": 1.832153690596562,
-      "max_drawdown_usd": 7700.0
+    "trade_stats": {
+      "long": {
+        "passed": false,
+        "win_rate": 0.4444444444444444,
+        "profit_factor": 1.6,
+        "max_drawdown_usd": 800.0
+      },
+      "short": {
+        "passed": false,
+        "win_rate": 0.0,
+        "profit_factor": 0.0,
+        "max_drawdown_usd": 0.0
+      }
     },
-    "short": {
-      "passed": false,
-      "win_rate": 0.0,
-      "profit_factor": 0.0,
-      "max_drawdown_usd": 0.0
+    "backtest_test": {
+      "long": {
+        "passed": false,
+        "trades": 0,
+        "win_rate": 0.0,
+        "profit_factor": 0.0,
+        "max_drawdown": 0.0
+      },
+      "short": {
+        "passed": null,
+        "note": "shorts disabled"
+      }
     }
   },
   "data": {
-    "bars": 130399,
-    "dataset_rows": 113532,
+    "bars": 130021,
+    "start_timestamp": "2019-05-06T13:30:00+00:00",
+    "end_timestamp": "2025-12-02T20:55:00+00:00",
+    "dataset_rows": 256514,
     "label_rows": {
-      "long": 111006,
-      "short": 111411
+      "long": 128257,
+      "short": 128257
     }
   }
 }

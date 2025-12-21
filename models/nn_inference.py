@@ -1,0 +1,193 @@
+"""
+Inference helpers for tiny MLP models.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import joblib
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+
+from core.simple_config import NN_CONFIG
+from features.engineer import add_features
+from models.nn_model import TinyMLP
+
+
+@dataclass
+class NNBundle:
+    model_dir: Path
+    feature_cols: List[str]
+    scaler: StandardScaler
+    long_model: TinyMLP
+    short_model: Optional[TinyMLP]
+    long_calibrator: Optional[LogisticRegression]
+    short_calibrator: Optional[LogisticRegression]
+    config: Dict[str, object]
+    device: torch.device
+
+
+def _apply_calibrator(calibrator: Optional[LogisticRegression], logits: np.ndarray) -> np.ndarray:
+    if calibrator is None:
+        return 1.0 / (1.0 + np.exp(-logits))
+    return calibrator.predict_proba(logits.reshape(-1, 1))[:, 1]
+
+
+def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = None) -> NNBundle:
+    base = Path(model_dir)
+    fold_dir = base / f"fold_{fold}"
+    model_path = fold_dir if fold_dir.exists() else base
+
+    config_path = model_path / "config.json"
+    if not config_path.exists():
+        raise FileNotFoundError(f"Missing config.json in {model_path}")
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    if config.get("model_type") != "tiny_mlp":
+        raise ValueError(f"Unsupported model_type: {config.get('model_type')}")
+
+    bar_minutes = config.get("bar_minutes")
+    if bar_minutes is not None and int(bar_minutes) != 5:
+        raise ValueError(f"Expected 5-minute bars, got bar_minutes={bar_minutes}")
+
+    feature_cols = config.get("feature_cols")
+    if not feature_cols:
+        raise ValueError("config.json missing feature_cols")
+
+    scaler_path = model_path / "scaler.pkl"
+    if not scaler_path.exists():
+        raise FileNotFoundError(f"Missing scaler.pkl in {model_path}")
+    scaler = joblib.load(scaler_path)
+
+    dev = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+
+    long_model_path = model_path / "model_long.pt"
+    if not long_model_path.exists():
+        raise FileNotFoundError(f"Missing model_long.pt in {model_path}")
+    long_model = TinyMLP(len(feature_cols))
+    long_model.load_state_dict(torch.load(long_model_path, map_location=dev))
+    long_model.to(dev).eval()
+
+    short_model_path = model_path / "model_short.pt"
+    short_model = None
+    if short_model_path.exists():
+        short_model = TinyMLP(len(feature_cols))
+        short_model.load_state_dict(torch.load(short_model_path, map_location=dev))
+        short_model.to(dev).eval()
+
+    long_cal_path = model_path / "calibrator_long.pkl"
+    short_cal_path = model_path / "calibrator_short.pkl"
+    long_cal = joblib.load(long_cal_path) if long_cal_path.exists() else None
+    short_cal = joblib.load(short_cal_path) if short_cal_path.exists() else None
+
+    nn_cfg = config.get("nn_config", {})
+    required_keys = [
+        "horizon_bars",
+        "threshold_ticks",
+        "feature_lookback",
+        "score_quantile",
+        "score_threshold",
+        "max_trades_per_day",
+        "min_bars_between_trades",
+    ]
+    missing = [k for k in required_keys if k not in nn_cfg]
+    if missing:
+        raise ValueError(f"config.json missing nn_config keys: {missing}")
+    if nn_cfg.get("score_threshold") is None and NN_CONFIG.score_threshold is None:
+        raise ValueError("Missing score_threshold in config.json and NN_CONFIG")
+
+    return NNBundle(
+        model_dir=model_path,
+        feature_cols=feature_cols,
+        scaler=scaler,
+        long_model=long_model,
+        short_model=short_model,
+        long_calibrator=long_cal,
+        short_calibrator=short_cal,
+        config=config,
+        device=dev,
+    )
+
+
+def predict_scores_for_bars(bars_df: pd.DataFrame, bundle: NNBundle) -> pd.DataFrame:
+    features_df = add_features(bars_df, verbose=False)
+    features_df = features_df.reset_index().rename(columns={"index": "idx"})
+
+    valid_mask = features_df[bundle.feature_cols].notna().all(axis=1)
+    valid_idx = features_df.loc[valid_mask, "idx"].values
+    X = features_df.loc[valid_mask, bundle.feature_cols].values
+    X = bundle.scaler.transform(X).astype(np.float32)
+
+    X_tensor = torch.from_numpy(X).to(bundle.device)
+    with torch.no_grad():
+        long_logits = bundle.long_model(X_tensor).cpu().numpy()
+        short_logits = None
+        if bundle.short_model is not None:
+            short_logits = bundle.short_model(X_tensor).cpu().numpy()
+
+    long_prob = _apply_calibrator(bundle.long_calibrator, long_logits)
+    if short_logits is None:
+        short_prob = np.zeros_like(long_prob)
+    else:
+        short_prob = _apply_calibrator(bundle.short_calibrator, short_logits)
+    score = np.maximum(long_prob, short_prob)
+    direction = np.where(long_prob >= short_prob, "long", "short")
+
+    prob_df = pd.DataFrame(
+        {
+            "idx": valid_idx,
+            "long_prob": long_prob,
+            "short_prob": short_prob,
+            "score": score,
+            "direction": direction,
+        }
+    )
+
+    full = pd.DataFrame({"idx": features_df["idx"].values})
+    full = full.merge(prob_df, on="idx", how="left")
+    return full
+
+
+def predict_latest(
+    bars_df: pd.DataFrame, bundle: NNBundle
+) -> Optional[Dict[str, float]]:
+    if bars_df.empty:
+        return None
+
+    features_df = add_features(bars_df, verbose=False)
+    last_row = features_df.iloc[-1]
+    if last_row[bundle.feature_cols].isna().any():
+        return None
+
+    X = last_row[bundle.feature_cols].values.reshape(1, -1)
+    X = bundle.scaler.transform(X).astype(np.float32)
+    X_tensor = torch.from_numpy(X).to(bundle.device)
+    with torch.no_grad():
+        long_logit = bundle.long_model(X_tensor).cpu().numpy()[0]
+        short_logit = None
+        if bundle.short_model is not None:
+            short_logit = bundle.short_model(X_tensor).cpu().numpy()[0]
+
+    long_prob = float(_apply_calibrator(bundle.long_calibrator, np.array([long_logit]))[0])
+    if short_logit is None:
+        short_prob = 0.0
+    else:
+        short_prob = float(_apply_calibrator(bundle.short_calibrator, np.array([short_logit]))[0])
+    score = max(long_prob, short_prob)
+    direction = "long" if long_prob >= short_prob else "short"
+
+    return {
+        "long_prob": long_prob,
+        "short_prob": short_prob,
+        "score": score,
+        "direction": direction,
+    }

@@ -5,6 +5,7 @@ Standalone version without complex dependencies.
 
 from dataclasses import dataclass
 from datetime import time
+from typing import Optional
 
 
 @dataclass
@@ -28,36 +29,87 @@ class RiskConfig:
 class TrainingConfig:
     """ML training parameters."""
 
-    lookback_bars: int = 100
-    label_mode: str = "per_bar"  # "per_bar" (independent) or "sequential" (one-trade-at-a-time labels)
-    stop_loss_ticks: int = 32  # tuned on clean dataset: positive EV at 2.0R
-    target_multiplier: float = 2.0
-    max_hold_bars: int = 12
+    # ========== LABELS V2: Market-Centric Fixed-Horizon ==========
+    # NEW: Replace TP/SL simulation with pure market movement labels
+    use_labels_v2: bool = True  # Use fixed-horizon labels (recommended)
+    horizon_bars: int = 12  # Look ahead H bars (12 bars @ 5min = 60 minutes)
+    threshold_ticks: int = 10  # Minimum movement for directional label (10 ticks = 2.5 MES points)
 
-    # Walk-forward splits
-    train_fraction: float = 0.6
+    # OLD: TP/SL Simulation Labels (deprecated, keep for backward compatibility)
+    lookback_bars: int = 100
+    label_mode: str = "per_bar"  # "per_bar" (independent) or "sequential" (deprecated)
+    stop_loss_ticks: int = 24  # Only for execution, NOT for labels
+    target_multiplier: float = 2.0  # Only for execution, NOT for labels
+    max_hold_bars: int = 12  # Only for execution, NOT for labels
+
+    # ========== WALK-FORWARD SPLITS WITH LOCKBOX ==========
+    train_fraction: float = 0.5  # Reduced from 0.6 to allow lockbox
     val_fraction: float = 0.2
     test_fraction: float = 0.2
+    lockbox_fraction: float = 0.1  # NEVER used for tuning, final evaluation only
 
-    # Model thresholds
-    min_probability_long: float = 0.65
-    min_probability_short: float = 0.65
+    # ========== PURE ML STRATEGY: Score + Trade Budget ==========
+    # NEW: Control frequency via ranking + daily budget, NOT high thresholds
     enable_long: bool = True
-    enable_short: bool = False  # Default off: shorts are currently structurally unfavorable
+    enable_short: bool = False  # MES shorts structurally unfavorable
 
-    # RandomForest regularization defaults (reduce overfitting)
-    rf_n_estimators: int = 500
-    rf_max_depth: int = 12
-    rf_min_samples_leaf: int = 10
-    rf_min_samples_split: int = 30
-    rf_max_features: str = "sqrt"
+    # Score threshold (quantile-based, fitted on train)
+    score_quantile: float = 0.995  # Top 0.5% of opportunities (yields ~1-2 trades/day)
 
-    # Performance gates (must pass to use live)
+    # Daily trade budget (hard limit)
+    max_trades_per_day: int = 2  # Target ~1-2 trades/day on average
+    min_bars_between_trades: int = 12  # Min 60 minutes between entries (avoid rapid-fire)
+
+    # Deprecated: high fixed thresholds (old approach)
+    min_probability_long: float = 0.50  # Lowered from 0.65 (use score_quantile instead)
+    min_probability_short: float = 0.50
+
+    # ========== MODEL REGULARIZATION ==========
+    # Conservative RF parameters to prevent overfitting
+    rf_n_estimators: int = 500           # More trees = better averaging
+    rf_max_depth: int = 10                # Limit depth to prevent memorization
+    rf_min_samples_leaf: int = 15         # Require meaningful patterns
+    rf_min_samples_split: int = 30        # Conservative splitting
+    rf_max_features: str = "sqrt"         # Reduce tree correlation
+
+    # ========== FEATURE SELECTION ==========
+    feature_selection_mode: str = "recommended"  # "all" (36), "recommended" (20), "auto"
+    top_n_features: int = 20
+
+    # ========== PERFORMANCE GATES ==========
+    # Gates for live trading approval (conservative)
     min_win_rate: float = 0.52
     min_profit_factor: float = 1.3
     max_drawdown: float = 1500.0
 
 
+@dataclass
+class NNConfig:
+    """Config for the tiny MLP pipeline."""
+
+    horizon_bars: int = 12
+    threshold_ticks: int = 12
+    feature_lookback: int = 100
+    embargo_bars: int = 0  # 0 means "compute from horizon + lookback"
+
+    score_quantile: float = 0.995
+    score_threshold: Optional[float] = None
+
+    max_trades_per_day: int = 2
+    min_bars_between_trades: int = 12
+    enable_long: bool = True
+    enable_short: bool = False
+
+    train_fraction: float = 0.6
+    val_fraction: float = 0.2
+    test_fraction: float = 0.2
+
+    folds: int = 1
+    seed: int = 42
+    feature_selection_mode: str = "recommended"
+
+
 # Global instances
 RISK_CONFIG = RiskConfig()
 TRAINING_CONFIG = TrainingConfig()
+NN_CONFIG = NNConfig()

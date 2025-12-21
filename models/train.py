@@ -6,10 +6,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import asdict
 from datetime import time
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+# Add project root to path if not already installed as package
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 import joblib
 import numpy as np
@@ -26,8 +32,9 @@ from sklearn.metrics import (
 
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from data.clean_bars import clean_bars
-from features.engineer import add_features, select_features
+from features.engineer import add_features, get_recommended_features, select_features
 from features.labels import create_per_bar_trade_labels, create_sequential_trade_labels
+from models.validate_splits import run_all_diagnostics
 
 
 def load_bars(h5_path: str) -> pd.DataFrame:
@@ -42,7 +49,19 @@ def load_bars(h5_path: str) -> pd.DataFrame:
 def _prepare_datasets(bars_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
     features_df = add_features(bars_df)
     features_df = features_df.reset_index().rename(columns={"index": "idx"})
-    feature_cols = select_features()
+
+    # Feature selection based on config
+    feature_selection_mode = getattr(TRAINING_CONFIG, "feature_selection_mode", "all")
+    if feature_selection_mode == "recommended":
+        feature_cols = get_recommended_features()
+        print(f"\n✓ Using recommended {len(feature_cols)} features (top ~75-80% importance)")
+    elif feature_selection_mode == "all":
+        feature_cols = select_features()
+        print(f"\n✓ Using all {len(feature_cols)} features")
+    else:  # "auto" mode
+        # Will be handled by two-stage training in train_models()
+        feature_cols = select_features()
+        print(f"\n✓ Starting with all {len(feature_cols)} features (auto-selection enabled)")
 
     label_mode = (getattr(TRAINING_CONFIG, "label_mode", "sequential") or "sequential").strip().lower()
     if label_mode not in {"sequential", "per_bar"}:
@@ -235,6 +254,29 @@ def train_models(
         TRAINING_CONFIG.test_fraction,
         purge_bars,
     )
+
+    # Run comprehensive data leakage diagnostics
+    print("\n" + "="*60)
+    print("RUNNING DATA LEAKAGE DIAGNOSTICS")
+    print("="*60)
+    try:
+        features_df = add_features(bars_df, verbose=False)
+        features_df = features_df.reset_index().rename(columns={"index": "idx"})
+
+        run_all_diagnostics(
+            bars_df=bars_df,
+            long_df=long_df,
+            short_df=short_df,
+            features_df=features_df,
+            feature_cols=feature_cols,
+            windows={"training": train_w, "validation": val_w, "test": test_w},
+            purge_bars=purge_bars,
+            max_hold_bars=TRAINING_CONFIG.max_hold_bars,
+        )
+    except Exception as e:
+        print(f"\n⚠️  DATA LEAKAGE DIAGNOSTIC FAILED: {e}")
+        print("Please investigate and fix before proceeding with training.")
+        raise
 
     def _slice_by_window(df: pd.DataFrame, window: tuple[int, int]) -> pd.DataFrame:
         start, end = (int(window[0]), int(window[1]))

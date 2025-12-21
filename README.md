@@ -1,12 +1,12 @@
 # Topstep ML v2
 
-End-to-end ML trading system for TopstepX (MES) with strict risk guardrails, no lookahead in features, and trade-outcome labels.
+End-to-end ML trading system for TopstepX (MES) with strict risk guardrails, no lookahead in features, and market-centric labels.
 
 ## What this does
 
 - Prepares 1-minute MES data into RTH-only 5-minute bars.
-- Builds leakage-safe features and trade-outcome labels.
-- Trains separate long/short classifiers with time-aware splits and purge gaps.
+- Builds leakage-safe features and fixed-horizon market labels.
+- Trains a tiny MLP (long/short) with walk-forward splits and embargo gaps.
 - Backtests with Topstep-style daily loss and trailing drawdown rules.
 - Provides a live runner that can paper trade or send orders via ProjectX.
 
@@ -26,16 +26,16 @@ pip install -r requirements.txt
 python3 data/prepare_dataset.py
 ```
 
-3) Train models
+3) Train models (tiny MLP)
 
 ```bash
-python3 models/train.py --data-path data/processed/mes_bars.h5
+python3 models/nn_train.py --data-path data/processed/mes_bars.h5 --output-dir models/nn_saved
 ```
 
-4) Backtest
+4) Backtest (NN, pure ML)
 
 ```bash
-python3 backtesting/backtest.py --data-path data/processed/mes_bars.h5 --model-dir models/saved --save-trades analysis/backtest_trades.csv
+python3 backtesting/backtest.py --strategy nn --data-path data/processed/mes_bars.h5 --model-dir models/nn_saved --save-trades analysis/backtest_trades.csv
 ```
 
 5) Quick end-to-end check (subset)
@@ -49,13 +49,13 @@ python3 analysis/test_pipeline.py --bars 5000 --save-models
 The live runner pulls bars from ProjectX and evaluates the ML signal on each new 5-minute bar.
 
 ```bash
-python3 live/runner.py --model-dir models/saved --symbol MES
+python3 live/runner.py --model-dir models/nn_saved --symbol MES
 ```
 
 To send live orders (use with caution):
 
 ```bash
-python3 live/runner.py --model-dir models/saved --symbol MES --live
+python3 live/runner.py --model-dir models/nn_saved --symbol MES --live
 ```
 
 Required environment variables in `.env`:
@@ -68,8 +68,37 @@ Required environment variables in `.env`:
 ## Notes
 
 - The data prep script defaults to `data/raw/MES_1min_bars.csv`. If that file is missing, it will fall back to another CSV in `data/raw`.
-- Training uses time-ordered splits with a purge gap equal to the max hold period to reduce label leakage.
+- Training uses time-ordered splits with an embargo gap at least equal to horizon + feature lookback.
 - The live runner uses the existing `core/risk_management.py` guardrails for sizing and daily loss enforcement.
+
+## Tiny MLP pipeline (pure ML)
+
+Label definition:
+
+```
+future_close = close.shift(-horizon_bars)
+ret_ticks = (future_close - close) / tick_size
+y_long = 1 if ret_ticks >= +threshold_ticks else 0
+y_short = 1 if ret_ticks <= -threshold_ticks else 0
+```
+
+Model architecture:
+
+```
+Input -> Linear(32) -> ReLU -> Dropout(0.2) -> Linear(16) -> ReLU -> Dropout(0.1) -> Linear(1)
+```
+
+Trade frequency control:
+
+- Score threshold comes from a train-only score quantile.
+- Backtest ranks top-N scores per day (N = max_trades_per_day) with min bar spacing.
+- Live uses the same saved threshold and daily trade budget.
+
+Leakage tripwire tests:
+
+```bash
+python3 analysis/leakage_tests.py --data-path data/processed/mes_bars.h5
+```
 
 ## Project structure
 

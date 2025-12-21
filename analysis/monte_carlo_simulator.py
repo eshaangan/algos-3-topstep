@@ -65,6 +65,13 @@ class MonteCarloSimulator:
                     "win_rate": {"p05": 0.0, "p50": 0.0, "p95": 0.0},
                     "profit_factor": {"p05": 0.0, "p50": 0.0, "p95": 0.0},
                     "net_pnl": {"p05": 0.0, "p50": 0.0, "p95": 0.0},
+                },
+                "raw_results": {
+                    "ending_equities": [],
+                    "max_drawdowns": [],
+                    "win_rates": [],
+                    "profit_factors": [],
+                    "net_pnls": [],
                 }
             }
         
@@ -76,15 +83,20 @@ class MonteCarloSimulator:
                 # Default block size: sqrt of number of trades, but at least 5 and at most 20
                 block_size = max(5, min(20, int(np.sqrt(self.n_trades))))
             
+            # If we have fewer trades than block_size, adjust block_size to fit
+            # This prevents n_blocks from being <= 0
+            if self.n_trades < block_size:
+                block_size = self.n_trades
+            
             # Create overlapping blocks (sliding window)
             # This preserves more temporal structure than non-overlapping blocks
-            n_blocks = self.n_trades - block_size + 1
+            n_blocks = max(1, self.n_trades - block_size + 1)  # Ensure at least 1 block
             blocks = []
             for i in range(n_blocks):
                 blocks.append(self.pnl_values[i:i + block_size])
             
             # Calculate how many blocks we need to get approximately sample_size trades
-            blocks_needed = int(np.ceil(sample_size / block_size))
+            blocks_needed = int(np.ceil(sample_size / block_size)) if block_size > 0 else 1
         
         ending_equities = []
         max_drawdowns = []
