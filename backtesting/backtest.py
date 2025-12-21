@@ -18,6 +18,7 @@ import pandas as pd
 
 from core.risk_presets import RISK_PRESET_NAME, get_risk_config
 from core.selection import DailyTopNSelector, DayAdaptiveTopNSelector, in_session
+from core.session_utils import is_entry_feasible
 from core.simple_config import TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features, select_features
@@ -234,6 +235,9 @@ def run_backtest_nn(
     daily_trade_count = 0
     daily_trades_list: List[int] = []
 
+    # Feasibility tracking
+    rejected_by_feasibility = 0
+
     for i in range(start, end - 1):
         bar = bars_df.iloc[i]
         bar_time = _to_chicago(bar["timestamp"])
@@ -350,6 +354,25 @@ def run_backtest_nn(
         ):
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug("Signal rejected: outside_session idx=%s", i)
+            continue
+
+        # Feasibility check: ensure enough bars left in RTH for time-exit
+        if not is_entry_feasible(
+            bar["timestamp"],
+            horizon_bars=horizon_bars,
+            bar_minutes=bar_minutes,
+            rth_end_time=session_end,
+            execution_mode=execution_mode,
+            session_mode=session_mode,
+        ):
+            rejected_by_feasibility += 1
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Signal rejected: feasibility idx=%s time=%s horizon=%s",
+                    i,
+                    bar["timestamp"],
+                    horizon_bars,
+                )
             continue
 
         probs = prob_df.iloc[i]
@@ -540,12 +563,23 @@ def run_backtest_nn(
     if not trades_df.empty and "reason" in trades_df.columns:
         exit_reason_avg_pnl = trades_df.groupby("reason")["pnl"].mean().to_dict()
 
+    # Feasibility stats
+    total_bars_checked = end - start - 1
+    feasibility_stats = {
+        "rejected_by_feasibility": rejected_by_feasibility,
+        "total_bars_checked": total_bars_checked,
+        "feasibility_rejection_rate": (
+            float(rejected_by_feasibility) / total_bars_checked if total_bars_checked > 0 else 0.0
+        ),
+    }
+
     return {
         "summary": summary,
         "trades": trades,
         "daily_stats": daily_stats,
         "exit_reason_counts": exit_reason_counts,
         "exit_reason_avg_pnl": exit_reason_avg_pnl,
+        "feasibility_stats": feasibility_stats,
     }
 
 def load_models(model_dir: str) -> Tuple[object, object, Dict[str, object]]:

@@ -13,6 +13,7 @@ from typing import Dict, Optional
 import pandas as pd
 
 from core.selection import DailyTopNSelector, DayAdaptiveTopNSelector, in_session
+from core.session_utils import is_entry_feasible
 from core.models import Signal, SignalAction
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from models.nn_inference import load_nn_bundle, predict_latest
@@ -246,6 +247,22 @@ class MLStrategy:
             session_start=self.session_start,
             session_end=self.session_end,
         ):
+            return None
+
+        # Feasibility check: ensure enough bars left in RTH for time-exit
+        if not is_entry_feasible(
+            last_row["timestamp"],
+            horizon_bars=self.horizon_bars,
+            bar_minutes=self.bar_minutes,
+            rth_end_time=self.session_end,
+            execution_mode=self.execution_mode,
+            session_mode=self.session_mode,
+        ):
+            LOGGER.info(
+                "Signal rejected by feasibility: time=%s horizon=%s bars_left insufficient",
+                last_row["timestamp"],
+                self.horizon_bars,
+            )
             return None
 
         long_prob = probs["long_prob"]

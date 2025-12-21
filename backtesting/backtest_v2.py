@@ -25,6 +25,7 @@ import pandas as pd
 
 from core.risk_presets import RISK_PRESET_NAME, get_risk_config
 from core.selection import DailyTopNSelector, DayAdaptiveTopNSelector, in_session
+from core.session_utils import is_entry_feasible
 from core.simple_config import TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features
@@ -208,6 +209,9 @@ def run_backtest_v2(
     # Daily tracking
     daily_trades_list: List[int] = []
 
+    # Feasibility tracking
+    rejected_by_feasibility = 0
+
     selection_mode = str(selection_mode).lower()
     if global_floor_score is None:
         global_floor_score = float(score_threshold)
@@ -371,6 +375,25 @@ def run_backtest_v2(
         ):
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug("Signal rejected: outside_session idx=%s", i)
+            continue
+
+        # Feasibility check: ensure enough bars left in RTH for time-exit
+        if not is_entry_feasible(
+            bar["timestamp"],
+            horizon_bars=horizon_bars,
+            bar_minutes=bar_minutes,
+            rth_end_time=RISK_CONFIG.session_end,
+            execution_mode=execution_mode,
+            session_mode=session_mode,
+        ):
+            rejected_by_feasibility += 1
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Signal rejected: feasibility idx=%s time=%s horizon=%s",
+                    i,
+                    bar["timestamp"],
+                    horizon_bars,
+                )
             continue
 
         # Get ML signal
@@ -579,6 +602,16 @@ def run_backtest_v2(
         trades_df.to_csv(save_trades_path, index=False)
         print(f"\n✓ Saved {len(trades)} trades to {save_trades_path}")
 
+    # Feasibility stats
+    total_bars_checked = end - start - 1
+    feasibility_stats = {
+        "rejected_by_feasibility": rejected_by_feasibility,
+        "total_bars_checked": total_bars_checked,
+        "feasibility_rejection_rate": (
+            float(rejected_by_feasibility) / total_bars_checked if total_bars_checked > 0 else 0.0
+        ),
+    }
+
     return {
         "summary": summary,
         "trades": trades,
@@ -586,6 +619,7 @@ def run_backtest_v2(
         "daily_stats": daily_stats,
         "exit_reason_counts": exit_reason_counts,
         "exit_reason_avg_pnl": exit_reason_avg_pnl,
+        "feasibility_stats": feasibility_stats,
     }
 
 
@@ -711,6 +745,9 @@ def main() -> None:
     if results.get("exit_reason_avg_pnl"):
         print("\nExit reason avg PnL:")
         print(json.dumps(results["exit_reason_avg_pnl"], indent=2))
+    if results.get("feasibility_stats"):
+        print("\nFeasibility stats:")
+        print(json.dumps(results["feasibility_stats"], indent=2))
 
 
 if __name__ == "__main__":
