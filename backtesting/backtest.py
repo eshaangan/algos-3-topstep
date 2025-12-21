@@ -16,11 +16,14 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from core.risk_presets import RISK_PRESET_NAME, get_risk_config
 from core.selection import DailyTopNSelector, in_session
-from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
+from core.simple_config import TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features, select_features
 from models.nn_inference import load_nn_bundle, predict_scores_for_bars
+
+RISK_CONFIG = get_risk_config(RISK_PRESET_NAME)
 
 
 def _to_chicago(ts: pd.Timestamp) -> pd.Timestamp:
@@ -171,6 +174,12 @@ def run_backtest_nn(
     tick_value = tick_value or RISK_CONFIG.tick_value
     session_start = session_start or RISK_CONFIG.session_start
     session_end = session_end or RISK_CONFIG.session_end
+
+    if execution_mode == "time_exit":
+        if exit_price_mode != "bar_close":
+            raise ValueError("Aligned time-exit requires exit_price_mode='bar_close'.")
+        if max_hold_bars != horizon_bars:
+            raise ValueError("Aligned time-exit requires max_hold_bars == horizon_bars.")
 
     start = 0 if start_idx is None else int(start_idx)
     end = len(bars_df) if end_idx is None else int(end_idx)
@@ -899,16 +908,16 @@ def main() -> None:
         enable_short = bool(nn_cfg["enable_short"])
         horizon_bars = int(nn_cfg["horizon_bars"])
         execution_mode = str(nn_cfg.get("execution_mode", "time_exit"))
-        exit_price_mode = str(nn_cfg.get("exit_price_mode", "next_open"))
+        exit_price_mode = str(nn_cfg.get("exit_price_mode", "bar_close"))
         session_mode = str(nn_cfg.get("session_mode", "RTH"))
         deadline_time = nn_cfg.get("deadline_time")
         deadline_relax_factor = float(nn_cfg.get("deadline_relax_factor", 0.98))
         bar_minutes = int(nn_cfg.get("bar_minutes", 5))
         max_hold_bars = int(nn_cfg.get("max_hold_bars", horizon_bars))
-        tick_size = float(nn_cfg.get("tick_size", RISK_CONFIG.tick_size))
-        tick_value = float(nn_cfg.get("tick_value", RISK_CONFIG.tick_value))
-        stop_loss_ticks = int(nn_cfg.get("stop_loss_ticks", TRAINING_CONFIG.stop_loss_ticks))
-        target_multiplier = float(nn_cfg.get("target_multiplier", TRAINING_CONFIG.target_multiplier))
+        tick_size = float(nn_cfg["tick_size"])
+        tick_value = float(nn_cfg["tick_value"])
+        stop_loss_ticks = int(nn_cfg["stop_loss_ticks"])
+        target_multiplier = float(nn_cfg["target_multiplier"])
         risk_cfg = bundle.config.get("risk_config", {})
         session_start = RISK_CONFIG.session_start
         session_end = RISK_CONFIG.session_end

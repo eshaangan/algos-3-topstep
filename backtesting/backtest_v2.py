@@ -23,10 +23,13 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from core.risk_presets import RISK_PRESET_NAME, get_risk_config
 from core.selection import DailyTopNSelector, in_session
-from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
+from core.simple_config import TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features
+
+RISK_CONFIG = get_risk_config(RISK_PRESET_NAME)
 
 
 def _to_chicago(ts: pd.Timestamp) -> pd.Timestamp:
@@ -167,6 +170,11 @@ def run_backtest_v2(
     if horizon_bars is None:
         horizon_bars = TRAINING_CONFIG.horizon_bars
     max_hold_bars = max_hold_bars or horizon_bars
+    if execution_mode == "time_exit":
+        if exit_price_mode != "bar_close":
+            raise ValueError("Aligned time-exit requires exit_price_mode='bar_close'.")
+        if max_hold_bars != horizon_bars:
+            raise ValueError("Aligned time-exit requires max_hold_bars == horizon_bars.")
 
     # Backtest window
     start = start_idx or 0
@@ -562,7 +570,7 @@ def main() -> None:
     enable_short = policy_v2.get("enable_short", False)
     horizon_bars = int(policy_v2.get("horizon_bars", TRAINING_CONFIG.horizon_bars))
     execution_mode = str(policy_v2.get("execution_mode", "time_exit"))
-    exit_price_mode = str(policy_v2.get("exit_price_mode", "next_open"))
+    exit_price_mode = str(policy_v2.get("exit_price_mode", "bar_close"))
     session_mode = str(policy_v2.get("session_mode", "RTH"))
     deadline_time = policy_v2.get("deadline_time")
     if isinstance(deadline_time, str):

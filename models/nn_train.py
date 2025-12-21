@@ -32,7 +32,7 @@ from core.selection import resolve_score_quantile
 from core.simple_config import NN_CONFIG, RISK_CONFIG, TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features, get_recommended_features, select_features
-from features.labels_v2 import make_fixed_horizon_labels
+from features.labels_aligned import make_aligned_fixed_horizon_labels
 from models.nn_model import TinyMLP
 
 
@@ -62,7 +62,9 @@ def load_bars(h5_path: str) -> pd.DataFrame:
 
 def build_features(bars_df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
     features_df = add_features(bars_df, verbose=True)
-    features_df = features_df.reset_index().rename(columns={"index": "idx"})
+    features_df = features_df.reset_index(drop=True)
+    if "idx" not in features_df.columns:
+        features_df.insert(0, "idx", np.arange(len(features_df)))
 
     feature_selection_mode = getattr(NN_CONFIG, "feature_selection_mode", "recommended")
     if feature_selection_mode == "all":
@@ -83,11 +85,13 @@ def build_labels(
     session_start: time,
     session_end: time,
 ) -> pd.DataFrame:
-    labels_df = make_fixed_horizon_labels(
+    labels_df = make_aligned_fixed_horizon_labels(
         bars_df,
         horizon_bars=horizon_bars,
         threshold_ticks=threshold_ticks,
         tick_size=tick_size,
+        entry_price_col="open",
+        exit_price_col="close",
     )
 
     if session_mode.upper() == "RTH":
@@ -102,7 +106,7 @@ def build_labels(
 
 
 def _embargo_bars(horizon_bars: int, feature_lookback: int, embargo_bars: int) -> int:
-    min_embargo = horizon_bars + feature_lookback
+    min_embargo = horizon_bars + feature_lookback + 1
     if embargo_bars <= 0:
         return min_embargo
     return max(int(embargo_bars), min_embargo)
@@ -122,7 +126,7 @@ def build_walk_forward_windows(
     """
     Build walk-forward windows with an embargo gap between train/val/test.
 
-    Embargo is enforced to be at least horizon_bars + feature_lookback.
+    Embargo is enforced to be at least horizon_bars + feature_lookback + 1.
     """
     if not np.isclose(train_fraction + val_fraction + test_fraction, 1.0):
         raise ValueError("train/val/test fractions must sum to 1.0")
@@ -445,7 +449,8 @@ def main() -> None:
         test_fraction=NN_CONFIG.test_fraction,
         folds=args.folds,
     )
-    assert embargo >= NN_CONFIG.horizon_bars, "Embargo must be >= horizon_bars"
+    min_embargo = NN_CONFIG.horizon_bars + NN_CONFIG.feature_lookback + 1
+    assert embargo >= min_embargo, "Embargo must be >= feature_lookback + horizon_bars + 1"
 
     score_quantile = resolve_score_quantile(
         score_quantile=NN_CONFIG.score_quantile,
@@ -522,6 +527,9 @@ def main() -> None:
         nn_cfg["score_threshold"] = results["score_threshold"]
         nn_cfg["score_quantile"] = score_quantile
         nn_cfg["max_hold_bars"] = NN_CONFIG.horizon_bars
+        nn_cfg["label_version"] = "aligned_fixed_horizon_v1"
+        nn_cfg["label_entry_price_col"] = "open"
+        nn_cfg["label_exit_price_col"] = "close"
         nn_cfg["stop_loss_ticks"] = TRAINING_CONFIG.stop_loss_ticks
         nn_cfg["target_multiplier"] = TRAINING_CONFIG.target_multiplier
         nn_cfg["tick_size"] = RISK_CONFIG.tick_size

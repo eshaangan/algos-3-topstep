@@ -18,26 +18,28 @@ from core.config import SessionConfig, StrategyConfig
 from core.execution_live import LiveExecutionEngine
 from core.projectx_client import ProjectXClient
 from core.risk_management import RiskManager
-from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
+from core.risk_presets import RISK_PRESET_NAME, get_risk_config
+from core.simple_config import TRAINING_CONFIG
 from live.strategy import MLStrategy
 
 LOGGER = logging.getLogger("live_runner")
 
 
 def _build_configs(strategy: MLStrategy) -> tuple[CoreRiskConfig, SessionConfig, StrategyConfig]:
+    preset_cfg = get_risk_config(RISK_PRESET_NAME)
     risk_cfg = CoreRiskConfig()
     risk_meta = strategy.metadata.get("risk_config", {}) if isinstance(strategy.metadata, dict) else {}
-    risk_cfg.starting_balance = float(risk_meta.get("starting_balance", RISK_CONFIG.starting_balance))
-    risk_cfg.max_daily_loss = float(risk_meta.get("max_daily_loss", RISK_CONFIG.max_daily_loss))
-    risk_cfg.trailing_drawdown = float(risk_meta.get("trailing_drawdown", RISK_CONFIG.trailing_drawdown))
-    risk_cfg.fixed_risk_per_trade = float(risk_meta.get("fixed_risk_per_trade", RISK_CONFIG.fixed_risk_per_trade))
-    risk_cfg.max_contracts = int(risk_meta.get("max_contracts", RISK_CONFIG.max_contracts))
-    risk_cfg.tick_size = float(risk_meta.get("tick_size", RISK_CONFIG.tick_size))
-    risk_cfg.tick_value = float(risk_meta.get("tick_value", RISK_CONFIG.tick_value))
+    risk_cfg.starting_balance = float(risk_meta.get("starting_balance", preset_cfg.starting_balance))
+    risk_cfg.max_daily_loss = float(risk_meta.get("max_daily_loss", preset_cfg.max_daily_loss))
+    risk_cfg.trailing_drawdown = float(risk_meta.get("trailing_drawdown", preset_cfg.trailing_drawdown))
+    risk_cfg.fixed_risk_per_trade = float(risk_meta.get("fixed_risk_per_trade", preset_cfg.fixed_risk_per_trade))
+    risk_cfg.max_contracts = int(risk_meta.get("max_contracts", preset_cfg.max_contracts))
+    risk_cfg.tick_size = float(risk_meta.get("tick_size", preset_cfg.tick_size))
+    risk_cfg.tick_value = float(risk_meta.get("tick_value", preset_cfg.tick_value))
 
     session_mode = getattr(strategy, "session_mode", "RTH")
-    session_start = risk_meta.get("session_start", RISK_CONFIG.session_start.strftime("%H:%M:%S"))
-    session_end = risk_meta.get("session_end", RISK_CONFIG.session_end.strftime("%H:%M:%S"))
+    session_start = risk_meta.get("session_start", preset_cfg.session_start.strftime("%H:%M:%S"))
+    session_end = risk_meta.get("session_end", preset_cfg.session_end.strftime("%H:%M:%S"))
     if session_mode.upper() == "24H":
         session_start = "00:00"
         session_end = "23:59"

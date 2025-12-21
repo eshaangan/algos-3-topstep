@@ -55,13 +55,13 @@ class MLStrategy:
         self.deadline_time = nn_cfg.get("deadline_time")
         self.deadline_relax_factor = float(nn_cfg.get("deadline_relax_factor", 0.98))
         self.execution_mode = str(nn_cfg.get("execution_mode", "time_exit"))
-        self.exit_price_mode = str(nn_cfg.get("exit_price_mode", "next_open"))
+        self.exit_price_mode = str(nn_cfg.get("exit_price_mode", "bar_close"))
         self.horizon_bars = int(nn_cfg["horizon_bars"])
         self.bar_minutes = int(nn_cfg.get("bar_minutes", 5))
-        self.stop_loss_ticks = int(nn_cfg.get("stop_loss_ticks", TRAINING_CONFIG.stop_loss_ticks))
-        self.target_multiplier = float(nn_cfg.get("target_multiplier", TRAINING_CONFIG.target_multiplier))
-        self.tick_size = float(nn_cfg.get("tick_size", RISK_CONFIG.tick_size))
-        self.tick_value = float(nn_cfg.get("tick_value", RISK_CONFIG.tick_value))
+        self.stop_loss_ticks = int(nn_cfg["stop_loss_ticks"])
+        self.target_multiplier = float(nn_cfg["target_multiplier"])
+        self.tick_size = float(nn_cfg["tick_size"])
+        self.tick_value = float(nn_cfg["tick_value"])
 
         self.selector = DailyTopNSelector(
             max_trades_per_day=self.max_trades_per_day,
@@ -75,6 +75,7 @@ class MLStrategy:
             deadline_relax_factor=self.deadline_relax_factor,
         )
         self.open_position: Optional[Dict[str, object]] = None
+        self.pending_entry: Optional[Dict[str, object]] = None
 
     def _bar_index(self, ts: pd.Timestamp) -> int:
         ts = pd.to_datetime(ts, utc=True)
@@ -100,10 +101,10 @@ class MLStrategy:
             hold_bars = bar_index - entry_idx
             if hold_bars >= self.horizon_bars:
                 reason = f"TIME_EXIT after {hold_bars} bars"
-                if self.exit_price_mode == "next_open":
+                if self.exit_price_mode == "bar_close":
                     exit_price = float(last_row["close"])
                 else:
-                    exit_price = float(last_row["close"])
+                    exit_price = float(last_row["open"])
                 self.open_position = None
                 return Signal(
                     action=SignalAction.EXIT,
@@ -120,6 +121,70 @@ class MLStrategy:
                 )
 
         if self.open_position is not None:
+            return None
+
+        if self.pending_entry is not None:
+            if not in_session(
+                last_row["timestamp"],
+                session_mode=self.session_mode,
+                session_start=self.session_start,
+                session_end=self.session_end,
+            ):
+                LOGGER.warning("Dropping pending entry outside session.")
+                self.pending_entry = None
+                return None
+            entry_idx = int(self.pending_entry["entry_idx"])
+            if bar_index >= entry_idx:
+                direction = str(self.pending_entry["direction"])
+                long_prob = float(self.pending_entry["long_prob"])
+                short_prob = float(self.pending_entry["short_prob"])
+                score = float(self.pending_entry["score"])
+
+                entry_price = float(last_row["open"])
+                stop_distance = self.stop_loss_ticks * self.tick_size
+                target_distance = stop_distance * self.target_multiplier
+
+                if direction == "long":
+                    action = SignalAction.ENTER_LONG
+                    stop_price = entry_price - stop_distance
+                    target_price = entry_price + target_distance
+                else:
+                    action = SignalAction.ENTER_SHORT
+                    stop_price = entry_price + stop_distance
+                    target_price = entry_price - target_distance
+
+                metadata = {
+                    "ideal_entry": entry_price,
+                    "risk_ticks": self.stop_loss_ticks,
+                    "target_rr_multiple": self.target_multiplier,
+                    "strategy_mode": "ml_only",
+                    "long_prob": long_prob,
+                    "short_prob": short_prob,
+                    "score": score,
+                    "score_threshold": float(self.score_threshold),
+                    "execution_mode": self.execution_mode,
+                    "exit_price_mode": self.exit_price_mode,
+                }
+                reason = (
+                    f"ML entry {direction.upper()} | score={score:.3f} "
+                    f"long_prob={long_prob:.3f} short_prob={short_prob:.3f}"
+                )
+                self.selector.register_trade(last_row["timestamp"], bar_index=bar_index)
+                self.open_position = {
+                    "entry_time": last_row["timestamp"],
+                    "entry_idx": bar_index,
+                    "direction": direction,
+                }
+                self.pending_entry = None
+                return Signal(
+                    action=action,
+                    symbol=self.symbol,
+                    timestamp=last_row["timestamp"].to_pydatetime(),
+                    stop_price=stop_price,
+                    target_price=target_price,
+                    reason=reason,
+                    metadata=metadata,
+                )
             return None
 
         if not in_session(
@@ -146,56 +211,22 @@ class MLStrategy:
             self.selector.log_rejection()
             return None
 
-        # Use fixed stop from config to match backtest and model training
-        # This ensures live performance matches backtest expectations
-        stop_ticks = self.stop_loss_ticks
-
-        last_close = float(last_row["close"])
-        stop_distance = stop_ticks * self.tick_size
-        target_distance = stop_distance * self.target_multiplier
-
-        if direction == "long":
-            action = SignalAction.ENTER_LONG
-            stop_price = last_close - stop_distance
-            target_price = last_close + target_distance
-        else:
-            action = SignalAction.ENTER_SHORT
-            stop_price = last_close + stop_distance
-            target_price = last_close - target_distance
-
-        metadata = {
-            "ideal_entry": last_close,
-            "risk_ticks": stop_ticks,
-            "target_rr_multiple": self.target_multiplier,
-            "strategy_mode": "ml_only",
+        self.pending_entry = {
+            "signal_time": last_row["timestamp"],
+            "signal_idx": bar_index,
+            "entry_idx": bar_index + 1,
+            "direction": direction,
             "long_prob": long_prob,
             "short_prob": short_prob,
             "score": score,
-            "score_threshold": float(self.score_threshold),
-            "execution_mode": self.execution_mode,
         }
 
         reason = (
-            f"ML signal {direction.upper()} | score={score:.3f} "
+            f"ML signal queued for next bar {direction.upper()} | score={score:.3f} "
             f"long_prob={long_prob:.3f} short_prob={short_prob:.3f}"
         )
-
-        self.selector.register_trade(last_row["timestamp"], bar_index=bar_index)
-        self.open_position = {
-            "entry_time": last_row["timestamp"],
-            "entry_idx": bar_index,
-            "direction": direction,
-        }
-
-        return Signal(
-            action=action,
-            symbol=self.symbol,
-            timestamp=last_row["timestamp"].to_pydatetime(),
-            stop_price=stop_price,
-            target_price=target_price,
-            reason=reason,
-            metadata=metadata,
-        )
+        LOGGER.info(reason)
+        return None
 
     def describe(self) -> Dict[str, object]:
         return {

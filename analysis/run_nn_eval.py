@@ -20,9 +20,11 @@ if str(project_root) not in sys.path:
 
 from backtesting.backtest import run_backtest_nn
 from core.selection import bars_per_day
-from core.simple_config import RISK_CONFIG
+from core.risk_presets import RISK_PRESET_NAME, get_risk_config
 from data.clean_bars import clean_bars
-from models.nn_inference import load_nn_bundle, predict_scores_for_bars
+from models.nn_inference import load_nn_bundle, predict_scores_for_bars, validate_nn_config
+
+RISK_CONFIG = get_risk_config(RISK_PRESET_NAME)
 
 
 def _load_bars(h5_path: str) -> pd.DataFrame:
@@ -44,7 +46,12 @@ def _ensure_model(
 ) -> None:
     model_path = Path(model_dir) / f"fold_{fold}" / "config.json"
     if model_path.exists() and not force_train:
-        return
+        try:
+            cfg = json.loads(model_path.read_text())
+            validate_nn_config(cfg.get("nn_config", {}))
+            return
+        except Exception as exc:
+            print(f"Model config invalid ({exc}); retraining.")
     cmd = [
         sys.executable,
         str(project_root / "models" / "nn_train.py"),
@@ -106,19 +113,19 @@ def main() -> None:
         enable_long=bool(nn_cfg["enable_long"]),
         enable_short=bool(nn_cfg["enable_short"]),
         horizon_bars=int(nn_cfg["horizon_bars"]),
-        execution_mode=str(nn_cfg.get("execution_mode", "time_exit")),
-        exit_price_mode=str(nn_cfg.get("exit_price_mode", "bar_close")),
-        session_mode=str(nn_cfg.get("session_mode", "RTH")),
+        execution_mode=str(nn_cfg["execution_mode"]),
+        exit_price_mode=str(nn_cfg["exit_price_mode"]),
+        session_mode=str(nn_cfg["session_mode"]),
         deadline_time=nn_cfg.get("deadline_time"),
         deadline_relax_factor=float(nn_cfg.get("deadline_relax_factor", 0.98)),
-        bar_minutes=int(nn_cfg.get("bar_minutes", 5)),
+        bar_minutes=int(nn_cfg["bar_minutes"]),
         session_start=session_start,
         session_end=session_end,
-        stop_loss_ticks=int(nn_cfg.get("stop_loss_ticks", 24)),
-        target_multiplier=float(nn_cfg.get("target_multiplier", 2.0)),
-        max_hold_bars=int(nn_cfg.get("max_hold_bars", nn_cfg["horizon_bars"])),
-        tick_size=float(nn_cfg.get("tick_size", RISK_CONFIG.tick_size)),
-        tick_value=float(nn_cfg.get("tick_value", RISK_CONFIG.tick_value)),
+        stop_loss_ticks=int(nn_cfg["stop_loss_ticks"]),
+        target_multiplier=float(nn_cfg["target_multiplier"]),
+        max_hold_bars=int(nn_cfg["max_hold_bars"]),
+        tick_size=float(nn_cfg["tick_size"]),
+        tick_value=float(nn_cfg["tick_value"]),
     )
 
     trades_df = pd.DataFrame(results.get("trades", []))

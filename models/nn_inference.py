@@ -20,6 +20,56 @@ from datetime import time as dt_time
 from features.engineer import add_features
 from models.nn_model import TinyMLP
 
+LABEL_VERSION_ALIGNED = "aligned_fixed_horizon_v1"
+
+REQUIRED_NN_CONFIG_KEYS = [
+    "horizon_bars",
+    "threshold_ticks",
+    "feature_lookback",
+    "score_quantile",
+    "score_threshold",
+    "max_trades_per_day",
+    "min_bars_between_trades",
+    "session_mode",
+    "deadline_time",
+    "execution_mode",
+    "exit_price_mode",
+    "max_hold_bars",
+    "tick_size",
+    "tick_value",
+    "bar_minutes",
+    "stop_loss_ticks",
+    "target_multiplier",
+    "label_version",
+    "label_entry_price_col",
+    "label_exit_price_col",
+]
+
+
+def validate_nn_config(nn_cfg: Dict[str, object]) -> None:
+    missing = [k for k in REQUIRED_NN_CONFIG_KEYS if k not in nn_cfg]
+    if missing:
+        raise ValueError(f"config.json missing nn_config keys: {missing}")
+    if nn_cfg.get("score_threshold") is None:
+        raise ValueError("Missing score_threshold in config.json")
+
+    label_version = str(nn_cfg.get("label_version"))
+    if label_version != LABEL_VERSION_ALIGNED:
+        raise ValueError(
+            f"Unsupported label_version={label_version!r}; expected {LABEL_VERSION_ALIGNED}. Retrain the model."
+        )
+    if str(nn_cfg.get("label_entry_price_col")) != "open":
+        raise ValueError("label_entry_price_col must be 'open' for aligned labels.")
+    if str(nn_cfg.get("label_exit_price_col")) != "close":
+        raise ValueError("label_exit_price_col must be 'close' for aligned labels.")
+
+    if str(nn_cfg.get("execution_mode")) != "time_exit":
+        raise ValueError("execution_mode must be 'time_exit' for aligned labels.")
+    if str(nn_cfg.get("exit_price_mode")) != "bar_close":
+        raise ValueError("exit_price_mode must be 'bar_close' for aligned labels.")
+    if int(nn_cfg.get("max_hold_bars")) != int(nn_cfg.get("horizon_bars")):
+        raise ValueError("max_hold_bars must equal horizon_bars for aligned labels.")
+
 
 @dataclass
 class NNBundle:
@@ -90,30 +140,7 @@ def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = Non
     short_cal = joblib.load(short_cal_path) if short_cal_path.exists() else None
 
     nn_cfg = config.get("nn_config", {})
-    required_keys = [
-        "horizon_bars",
-        "threshold_ticks",
-        "feature_lookback",
-        "score_quantile",
-        "score_threshold",
-        "max_trades_per_day",
-        "min_bars_between_trades",
-        "session_mode",
-        "deadline_time",
-        "execution_mode",
-        "exit_price_mode",
-        "max_hold_bars",
-        "tick_size",
-        "tick_value",
-        "bar_minutes",
-        "stop_loss_ticks",
-        "target_multiplier",
-    ]
-    missing = [k for k in required_keys if k not in nn_cfg]
-    if missing:
-        raise ValueError(f"config.json missing nn_config keys: {missing}")
-    if nn_cfg.get("score_threshold") is None:
-        raise ValueError("Missing score_threshold in config.json")
+    validate_nn_config(nn_cfg)
 
     if isinstance(nn_cfg.get("deadline_time"), str):
         try:
@@ -136,7 +163,9 @@ def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = Non
 
 def predict_scores_for_bars(bars_df: pd.DataFrame, bundle: NNBundle) -> pd.DataFrame:
     features_df = add_features(bars_df, verbose=False)
-    features_df = features_df.reset_index().rename(columns={"index": "idx"})
+    features_df = features_df.reset_index(drop=True)
+    if "idx" not in features_df.columns:
+        features_df.insert(0, "idx", np.arange(len(features_df)))
 
     valid_mask = features_df[bundle.feature_cols].notna().all(axis=1)
     valid_idx = features_df.loc[valid_mask, "idx"].values
