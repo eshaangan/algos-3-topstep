@@ -582,6 +582,13 @@ def main() -> None:
         nn_cfg["embargo_bars"] = embargo
         nn_cfg["score_threshold"] = results["score_threshold"]
         nn_cfg["score_quantile"] = score_quantile
+        nn_cfg["selection_mode"] = NN_CONFIG.selection_mode
+        nn_cfg["day_percentile_floor"] = NN_CONFIG.day_percentile_floor
+        nn_cfg["global_floor_score"] = results["score_percentiles"].get("p90", results["score_threshold"])
+        catastrophic_stop_ticks = NN_CONFIG.catastrophic_stop_ticks
+        if catastrophic_stop_ticks is None:
+            catastrophic_stop_ticks = int(NN_CONFIG.threshold_ticks) * 4
+        nn_cfg["catastrophic_stop_ticks"] = int(catastrophic_stop_ticks)
         nn_cfg["max_hold_bars"] = NN_CONFIG.horizon_bars
         nn_cfg["model_hidden_dims"] = list(hidden_dims)
         nn_cfg["label_version"] = "aligned_fixed_horizon_v1"

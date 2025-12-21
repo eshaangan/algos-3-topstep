@@ -30,6 +30,9 @@ REQUIRED_NN_CONFIG_KEYS = [
     "score_threshold",
     "max_trades_per_day",
     "min_bars_between_trades",
+    "selection_mode",
+    "day_percentile_floor",
+    "global_floor_score",
     "session_mode",
     "deadline_time",
     "execution_mode",
@@ -74,6 +77,18 @@ def validate_nn_config(nn_cfg: Dict[str, object]) -> None:
     hidden_dims = nn_cfg.get("model_hidden_dims")
     if not isinstance(hidden_dims, Sequence) or len(hidden_dims) != 2:
         raise ValueError("model_hidden_dims must be a sequence of length 2.")
+
+    selection_mode = str(nn_cfg.get("selection_mode", "global_threshold")).lower()
+    if selection_mode not in {"global_threshold", "day_adaptive_topn"}:
+        raise ValueError(f"Unsupported selection_mode={selection_mode!r}")
+    day_floor = nn_cfg.get("day_percentile_floor")
+    if day_floor is None or not (0.0 <= float(day_floor) <= 1.0):
+        raise ValueError("day_percentile_floor must be between 0 and 1.")
+    if nn_cfg.get("global_floor_score") is None:
+        raise ValueError("global_floor_score is required in nn_config.")
+    cat_stop = nn_cfg.get("catastrophic_stop_ticks")
+    if cat_stop is not None and int(cat_stop) <= 0:
+        raise ValueError("catastrophic_stop_ticks must be > 0 when provided.")
 
 
 def artifact_compatibility_issues(config: Dict[str, object], *, strict_versions: bool = True) -> List[str]:
@@ -190,6 +205,8 @@ def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = Non
             nn_cfg["deadline_time"] = dt_time.fromisoformat(nn_cfg["deadline_time"])
         except ValueError as exc:
             raise ValueError("Invalid deadline_time in config.json") from exc
+    if nn_cfg.get("catastrophic_stop_ticks") is None:
+        nn_cfg["catastrophic_stop_ticks"] = int(nn_cfg.get("threshold_ticks", 0)) * 4
 
     return NNBundle(
         model_dir=model_path,

@@ -1,5 +1,5 @@
 {
-  "created": "2025-12-21T20:12:27.542002+00:00",
+  "created": "2025-12-21T21:56:59.175401+00:00",
   "model_type": "tiny_mlp",
   "bar_minutes": 5,
   "fold_idx": 0,
@@ -36,6 +36,9 @@
     "min_bars_between_trades": 12,
     "enable_long": true,
     "enable_short": true,
+    "selection_mode": "day_adaptive_topn",
+    "day_percentile_floor": 0.9,
+    "global_floor_score": 0.4348485559612751,
     "session_mode": "RTH",
     "target_trades_per_day": 2,
     "auto_score_quantile": true,

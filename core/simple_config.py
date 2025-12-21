@@ -97,6 +97,7 @@ class NNConfig:
     threshold_ticks: int = 12
     feature_lookback: int = 100
     embargo_bars: int = 0  # 0 means "compute from horizon + lookback"
+    catastrophic_stop_ticks: Optional[int] = None  # Defaults to 4x threshold_ticks when saved
 
     score_quantile: float = 0.975
     score_threshold: Optional[float] = None
@@ -105,6 +106,10 @@ class NNConfig:
     min_bars_between_trades: int = 12
     enable_long: bool = True
     enable_short: bool = True
+
+    selection_mode: str = "day_adaptive_topn"
+    day_percentile_floor: float = 0.90
+    global_floor_score: Optional[float] = None
 
     session_mode: str = "RTH"  # "RTH" or "24H"
     target_trades_per_day: int = 2

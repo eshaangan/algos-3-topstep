@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from core.risk_presets import RISK_PRESET_NAME, get_risk_config
-from core.selection import DailyTopNSelector, in_session
+from core.selection import DailyTopNSelector, DayAdaptiveTopNSelector, in_session
 from core.simple_config import TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features
@@ -97,6 +97,9 @@ def run_backtest_v2(
     feature_cols: List[str],
     *,
     score_threshold: float,
+    selection_mode: str = "global_threshold",
+    day_percentile_floor: float = 0.90,
+    global_floor_score: Optional[float] = None,
     max_trades_per_day: int = 2,
     min_bars_between_trades: int = 12,
     enable_long: bool = True,
@@ -112,6 +115,7 @@ def run_backtest_v2(
     end_idx: Optional[int] = None,
     stop_loss_ticks: Optional[int] = None,
     target_multiplier: Optional[float] = None,
+    catastrophic_stop_ticks: Optional[int] = None,
     max_hold_bars: Optional[int] = None,
     slippage_ticks: int = 1,
     commission_per_contract: float = 2.35,
@@ -170,6 +174,8 @@ def run_backtest_v2(
     if horizon_bars is None:
         horizon_bars = TRAINING_CONFIG.horizon_bars
     max_hold_bars = max_hold_bars or horizon_bars
+    if catastrophic_stop_ticks is None:
+        catastrophic_stop_ticks = int(TRAINING_CONFIG.threshold_ticks) * 4
     if execution_mode == "time_exit":
         if exit_price_mode != "bar_close":
             raise ValueError("Aligned time-exit requires exit_price_mode='bar_close'.")
@@ -202,17 +208,34 @@ def run_backtest_v2(
     # Daily tracking
     daily_trades_list: List[int] = []
 
-    selector = DailyTopNSelector(
-        max_trades_per_day=max_trades_per_day,
-        min_bars_between_trades=min_bars_between_trades,
-        score_threshold=score_threshold,
-        bar_minutes=bar_minutes,
-        session_mode=session_mode,
-        session_start=RISK_CONFIG.session_start,
-        session_end=RISK_CONFIG.session_end,
-        deadline_time=deadline_time or time(11, 30),
-        deadline_relax_factor=deadline_relax_factor,
-    )
+    selection_mode = str(selection_mode).lower()
+    if global_floor_score is None:
+        global_floor_score = float(score_threshold)
+    if selection_mode == "day_adaptive_topn":
+        selector = DayAdaptiveTopNSelector(
+            max_trades_per_day=max_trades_per_day,
+            min_bars_between_trades=min_bars_between_trades,
+            day_percentile_floor=day_percentile_floor,
+            global_floor_score=float(global_floor_score),
+            bar_minutes=bar_minutes,
+            session_mode=session_mode,
+            session_start=RISK_CONFIG.session_start,
+            session_end=RISK_CONFIG.session_end,
+            deadline_time=deadline_time or time(11, 30),
+            deadline_relax_factor=deadline_relax_factor,
+        )
+    else:
+        selector = DailyTopNSelector(
+            max_trades_per_day=max_trades_per_day,
+            min_bars_between_trades=min_bars_between_trades,
+            score_threshold=score_threshold,
+            bar_minutes=bar_minutes,
+            session_mode=session_mode,
+            session_start=RISK_CONFIG.session_start,
+            session_end=RISK_CONFIG.session_end,
+            deadline_time=deadline_time or time(11, 30),
+            deadline_relax_factor=deadline_relax_factor,
+        )
 
     # Iterate through bars
     for i in range(start, end - 1):
@@ -241,16 +264,23 @@ def run_backtest_v2(
                 exit_reason = "SESSION_FLAT"
                 exit_price = bar["close"]
 
-            # 2. Time-exit aligned to horizon bars
-            elif execution_mode == "time_exit" and hold_bars >= horizon_bars:
-                exit_reason = "TIME_EXIT"
-                if exit_price_mode == "bar_close":
-                    exit_price = bar["close"]
-                else:
-                    exit_price = bar["open"]
+            # 2. Time-exit + catastrophic stop (close-only)
+            elif execution_mode == "time_exit":
+                if position["direction"] == "long":
+                    if bar["close"] <= position["stop_price"]:
+                        exit_reason = "CATASTOP"
+                        exit_price = bar["close"]
+                else:  # short
+                    if bar["close"] >= position["stop_price"]:
+                        exit_reason = "CATASTOP"
+                        exit_price = bar["close"]
+
+                if exit_reason is None and hold_bars >= horizon_bars:
+                    exit_reason = "TIME_EXIT"
+                    exit_price = bar["close"] if exit_price_mode == "bar_close" else bar["open"]
 
             # 3. Max hold reached (triple-barrier mode)
-            elif execution_mode != "time_exit" and hold_bars >= max_hold_bars:
+            elif hold_bars >= max_hold_bars:
                 exit_reason = "MAX_HOLD"
                 exit_price = bar["close"]
 
@@ -260,14 +290,14 @@ def run_backtest_v2(
                     if bar["low"] <= position["stop_price"]:
                         exit_reason = "STOP"
                         exit_price = position["stop_price"]
-                    elif execution_mode != "time_exit" and bar["high"] >= position["target_price"]:
+                    elif bar["high"] >= position["target_price"]:
                         exit_reason = "TARGET"
                         exit_price = position["target_price"]
                 else:  # short
                     if bar["high"] >= position["stop_price"]:
                         exit_reason = "STOP"
                         exit_price = position["stop_price"]
-                    elif execution_mode != "time_exit" and bar["low"] <= position["target_price"]:
+                    elif bar["low"] <= position["target_price"]:
                         exit_reason = "TARGET"
                         exit_price = position["target_price"]
 
@@ -325,7 +355,7 @@ def run_backtest_v2(
         if daily_locked or trailing_locked:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    "Signal rejected: risk_locked daily=%s trailing=%s idx=%s",
+                    "Signal rejected: rejected_by=risk daily=%s trailing=%s idx=%s",
                     daily_locked,
                     trailing_locked,
                     i,
@@ -395,8 +425,14 @@ def run_backtest_v2(
         contracts = 1
 
         # Stop and target prices
-        stop_distance = stop_loss_ticks * RISK_CONFIG.tick_size
-        target_distance = stop_distance * target_multiplier
+        if execution_mode == "time_exit":
+            stop_ticks = int(catastrophic_stop_ticks)
+            stop_distance = stop_ticks * RISK_CONFIG.tick_size
+            target_distance = stop_distance * target_multiplier
+        else:
+            stop_ticks = int(stop_loss_ticks)
+            stop_distance = stop_ticks * RISK_CONFIG.tick_size
+            target_distance = stop_distance * target_multiplier
 
         if direction == "long":
             stop_price = entry_price - stop_distance
@@ -414,7 +450,7 @@ def run_backtest_v2(
             "entry_price": entry_price,
             "stop_price": stop_price,
             "target_price": target_price,
-            "stop_ticks": stop_loss_ticks,
+            "stop_ticks": stop_ticks,
             "score": score,
         }
 
@@ -505,13 +541,38 @@ def run_backtest_v2(
         }
 
     # Daily stats
+    trade_counts = np.array(daily_trades_list)
+    if trade_counts.size:
+        unique_counts, count_totals = np.unique(trade_counts, return_counts=True)
+        distribution = {int(k): int(v) for k, v in zip(unique_counts, count_totals)}
+        days_with_trades = int(np.sum(trade_counts > 0))
+        avg_active = float(trade_counts[trade_counts > 0].mean()) if days_with_trades > 0 else 0.0
+        pct_days_with_1 = float(distribution.get(1, 0) / len(trade_counts) * 100.0)
+        pct_days_with_2 = float(distribution.get(2, 0) / len(trade_counts) * 100.0)
+    else:
+        distribution = {}
+        days_with_trades = 0
+        avg_active = 0.0
+        pct_days_with_1 = 0.0
+        pct_days_with_2 = 0.0
+
     daily_stats = {
         "total_trading_days": len(daily_trades_list),
         "avg_trades_per_day": float(np.mean(daily_trades_list)) if daily_trades_list else 0.0,
+        "avg_trades_per_active_day": avg_active,
         "max_trades_in_day": int(np.max(daily_trades_list)) if daily_trades_list else 0,
-        "days_with_trades": int(np.sum(np.array(daily_trades_list) > 0)),
-        "days_with_zero_trades": int(np.sum(np.array(daily_trades_list) == 0)),
+        "days_with_trades": days_with_trades,
+        "days_with_zero_trades": int(np.sum(trade_counts == 0)) if trade_counts.size else 0,
+        "trades_per_day_distribution": distribution,
+        "pct_days_with_1_trade": pct_days_with_1,
+        "pct_days_with_2_trades": pct_days_with_2,
     }
+
+    exit_reason_counts = {}
+    exit_reason_avg_pnl = {}
+    if not trades_df.empty and "reason" in trades_df.columns:
+        exit_reason_counts = trades_df["reason"].value_counts().to_dict()
+        exit_reason_avg_pnl = trades_df.groupby("reason")["pnl"].mean().to_dict()
 
     # Save trades if requested
     if save_trades_path and len(trades) > 0:
@@ -523,6 +584,8 @@ def run_backtest_v2(
         "trades": trades,
         "equity_curve": equity_curve,
         "daily_stats": daily_stats,
+        "exit_reason_counts": exit_reason_counts,
+        "exit_reason_avg_pnl": exit_reason_avg_pnl,
     }
 
 
@@ -564,6 +627,11 @@ def main() -> None:
     # Get policy V2 params
     policy_v2 = metadata.get("policy_v2", {})
     score_threshold = policy_v2.get("score_threshold", 0.95)
+    selection_mode = str(policy_v2.get("selection_mode", "global_threshold"))
+    day_percentile_floor = float(policy_v2.get("day_percentile_floor", 0.90))
+    global_floor_score = policy_v2.get("global_floor_score")
+    if global_floor_score is None:
+        global_floor_score = float(score_threshold)
     max_trades_per_day = policy_v2.get("max_trades_per_day", 2)
     min_bars_between_trades = policy_v2.get("min_bars_between_trades", 12)
     enable_long = policy_v2.get("enable_long", True)
@@ -577,6 +645,9 @@ def main() -> None:
         deadline_time = time.fromisoformat(deadline_time)
     deadline_relax_factor = float(policy_v2.get("deadline_relax_factor", 0.98))
     bar_minutes = int(policy_v2.get("bar_minutes", 5))
+    catastrophic_stop_ticks = policy_v2.get("catastrophic_stop_ticks")
+    if catastrophic_stop_ticks is None:
+        catastrophic_stop_ticks = int(TRAINING_CONFIG.threshold_ticks) * 4
 
     print("\n" + "=" * 60)
     print("V2 BACKTEST: PURE ML STRATEGY")
@@ -606,6 +677,9 @@ def main() -> None:
         short_model,
         feature_cols,
         score_threshold=score_threshold,
+        selection_mode=selection_mode,
+        day_percentile_floor=day_percentile_floor,
+        global_floor_score=float(global_floor_score),
         max_trades_per_day=max_trades_per_day,
         min_bars_between_trades=min_bars_between_trades,
         enable_long=enable_long,
@@ -617,6 +691,7 @@ def main() -> None:
         deadline_time=deadline_time,
         deadline_relax_factor=deadline_relax_factor,
         bar_minutes=bar_minutes,
+        catastrophic_stop_ticks=int(catastrophic_stop_ticks),
         start_idx=args.start_idx,
         end_idx=args.end_idx,
         save_trades_path=args.save_trades,
@@ -630,6 +705,12 @@ def main() -> None:
     print(json.dumps(results["summary"], indent=2))
     print("\nDaily Stats:")
     print(json.dumps(results["daily_stats"], indent=2))
+    if results.get("exit_reason_counts"):
+        print("\nExit reasons:")
+        print(json.dumps(results["exit_reason_counts"], indent=2))
+    if results.get("exit_reason_avg_pnl"):
+        print("\nExit reason avg PnL:")
+        print(json.dumps(results["exit_reason_avg_pnl"], indent=2))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from typing import Dict, Optional
 
 import pandas as pd
 
-from core.selection import DailyTopNSelector, in_session
+from core.selection import DailyTopNSelector, DayAdaptiveTopNSelector, in_session
 from core.models import Signal, SignalAction
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from models.nn_inference import load_nn_bundle, predict_latest
@@ -51,6 +51,9 @@ class MLStrategy:
         self.enable_short = bool(nn_cfg["enable_short"])
         self.max_trades_per_day = int(nn_cfg["max_trades_per_day"])
         self.min_bars_between_trades = int(nn_cfg["min_bars_between_trades"])
+        self.selection_mode = str(nn_cfg.get("selection_mode", "global_threshold"))
+        self.day_percentile_floor = float(nn_cfg.get("day_percentile_floor", 0.90))
+        self.global_floor_score = float(nn_cfg.get("global_floor_score", self.score_threshold))
         self.session_mode = str(nn_cfg.get("session_mode", "RTH"))
         self.deadline_time = nn_cfg.get("deadline_time")
         self.deadline_relax_factor = float(nn_cfg.get("deadline_relax_factor", 0.98))
@@ -60,20 +63,37 @@ class MLStrategy:
         self.bar_minutes = int(nn_cfg.get("bar_minutes", 5))
         self.stop_loss_ticks = int(nn_cfg["stop_loss_ticks"])
         self.target_multiplier = float(nn_cfg["target_multiplier"])
+        self.catastrophic_stop_ticks = int(
+            nn_cfg.get("catastrophic_stop_ticks", int(nn_cfg["threshold_ticks"]) * 4)
+        )
         self.tick_size = float(nn_cfg["tick_size"])
         self.tick_value = float(nn_cfg["tick_value"])
 
-        self.selector = DailyTopNSelector(
-            max_trades_per_day=self.max_trades_per_day,
-            min_bars_between_trades=self.min_bars_between_trades,
-            score_threshold=self.score_threshold,
-            bar_minutes=self.bar_minutes,
-            session_mode=self.session_mode,
-            session_start=self.session_start,
-            session_end=self.session_end,
-            deadline_time=self.deadline_time or pd.Timestamp("11:30").time(),
-            deadline_relax_factor=self.deadline_relax_factor,
-        )
+        if self.selection_mode.lower() == "day_adaptive_topn":
+            self.selector = DayAdaptiveTopNSelector(
+                max_trades_per_day=self.max_trades_per_day,
+                min_bars_between_trades=self.min_bars_between_trades,
+                day_percentile_floor=self.day_percentile_floor,
+                global_floor_score=self.global_floor_score,
+                bar_minutes=self.bar_minutes,
+                session_mode=self.session_mode,
+                session_start=self.session_start,
+                session_end=self.session_end,
+                deadline_time=self.deadline_time or pd.Timestamp("11:30").time(),
+                deadline_relax_factor=self.deadline_relax_factor,
+            )
+        else:
+            self.selector = DailyTopNSelector(
+                max_trades_per_day=self.max_trades_per_day,
+                min_bars_between_trades=self.min_bars_between_trades,
+                score_threshold=self.score_threshold,
+                bar_minutes=self.bar_minutes,
+                session_mode=self.session_mode,
+                session_start=self.session_start,
+                session_end=self.session_end,
+                deadline_time=self.deadline_time or pd.Timestamp("11:30").time(),
+                deadline_relax_factor=self.deadline_relax_factor,
+            )
         self.open_position: Optional[Dict[str, object]] = None
         self.pending_entry: Optional[Dict[str, object]] = None
 
@@ -99,6 +119,34 @@ class MLStrategy:
         if self.open_position is not None and self.execution_mode == "time_exit":
             entry_idx = int(self.open_position["entry_idx"])
             hold_bars = bar_index - entry_idx
+            direction = str(self.open_position.get("direction", "long"))
+            stop_price = float(self.open_position.get("stop_price", 0.0))
+            close_price = float(last_row["close"])
+
+            cat_trigger = False
+            if direction == "long" and close_price <= stop_price:
+                cat_trigger = True
+            elif direction == "short" and close_price >= stop_price:
+                cat_trigger = True
+
+            if cat_trigger:
+                reason = "CATASTOP close"
+                exit_price = close_price
+                self.open_position = None
+                return Signal(
+                    action=SignalAction.EXIT,
+                    symbol=self.symbol,
+                    timestamp=last_row["timestamp"].to_pydatetime(),
+                    stop_price=exit_price,
+                    target_price=exit_price,
+                    reason=reason,
+                    metadata={
+                        "strategy_mode": "ml_only",
+                        "execution_mode": self.execution_mode,
+                        "exit_price_mode": self.exit_price_mode,
+                    },
+                )
+
             if hold_bars >= self.horizon_bars:
                 reason = f"TIME_EXIT after {hold_bars} bars"
                 if self.exit_price_mode == "bar_close":
@@ -141,7 +189,11 @@ class MLStrategy:
                 score = float(self.pending_entry["score"])
 
                 entry_price = float(last_row["open"])
-                stop_distance = self.stop_loss_ticks * self.tick_size
+                if self.execution_mode == "time_exit":
+                    stop_ticks = self.catastrophic_stop_ticks
+                else:
+                    stop_ticks = self.stop_loss_ticks
+                stop_distance = stop_ticks * self.tick_size
                 target_distance = stop_distance * self.target_multiplier
 
                 if direction == "long":
@@ -155,7 +207,7 @@ class MLStrategy:
 
                 metadata = {
                     "ideal_entry": entry_price,
-                    "risk_ticks": self.stop_loss_ticks,
+                    "risk_ticks": stop_ticks,
                     "target_rr_multiple": self.target_multiplier,
                     "strategy_mode": "ml_only",
                     "long_prob": long_prob,
@@ -174,6 +226,7 @@ class MLStrategy:
                     "entry_time": last_row["timestamp"],
                     "entry_idx": bar_index,
                     "direction": direction,
+                    "stop_price": stop_price,
                 }
                 self.pending_entry = None
                 return Signal(

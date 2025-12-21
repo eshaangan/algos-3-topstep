@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from core.risk_presets import RISK_PRESET_NAME, get_risk_config
-from core.selection import DailyTopNSelector, in_session
+from core.selection import DailyTopNSelector, DayAdaptiveTopNSelector, in_session
 from core.simple_config import TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features, select_features
@@ -139,6 +139,9 @@ def run_backtest_nn(
     prob_df: pd.DataFrame,
     *,
     score_threshold: float,
+    selection_mode: str = "global_threshold",
+    day_percentile_floor: float = 0.90,
+    global_floor_score: Optional[float] = None,
     max_trades_per_day: int,
     min_bars_between_trades: int,
     enable_long: bool,
@@ -156,6 +159,7 @@ def run_backtest_nn(
     end_idx: Optional[int] = None,
     stop_loss_ticks: Optional[int] = None,
     target_multiplier: Optional[float] = None,
+    catastrophic_stop_ticks: Optional[int] = None,
     max_hold_bars: Optional[int] = None,
     slippage_ticks: int = 1,
     commission_per_contract: float = 2.35,
@@ -164,7 +168,7 @@ def run_backtest_nn(
     tick_value: Optional[float] = None,
 ) -> Dict[str, object]:
     """
-    Pure ML backtest using score threshold + top-N per day + trade budget.
+    Pure ML backtest using either global threshold or day-adaptive top-N selection.
     """
     logger = logging.getLogger(__name__)
     stop_loss_ticks = stop_loss_ticks or TRAINING_CONFIG.stop_loss_ticks
@@ -174,6 +178,8 @@ def run_backtest_nn(
     tick_value = tick_value or RISK_CONFIG.tick_value
     session_start = session_start or RISK_CONFIG.session_start
     session_end = session_end or RISK_CONFIG.session_end
+    if catastrophic_stop_ticks is None:
+        catastrophic_stop_ticks = int(TRAINING_CONFIG.threshold_ticks) * 4
 
     if execution_mode == "time_exit":
         if exit_price_mode != "bar_close":
@@ -186,17 +192,34 @@ def run_backtest_nn(
     if start < 0 or end > len(bars_df) or start >= end:
         raise ValueError(f"Invalid window: start={start}, end={end}, len={len(bars_df)}")
 
-    selector = DailyTopNSelector(
-        max_trades_per_day=max_trades_per_day,
-        min_bars_between_trades=min_bars_between_trades,
-        score_threshold=score_threshold,
-        bar_minutes=bar_minutes,
-        session_mode=session_mode,
-        session_start=session_start,
-        session_end=session_end,
-        deadline_time=deadline_time or time(11, 30),
-        deadline_relax_factor=deadline_relax_factor,
-    )
+    selection_mode = str(selection_mode).lower()
+    if global_floor_score is None:
+        global_floor_score = float(score_threshold)
+    if selection_mode == "day_adaptive_topn":
+        selector = DayAdaptiveTopNSelector(
+            max_trades_per_day=max_trades_per_day,
+            min_bars_between_trades=min_bars_between_trades,
+            day_percentile_floor=day_percentile_floor,
+            global_floor_score=float(global_floor_score),
+            bar_minutes=bar_minutes,
+            session_mode=session_mode,
+            session_start=session_start,
+            session_end=session_end,
+            deadline_time=deadline_time or time(11, 30),
+            deadline_relax_factor=deadline_relax_factor,
+        )
+    else:
+        selector = DailyTopNSelector(
+            max_trades_per_day=max_trades_per_day,
+            min_bars_between_trades=min_bars_between_trades,
+            score_threshold=score_threshold,
+            bar_minutes=bar_minutes,
+            session_mode=session_mode,
+            session_start=session_start,
+            session_end=session_end,
+            deadline_time=deadline_time or time(11, 30),
+            deadline_relax_factor=deadline_relax_factor,
+        )
 
     trades: List[Dict[str, object]] = []
     equity_curve: List[float] = [RISK_CONFIG.starting_balance]
@@ -232,30 +255,37 @@ def run_backtest_nn(
             if session_mode.upper() == "RTH" and bar_time.time() >= session_end:
                 exit_reason = "SESSION_FLAT"
                 exit_price = bar["close"]
-            elif execution_mode == "time_exit" and hold_bars >= horizon_bars:
-                exit_reason = "TIME_EXIT"
-                if exit_price_mode == "bar_close":
+            elif execution_mode == "time_exit":
+                if position["direction"] == "long":
+                    if bar["close"] <= position["stop_price"]:
+                        exit_reason = "CATASTOP"
+                        exit_price = bar["close"]
+                else:
+                    if bar["close"] >= position["stop_price"]:
+                        exit_reason = "CATASTOP"
+                        exit_price = bar["close"]
+                if exit_reason is None and hold_bars >= horizon_bars:
+                    exit_reason = "TIME_EXIT"
+                    exit_price = bar["close"] if exit_price_mode == "bar_close" else bar["open"]
+            else:
+                if hold_bars >= max_hold_bars:
+                    exit_reason = "MAX_HOLD"
                     exit_price = bar["close"]
                 else:
-                    exit_price = bar["open"]
-            elif execution_mode != "time_exit" and hold_bars >= max_hold_bars:
-                exit_reason = "MAX_HOLD"
-                exit_price = bar["close"]
-            else:
-                if position["direction"] == "long":
-                    if bar["low"] <= position["stop_price"]:
-                        exit_reason = "STOP"
-                        exit_price = position["stop_price"]
-                    elif execution_mode != "time_exit" and bar["high"] >= position["target_price"]:
-                        exit_reason = "TARGET"
-                        exit_price = position["target_price"]
-                else:
-                    if bar["high"] >= position["stop_price"]:
-                        exit_reason = "STOP"
-                        exit_price = position["stop_price"]
-                    elif execution_mode != "time_exit" and bar["low"] <= position["target_price"]:
-                        exit_reason = "TARGET"
-                        exit_price = position["target_price"]
+                    if position["direction"] == "long":
+                        if bar["low"] <= position["stop_price"]:
+                            exit_reason = "STOP"
+                            exit_price = position["stop_price"]
+                        elif bar["high"] >= position["target_price"]:
+                            exit_reason = "TARGET"
+                            exit_price = position["target_price"]
+                    else:
+                        if bar["high"] >= position["stop_price"]:
+                            exit_reason = "STOP"
+                            exit_price = position["stop_price"]
+                        elif bar["low"] <= position["target_price"]:
+                            exit_reason = "TARGET"
+                            exit_price = position["target_price"]
 
             if exit_reason is not None:
                 raw_pnl = _position_pnl(
@@ -305,7 +335,7 @@ def run_backtest_nn(
         if trailing_locked or daily_locked:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    "Signal rejected: risk_locked daily=%s trailing=%s idx=%s",
+                    "Signal rejected: rejected_by=risk daily=%s trailing=%s idx=%s",
                     daily_locked,
                     trailing_locked,
                     i,
@@ -367,8 +397,14 @@ def run_backtest_nn(
         else:
             entry_price -= slippage
 
-        stop_distance = stop_loss_ticks * tick_size
-        target_distance = stop_distance * target_multiplier
+        if execution_mode == "time_exit":
+            stop_ticks = int(catastrophic_stop_ticks)
+            stop_distance = stop_ticks * tick_size
+            target_distance = stop_distance * target_multiplier
+        else:
+            stop_ticks = int(stop_loss_ticks)
+            stop_distance = stop_ticks * tick_size
+            target_distance = stop_distance * target_multiplier
 
         if direction == "long":
             stop_price = entry_price - stop_distance
@@ -385,7 +421,7 @@ def run_backtest_nn(
             "target_price": target_price,
             "entry_time": next_bar["timestamp"],
             "entry_idx": entry_idx,
-            "stop_ticks": stop_loss_ticks,
+            "stop_ticks": stop_ticks,
             "score": score,
         }
 
@@ -467,12 +503,31 @@ def run_backtest_nn(
             "starting_balance": RISK_CONFIG.starting_balance,
         }
 
+    trade_counts = np.array(daily_trades_list)
+    if trade_counts.size:
+        unique_counts, count_totals = np.unique(trade_counts, return_counts=True)
+        distribution = {int(k): int(v) for k, v in zip(unique_counts, count_totals)}
+        days_with_trades = int(np.sum(trade_counts > 0))
+        avg_active = float(trade_counts[trade_counts > 0].mean()) if days_with_trades > 0 else 0.0
+        pct_days_with_1 = float(distribution.get(1, 0) / len(trade_counts) * 100.0)
+        pct_days_with_2 = float(distribution.get(2, 0) / len(trade_counts) * 100.0)
+    else:
+        distribution = {}
+        days_with_trades = 0
+        avg_active = 0.0
+        pct_days_with_1 = 0.0
+        pct_days_with_2 = 0.0
+
     daily_stats = {
         "total_trading_days": len(daily_trades_list),
         "avg_trades_per_day": float(np.mean(daily_trades_list)) if daily_trades_list else 0.0,
+        "avg_trades_per_active_day": avg_active,
         "max_trades_in_day": int(np.max(daily_trades_list)) if daily_trades_list else 0,
-        "days_with_trades": int(np.sum(np.array(daily_trades_list) > 0)),
-        "days_with_zero_trades": int(np.sum(np.array(daily_trades_list) == 0)),
+        "days_with_trades": days_with_trades,
+        "days_with_zero_trades": int(np.sum(trade_counts == 0)) if trade_counts.size else 0,
+        "trades_per_day_distribution": distribution,
+        "pct_days_with_1_trade": pct_days_with_1,
+        "pct_days_with_2_trades": pct_days_with_2,
     }
 
     if save_trades_path:
@@ -481,12 +536,16 @@ def run_backtest_nn(
     exit_reason_counts = {}
     if not trades_df.empty and "reason" in trades_df.columns:
         exit_reason_counts = trades_df["reason"].value_counts().to_dict()
+    exit_reason_avg_pnl = {}
+    if not trades_df.empty and "reason" in trades_df.columns:
+        exit_reason_avg_pnl = trades_df.groupby("reason")["pnl"].mean().to_dict()
 
     return {
         "summary": summary,
         "trades": trades,
         "daily_stats": daily_stats,
         "exit_reason_counts": exit_reason_counts,
+        "exit_reason_avg_pnl": exit_reason_avg_pnl,
     }
 
 def load_models(model_dir: str) -> Tuple[object, object, Dict[str, object]]:
@@ -940,6 +999,11 @@ def main() -> None:
         nn_cfg = bundle.config.get("nn_config", {})
 
         score_threshold = float(nn_cfg["score_threshold"])
+        selection_mode = str(nn_cfg.get("selection_mode", "global_threshold"))
+        day_percentile_floor = float(nn_cfg.get("day_percentile_floor", 0.90))
+        global_floor_score = nn_cfg.get("global_floor_score")
+        if global_floor_score is None:
+            global_floor_score = float(score_threshold)
         max_trades_per_day = int(nn_cfg["max_trades_per_day"])
         min_bars_between_trades = int(nn_cfg["min_bars_between_trades"])
         enable_long = bool(nn_cfg["enable_long"])
@@ -958,6 +1022,9 @@ def main() -> None:
         tick_value = float(nn_cfg["tick_value"])
         stop_loss_ticks = int(nn_cfg["stop_loss_ticks"])
         target_multiplier = float(nn_cfg["target_multiplier"])
+        catastrophic_stop_ticks = nn_cfg.get("catastrophic_stop_ticks")
+        if catastrophic_stop_ticks is None:
+            catastrophic_stop_ticks = int(nn_cfg["threshold_ticks"]) * 4
         risk_cfg = bundle.config.get("risk_config", {})
         session_start = RISK_CONFIG.session_start
         session_end = RISK_CONFIG.session_end
@@ -985,6 +1052,9 @@ def main() -> None:
             bars,
             prob_df,
             score_threshold=score_threshold,
+            selection_mode=selection_mode,
+            day_percentile_floor=day_percentile_floor,
+            global_floor_score=float(global_floor_score),
             max_trades_per_day=max_trades_per_day,
             min_bars_between_trades=min_bars_between_trades,
             enable_long=enable_long,
@@ -1002,6 +1072,7 @@ def main() -> None:
             end_idx=window_end_idx,
             stop_loss_ticks=stop_loss_ticks,
             target_multiplier=target_multiplier,
+            catastrophic_stop_ticks=int(catastrophic_stop_ticks),
             max_hold_bars=max_hold_bars,
             tick_size=tick_size,
             tick_value=tick_value,
@@ -1011,6 +1082,8 @@ def main() -> None:
         print(json.dumps(results["daily_stats"], indent=2))
         if results.get("exit_reason_counts"):
             print(json.dumps(results["exit_reason_counts"], indent=2))
+        if results.get("exit_reason_avg_pnl"):
+            print(json.dumps(results["exit_reason_avg_pnl"], indent=2))
         return
 
     long_model, short_model, metadata = load_models(args.model_dir)
