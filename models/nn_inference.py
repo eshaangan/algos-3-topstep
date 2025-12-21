@@ -16,7 +16,7 @@ import torch
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from core.simple_config import NN_CONFIG
+from datetime import time as dt_time
 from features.engineer import add_features
 from models.nn_model import TinyMLP
 
@@ -98,12 +98,28 @@ def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = Non
         "score_threshold",
         "max_trades_per_day",
         "min_bars_between_trades",
+        "session_mode",
+        "deadline_time",
+        "execution_mode",
+        "exit_price_mode",
+        "max_hold_bars",
+        "tick_size",
+        "tick_value",
+        "bar_minutes",
+        "stop_loss_ticks",
+        "target_multiplier",
     ]
     missing = [k for k in required_keys if k not in nn_cfg]
     if missing:
         raise ValueError(f"config.json missing nn_config keys: {missing}")
-    if nn_cfg.get("score_threshold") is None and NN_CONFIG.score_threshold is None:
-        raise ValueError("Missing score_threshold in config.json and NN_CONFIG")
+    if nn_cfg.get("score_threshold") is None:
+        raise ValueError("Missing score_threshold in config.json")
+
+    if isinstance(nn_cfg.get("deadline_time"), str):
+        try:
+            nn_cfg["deadline_time"] = dt_time.fromisoformat(nn_cfg["deadline_time"])
+        except ValueError as exc:
+            raise ValueError("Invalid deadline_time in config.json") from exc
 
     return NNBundle(
         model_dir=model_path,

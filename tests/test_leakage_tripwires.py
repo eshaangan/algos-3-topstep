@@ -38,7 +38,7 @@ def load_test_data(h5_path: str, n_bars: int = 5000) -> pd.DataFrame:
         bars = store["bars_5min"].tail(n_bars).copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
-    bars, _ = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=False)
+    bars = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=False)
     return bars
 
 

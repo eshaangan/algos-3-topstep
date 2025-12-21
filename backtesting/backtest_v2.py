@@ -13,6 +13,7 @@ Key differences from backtest.py:
 from __future__ import annotations
 
 import argparse
+import logging
 import json
 from datetime import date, time
 from pathlib import Path
@@ -22,6 +23,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from core.selection import DailyTopNSelector, in_session
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features
@@ -96,6 +98,13 @@ def run_backtest_v2(
     min_bars_between_trades: int = 12,
     enable_long: bool = True,
     enable_short: bool = False,
+    horizon_bars: Optional[int] = None,
+    execution_mode: str = "time_exit",
+    exit_price_mode: str = "bar_close",
+    session_mode: str = "RTH",
+    deadline_time: Optional[time] = None,
+    deadline_relax_factor: float = 0.98,
+    bar_minutes: int = 5,
     start_idx: Optional[int] = None,
     end_idx: Optional[int] = None,
     stop_loss_ticks: Optional[int] = None,
@@ -151,10 +160,13 @@ def run_backtest_v2(
             "daily_stats": {trades per day, etc.},
         }
     """
+    logger = logging.getLogger(__name__)
     # Default parameters from config
     stop_loss_ticks = stop_loss_ticks or TRAINING_CONFIG.stop_loss_ticks
     target_multiplier = target_multiplier or TRAINING_CONFIG.target_multiplier
-    max_hold_bars = max_hold_bars or TRAINING_CONFIG.max_hold_bars
+    if horizon_bars is None:
+        horizon_bars = TRAINING_CONFIG.horizon_bars
+    max_hold_bars = max_hold_bars or horizon_bars
 
     # Backtest window
     start = start_idx or 0
@@ -176,12 +188,23 @@ def run_backtest_v2(
     trailing_locked = False
     current_day: Optional[date] = None
     daily_trade_count = 0
-    last_entry_idx = -999999  # Initialize far in past
 
     position: Optional[Dict[str, object]] = None
 
     # Daily tracking
     daily_trades_list: List[int] = []
+
+    selector = DailyTopNSelector(
+        max_trades_per_day=max_trades_per_day,
+        min_bars_between_trades=min_bars_between_trades,
+        score_threshold=score_threshold,
+        bar_minutes=bar_minutes,
+        session_mode=session_mode,
+        session_start=RISK_CONFIG.session_start,
+        session_end=RISK_CONFIG.session_end,
+        deadline_time=deadline_time or time(11, 30),
+        deadline_relax_factor=deadline_relax_factor,
+    )
 
     # Iterate through bars
     for i in range(start, end - 1):
@@ -206,29 +229,37 @@ def run_backtest_v2(
 
             # Check exit conditions
             # 1. Session end (flatten before close)
-            if bar_time.time() >= RISK_CONFIG.session_end:
+            if session_mode.upper() == "RTH" and bar_time.time() >= RISK_CONFIG.session_end:
                 exit_reason = "SESSION_FLAT"
                 exit_price = bar["close"]
 
-            # 2. Max hold reached
-            elif hold_bars >= max_hold_bars:
+            # 2. Time-exit aligned to horizon bars
+            elif execution_mode == "time_exit" and hold_bars >= horizon_bars:
+                exit_reason = "TIME_EXIT"
+                if exit_price_mode == "bar_close":
+                    exit_price = bar["close"]
+                else:
+                    exit_price = bar["open"]
+
+            # 3. Max hold reached (triple-barrier mode)
+            elif execution_mode != "time_exit" and hold_bars >= max_hold_bars:
                 exit_reason = "MAX_HOLD"
                 exit_price = bar["close"]
 
-            # 3. Stop/Target hit (check bar high/low)
+            # 4. Stop/Target hit (check bar high/low)
             else:
                 if position["direction"] == "long":
                     if bar["low"] <= position["stop_price"]:
                         exit_reason = "STOP"
                         exit_price = position["stop_price"]
-                    elif bar["high"] >= position["target_price"]:
+                    elif execution_mode != "time_exit" and bar["high"] >= position["target_price"]:
                         exit_reason = "TARGET"
                         exit_price = position["target_price"]
                 else:  # short
                     if bar["high"] >= position["stop_price"]:
                         exit_reason = "STOP"
                         exit_price = position["stop_price"]
-                    elif bar["low"] <= position["target_price"]:
+                    elif execution_mode != "time_exit" and bar["low"] <= position["target_price"]:
                         exit_reason = "TARGET"
                         exit_price = position["target_price"]
 
@@ -284,11 +315,25 @@ def run_backtest_v2(
 
         # Risk checks
         if daily_locked or trailing_locked:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "Signal rejected: risk_locked daily=%s trailing=%s idx=%s",
+                    daily_locked,
+                    trailing_locked,
+                    i,
+                )
             continue  # Risk limit hit
 
         # Session check
-        if bar_time.time() < RISK_CONFIG.session_start or bar_time.time() >= RISK_CONFIG.session_end:
-            continue  # Outside regular trading hours
+        if not in_session(
+            bar["timestamp"],
+            session_mode=session_mode,
+            session_start=RISK_CONFIG.session_start,
+            session_end=RISK_CONFIG.session_end,
+        ):
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Signal rejected: outside_session idx=%s", i)
+            continue
 
         # Get ML signal
         probs = prob_df.iloc[i]
@@ -303,33 +348,32 @@ def run_backtest_v2(
 
         # ========== PURE ML ENTRY CHECKS (NO HEURISTIC GATES) ==========
 
-        # 1. Score threshold check
-        if score < score_threshold:
-            continue  # Score too low
-
         # 2. Direction enabled check
         if direction == "long" and not enable_long:
             continue
         if direction == "short" and not enable_short:
             continue
 
-        # 3. Daily trade budget check
-        if daily_trade_count >= max_trades_per_day:
-            continue  # Already took max trades today
-
-        # 4. Minimum bars between trades check (prevent rapid-fire)
-        bars_since_last = i - last_entry_idx
-        if bars_since_last < min_bars_between_trades:
-            continue  # Too soon after last trade
+        # 3. Daily top-N selection + spacing
+        if not selector.should_enter(
+            bar["timestamp"], score=float(score), direction=str(direction), bar_index=i
+        ):
+            selector.log_rejection()
+            continue
 
         # ========== ALL CHECKS PASSED → ENTER TRADE ==========
 
         # Entry will be next bar open (avoid lookahead bias)
         next_bar = bars_df.iloc[i + 1]
-        next_bar_time = _to_chicago(next_bar["timestamp"])
-
         # Skip if next bar is outside session
-        if next_bar_time.time() >= RISK_CONFIG.session_end:
+        if not in_session(
+            next_bar["timestamp"],
+            session_mode=session_mode,
+            session_start=RISK_CONFIG.session_start,
+            session_end=RISK_CONFIG.session_end,
+        ):
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Signal rejected: next_bar_outside_session idx=%s", i)
             continue
 
         # Entry price with slippage
@@ -368,7 +412,7 @@ def run_backtest_v2(
 
         # Update state
         daily_trade_count += 1
-        last_entry_idx = i + 1
+        selector.register_trade(next_bar["timestamp"], bar_index=i + 1)
 
     # End of backtest - close any remaining position
     if position is not None:
@@ -516,6 +560,15 @@ def main() -> None:
     min_bars_between_trades = policy_v2.get("min_bars_between_trades", 12)
     enable_long = policy_v2.get("enable_long", True)
     enable_short = policy_v2.get("enable_short", False)
+    horizon_bars = int(policy_v2.get("horizon_bars", TRAINING_CONFIG.horizon_bars))
+    execution_mode = str(policy_v2.get("execution_mode", "time_exit"))
+    exit_price_mode = str(policy_v2.get("exit_price_mode", "next_open"))
+    session_mode = str(policy_v2.get("session_mode", "RTH"))
+    deadline_time = policy_v2.get("deadline_time")
+    if isinstance(deadline_time, str):
+        deadline_time = time.fromisoformat(deadline_time)
+    deadline_relax_factor = float(policy_v2.get("deadline_relax_factor", 0.98))
+    bar_minutes = int(policy_v2.get("bar_minutes", 5))
 
     print("\n" + "=" * 60)
     print("V2 BACKTEST: PURE ML STRATEGY")
@@ -534,7 +587,7 @@ def main() -> None:
         bars = store["bars_5min"].copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
-    bars, _ = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=False)
+    bars = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=False)
 
     print(f"\nBars: {len(bars):,}")
 
@@ -549,6 +602,13 @@ def main() -> None:
         min_bars_between_trades=min_bars_between_trades,
         enable_long=enable_long,
         enable_short=enable_short,
+        horizon_bars=horizon_bars,
+        execution_mode=execution_mode,
+        exit_price_mode=exit_price_mode,
+        session_mode=session_mode,
+        deadline_time=deadline_time,
+        deadline_relax_factor=deadline_relax_factor,
+        bar_minutes=bar_minutes,
         start_idx=args.start_idx,
         end_idx=args.end_idx,
         save_trades_path=args.save_trades,

@@ -42,7 +42,7 @@ def load_bars(h5_path: str) -> pd.DataFrame:
         bars = store["bars_5min"].copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
-    bars, _ = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
+    bars = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
     return bars
 
 

@@ -28,7 +28,8 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from core.simple_config import NN_CONFIG, RISK_CONFIG
+from core.selection import resolve_score_quantile
+from core.simple_config import NN_CONFIG, RISK_CONFIG, TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features, get_recommended_features, select_features
 from features.labels_v2 import make_fixed_horizon_labels
@@ -55,7 +56,7 @@ def load_bars(h5_path: str) -> pd.DataFrame:
         bars = store["bars_5min"].copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
-    bars, _ = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
+    bars = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
     return bars
 
 
@@ -78,6 +79,7 @@ def build_labels(
     horizon_bars: int,
     threshold_ticks: int,
     tick_size: float,
+    session_mode: str,
     session_start: time,
     session_end: time,
 ) -> pd.DataFrame:
@@ -88,12 +90,13 @@ def build_labels(
         tick_size=tick_size,
     )
 
-    bar_times = _to_chicago_series(bars_df["timestamp"])
-    rth_mask = (bar_times.dt.time >= session_start) & (bar_times.dt.time < session_end)
-    rth_df = pd.DataFrame({"idx": np.arange(len(bars_df)), "is_rth": rth_mask.values})
+    if session_mode.upper() == "RTH":
+        bar_times = _to_chicago_series(bars_df["timestamp"])
+        rth_mask = (bar_times.dt.time >= session_start) & (bar_times.dt.time < session_end)
+        rth_df = pd.DataFrame({"idx": np.arange(len(bars_df)), "is_rth": rth_mask.values})
 
-    labels_df = labels_df.merge(rth_df, on="idx", how="left")
-    labels_df = labels_df[labels_df["is_rth"]].drop(columns=["is_rth"]).copy()
+        labels_df = labels_df.merge(rth_df, on="idx", how="left")
+        labels_df = labels_df[labels_df["is_rth"]].drop(columns=["is_rth"]).copy()
 
     return labels_df
 
@@ -298,6 +301,7 @@ def train_fold(
     *,
     device: torch.device,
     seed: int,
+    score_quantile: float,
 ) -> Dict[str, object]:
     X_train, y_train_long, y_train_short = slice_window(merged_df, feature_cols, windows["train"])
     X_val, y_val_long, y_val_short = slice_window(merged_df, feature_cols, windows["val"])
@@ -357,7 +361,7 @@ def train_fold(
         short_train_prob = np.zeros_like(long_train_prob)
     train_score = np.maximum(long_train_prob, short_train_prob)
 
-    score_threshold = float(np.quantile(train_score, NN_CONFIG.score_quantile))
+    score_threshold = float(np.quantile(train_score, score_quantile))
 
     long_val_prob = _apply_calibrator(long_cal, long_val_logits)
     short_val_prob = _apply_calibrator(short_cal, short_val_logits) if short_model is not None else np.zeros_like(long_val_prob)
@@ -382,7 +386,7 @@ def train_fold(
             "test_log_loss": _log_loss(y_test_short, short_test_prob) if short_model is not None else 0.0,
         },
         "threshold": {
-            "score_quantile": NN_CONFIG.score_quantile,
+            "score_quantile": score_quantile,
             "score_threshold": score_threshold,
         },
     }
@@ -423,9 +427,11 @@ def main() -> None:
         horizon_bars=NN_CONFIG.horizon_bars,
         threshold_ticks=NN_CONFIG.threshold_ticks,
         tick_size=RISK_CONFIG.tick_size,
+        session_mode=NN_CONFIG.session_mode,
         session_start=RISK_CONFIG.session_start,
         session_end=RISK_CONFIG.session_end,
     )
+    assert not labels_df[["y_long", "y_short"]].isna().any().any(), "Label NaNs detected"
 
     merged = labels_df.merge(features_df, on="idx", how="inner")
 
@@ -438,6 +444,19 @@ def main() -> None:
         val_fraction=NN_CONFIG.val_fraction,
         test_fraction=NN_CONFIG.test_fraction,
         folds=args.folds,
+    )
+    assert embargo >= NN_CONFIG.horizon_bars, "Embargo must be >= horizon_bars"
+
+    score_quantile = resolve_score_quantile(
+        score_quantile=NN_CONFIG.score_quantile,
+        auto_score_quantile=NN_CONFIG.auto_score_quantile,
+        target_trades_per_day=NN_CONFIG.target_trades_per_day,
+        session_mode=NN_CONFIG.session_mode,
+        session_start=RISK_CONFIG.session_start,
+        session_end=RISK_CONFIG.session_end,
+        bar_minutes=5,
+        min_quantile=NN_CONFIG.score_quantile_min,
+        max_quantile=NN_CONFIG.score_quantile_max,
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -461,6 +480,7 @@ def main() -> None:
             windows,
             device=device,
             seed=args.seed + fold_idx * 10,
+            score_quantile=score_quantile,
         )
 
         print(
@@ -472,7 +492,7 @@ def main() -> None:
         )
         print(
             f"Score threshold: {results['score_threshold']:.4f} "
-            f"(quantile {NN_CONFIG.score_quantile})"
+            f"(quantile {score_quantile})"
         )
 
         if args.no_save:
@@ -500,6 +520,15 @@ def main() -> None:
         nn_cfg = asdict(NN_CONFIG)
         nn_cfg["embargo_bars"] = embargo
         nn_cfg["score_threshold"] = results["score_threshold"]
+        nn_cfg["score_quantile"] = score_quantile
+        nn_cfg["max_hold_bars"] = NN_CONFIG.horizon_bars
+        nn_cfg["stop_loss_ticks"] = TRAINING_CONFIG.stop_loss_ticks
+        nn_cfg["target_multiplier"] = TRAINING_CONFIG.target_multiplier
+        nn_cfg["tick_size"] = RISK_CONFIG.tick_size
+        nn_cfg["tick_value"] = RISK_CONFIG.tick_value
+        nn_cfg["bar_minutes"] = 5
+        if isinstance(nn_cfg.get("deadline_time"), time):
+            nn_cfg["deadline_time"] = nn_cfg["deadline_time"].isoformat()
 
         metadata = {
             "created": pd.Timestamp.utcnow().isoformat(),

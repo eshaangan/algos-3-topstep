@@ -24,30 +24,38 @@ from live.strategy import MLStrategy
 LOGGER = logging.getLogger("live_runner")
 
 
-def _build_configs() -> tuple[CoreRiskConfig, SessionConfig, StrategyConfig]:
+def _build_configs(strategy: MLStrategy) -> tuple[CoreRiskConfig, SessionConfig, StrategyConfig]:
     risk_cfg = CoreRiskConfig()
-    risk_cfg.starting_balance = RISK_CONFIG.starting_balance
-    risk_cfg.max_daily_loss = RISK_CONFIG.max_daily_loss
-    risk_cfg.trailing_drawdown = RISK_CONFIG.trailing_drawdown
-    risk_cfg.fixed_risk_per_trade = RISK_CONFIG.fixed_risk_per_trade
-    risk_cfg.max_contracts = RISK_CONFIG.max_contracts
-    risk_cfg.tick_size = RISK_CONFIG.tick_size
-    risk_cfg.tick_value = RISK_CONFIG.tick_value
-    risk_cfg.flat_by_time = RISK_CONFIG.session_end.strftime("%H:%M")
+    risk_meta = strategy.metadata.get("risk_config", {}) if isinstance(strategy.metadata, dict) else {}
+    risk_cfg.starting_balance = float(risk_meta.get("starting_balance", RISK_CONFIG.starting_balance))
+    risk_cfg.max_daily_loss = float(risk_meta.get("max_daily_loss", RISK_CONFIG.max_daily_loss))
+    risk_cfg.trailing_drawdown = float(risk_meta.get("trailing_drawdown", RISK_CONFIG.trailing_drawdown))
+    risk_cfg.fixed_risk_per_trade = float(risk_meta.get("fixed_risk_per_trade", RISK_CONFIG.fixed_risk_per_trade))
+    risk_cfg.max_contracts = int(risk_meta.get("max_contracts", RISK_CONFIG.max_contracts))
+    risk_cfg.tick_size = float(risk_meta.get("tick_size", RISK_CONFIG.tick_size))
+    risk_cfg.tick_value = float(risk_meta.get("tick_value", RISK_CONFIG.tick_value))
+
+    session_mode = getattr(strategy, "session_mode", "RTH")
+    session_start = risk_meta.get("session_start", RISK_CONFIG.session_start.strftime("%H:%M:%S"))
+    session_end = risk_meta.get("session_end", RISK_CONFIG.session_end.strftime("%H:%M:%S"))
+    if session_mode.upper() == "24H":
+        session_start = "00:00"
+        session_end = "23:59"
+    risk_cfg.flat_by_time = session_end[:5]
     risk_cfg.use_live_account_state = True
     risk_cfg.live_trading_enabled = True
 
     session_cfg = SessionConfig(
         timezone="America/Chicago",
-        session_start=RISK_CONFIG.session_start.strftime("%H:%M"),
-        session_end=RISK_CONFIG.session_end.strftime("%H:%M"),
+        session_start=session_start[:5],
+        session_end=session_end[:5],
         flat_buffer_minutes=5,
     )
 
     strategy_cfg = StrategyConfig()
     strategy_cfg.mode = "ml_only"
-    strategy_cfg.stop_ticks = TRAINING_CONFIG.stop_loss_ticks
-    strategy_cfg.target_rr_multiple = TRAINING_CONFIG.target_multiplier
+    strategy_cfg.stop_ticks = int(getattr(strategy, "stop_loss_ticks", TRAINING_CONFIG.stop_loss_ticks))
+    strategy_cfg.target_rr_multiple = float(getattr(strategy, "target_multiplier", TRAINING_CONFIG.target_multiplier))
 
     return risk_cfg, session_cfg, strategy_cfg
 
@@ -78,10 +86,10 @@ def run_loop(
     load_dotenv()
 
     client = ProjectXClient()
-    risk_cfg, session_cfg, strategy_cfg = _build_configs()
+    strategy = MLStrategy(model_dir=model_dir, symbol=symbol)
+    risk_cfg, session_cfg, strategy_cfg = _build_configs(strategy)
     risk_manager = RiskManager(risk_cfg, session_cfg)
     execution = LiveExecutionEngine(client, risk_manager, risk_cfg, strategy_cfg)
-    strategy = MLStrategy(model_dir=model_dir, symbol=symbol)
 
     last_bar_ts: Optional[pd.Timestamp] = None
 

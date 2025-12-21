@@ -51,10 +51,16 @@ class TrainingConfig:
     # ========== PURE ML STRATEGY: Score + Trade Budget ==========
     # NEW: Control frequency via ranking + daily budget, NOT high thresholds
     enable_long: bool = True
-    enable_short: bool = False  # MES shorts structurally unfavorable
+    enable_short: bool = True  # Enable shorts for symmetric ML selection
+
+    session_mode: str = "RTH"  # "RTH" or "24H"
 
     # Score threshold (quantile-based, fitted on train)
-    score_quantile: float = 0.995  # Top 0.5% of opportunities (yields ~1-2 trades/day)
+    score_quantile: float = 0.975  # Default target for ~2 trades/day in RTH
+    target_trades_per_day: int = 2
+    auto_score_quantile: bool = True
+    score_quantile_min: float = 0.90
+    score_quantile_max: float = 0.995
 
     # Daily trade budget (hard limit)
     max_trades_per_day: int = 2  # Target ~1-2 trades/day on average
@@ -92,13 +98,23 @@ class NNConfig:
     feature_lookback: int = 100
     embargo_bars: int = 0  # 0 means "compute from horizon + lookback"
 
-    score_quantile: float = 0.995
+    score_quantile: float = 0.975
     score_threshold: Optional[float] = None
 
     max_trades_per_day: int = 2
     min_bars_between_trades: int = 12
     enable_long: bool = True
-    enable_short: bool = False
+    enable_short: bool = True
+
+    session_mode: str = "RTH"  # "RTH" or "24H"
+    target_trades_per_day: int = 2
+    auto_score_quantile: bool = True
+    score_quantile_min: float = 0.90
+    score_quantile_max: float = 0.995
+    deadline_time: time = time(11, 30)  # CT
+    deadline_relax_factor: float = 0.98
+    execution_mode: str = "time_exit"  # "time_exit" or "triple_barrier"
+    exit_price_mode: str = "bar_close"  # "next_open" or "bar_close"
 
     train_fraction: float = 0.6
     val_fraction: float = 0.2

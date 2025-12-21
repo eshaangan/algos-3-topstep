@@ -37,6 +37,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from core.selection import resolve_score_quantile
 from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from data.clean_bars import clean_bars
 from features.engineer import add_features, get_recommended_features, select_features
@@ -49,7 +50,7 @@ def load_bars(h5_path: str) -> pd.DataFrame:
         bars = store["bars_5min"].copy()
     bars["timestamp"] = pd.to_datetime(bars["timestamp"], utc=True)
     bars = bars.sort_values("timestamp").reset_index(drop=True)
-    bars, _ = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
+    bars = clean_bars(bars, tick_size=RISK_CONFIG.tick_size, verbose=True)
     return bars
 
 
@@ -82,13 +83,19 @@ def prepare_features_and_labels(
         print(f"\n✓ Using all {len(feature_cols)} features")
 
     # 3. Generate labels using V2 approach (fixed-horizon market labels)
+    session_start = RISK_CONFIG.session_start
+    session_end = RISK_CONFIG.session_end
+    if TRAINING_CONFIG.session_mode.upper() == "24H":
+        session_start = time(0, 0)
+        session_end = time(23, 59)
+
     labels_df = create_fixed_horizon_labels(
         bars_df,
         horizon_bars=TRAINING_CONFIG.horizon_bars,
         threshold_ticks=TRAINING_CONFIG.threshold_ticks,
         tick_size=RISK_CONFIG.tick_size,
-        session_start=RISK_CONFIG.session_start,
-        session_end=RISK_CONFIG.session_end,
+        session_start=session_start,
+        session_end=session_end,
         verbose=True,
     )
 
@@ -314,7 +321,7 @@ def compute_score_threshold(
     long_model: RandomForestClassifier,
     short_model: RandomForestClassifier,
     X_train: np.ndarray,
-) -> float:
+) -> Tuple[float, float]:
     """
     Compute score threshold from training set quantile.
 
@@ -335,9 +342,20 @@ def compute_score_threshold(
     score = np.maximum(p_long, p_short)
 
     # Compute threshold
-    threshold = np.quantile(score, TRAINING_CONFIG.score_quantile)
+    score_quantile = resolve_score_quantile(
+        score_quantile=TRAINING_CONFIG.score_quantile,
+        auto_score_quantile=TRAINING_CONFIG.auto_score_quantile,
+        target_trades_per_day=TRAINING_CONFIG.target_trades_per_day,
+        session_mode=TRAINING_CONFIG.session_mode,
+        session_start=RISK_CONFIG.session_start,
+        session_end=RISK_CONFIG.session_end,
+        bar_minutes=5,
+        min_quantile=TRAINING_CONFIG.score_quantile_min,
+        max_quantile=TRAINING_CONFIG.score_quantile_max,
+    )
+    threshold = np.quantile(score, score_quantile)
 
-    print(f"\nScore quantile: {TRAINING_CONFIG.score_quantile} (top {(1 - TRAINING_CONFIG.score_quantile) * 100:.1f}%)")
+    print(f"\nScore quantile: {score_quantile:.4f} (top {(1 - score_quantile) * 100:.1f}%)")
     print(f"Score threshold: {threshold:.4f}")
     print(f"\nScore statistics (train):")
     print(f"  Mean:   {score.mean():.4f}")
@@ -361,7 +379,7 @@ def compute_score_threshold(
 
     print("\n" + "=" * 60 + "\n")
 
-    return float(threshold)
+    return float(threshold), float(score_quantile)
 
 
 def train_models_v2(
@@ -418,7 +436,7 @@ def train_models_v2(
         short_metrics = {"training": {}, "validation": {}, "test": {}}
 
     # 6. Compute score threshold from train quantile
-    score_threshold = compute_score_threshold(long_model, short_model or long_model, X_train)
+    score_threshold, score_quantile = compute_score_threshold(long_model, short_model or long_model, X_train)
 
     # 7. Lockbox evaluation (optional - only if needed)
     print("\n" + "=" * 60)
@@ -463,7 +481,7 @@ def train_models_v2(
         },
         "policy_v2": {
             "score_threshold": score_threshold,
-            "score_quantile": TRAINING_CONFIG.score_quantile,
+            "score_quantile": score_quantile,
             "max_trades_per_day": TRAINING_CONFIG.max_trades_per_day,
             "min_bars_between_trades": TRAINING_CONFIG.min_bars_between_trades,
             "enable_long": TRAINING_CONFIG.enable_long,
@@ -546,7 +564,7 @@ def main() -> None:
     print("\nPolicy V2:")
     print(json.dumps(results["policy_v2"], indent=2))
     print("\nScore Threshold:")
-    print(f"  {results['score_threshold']:.4f} (quantile {TRAINING_CONFIG.score_quantile})")
+    print(f"  {results['score_threshold']:.4f} (quantile {score_quantile:.4f})")
 
     if args.no_save:
         print("\n--no-save flag: models not saved")

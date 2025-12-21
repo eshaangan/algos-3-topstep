@@ -5,15 +5,19 @@ NN strategy wrapper that converts model probabilities into trade signals.
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import time as dt_time
+import logging
 from pathlib import Path
 from typing import Dict, Optional
 
 import pandas as pd
 
-from core.daily_trade_budget import DailyTradeBudget
+from core.selection import DailyTopNSelector, in_session
 from core.models import Signal, SignalAction
-from core.simple_config import NN_CONFIG, RISK_CONFIG, TRAINING_CONFIG
+from core.simple_config import RISK_CONFIG, TRAINING_CONFIG
 from models.nn_inference import load_nn_bundle, predict_latest
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _to_chicago(ts: pd.Timestamp) -> pd.Timestamp:
@@ -32,22 +36,50 @@ class MLStrategy:
         self.bundle = load_nn_bundle(str(self.model_dir), fold=fold)
         self.metadata = self.bundle.config
         nn_cfg = self.metadata.get("nn_config", {})
+        self.nn_cfg = nn_cfg
 
-        self.score_threshold = nn_cfg.get("score_threshold", NN_CONFIG.score_threshold)
-        if self.score_threshold is None:
-            raise ValueError("score_threshold missing from NN config artifacts")
+        risk_meta = self.metadata.get("risk_config", {}) if isinstance(self.metadata, dict) else {}
+        self.session_start = RISK_CONFIG.session_start
+        self.session_end = RISK_CONFIG.session_end
+        if isinstance(risk_meta.get("session_start"), str):
+            self.session_start = dt_time.fromisoformat(risk_meta["session_start"])
+        if isinstance(risk_meta.get("session_end"), str):
+            self.session_end = dt_time.fromisoformat(risk_meta["session_end"])
 
-        self.enable_long = bool(nn_cfg.get("enable_long", NN_CONFIG.enable_long))
-        self.enable_short = bool(nn_cfg.get("enable_short", NN_CONFIG.enable_short))
-        self.max_trades_per_day = int(nn_cfg.get("max_trades_per_day", NN_CONFIG.max_trades_per_day))
-        self.min_bars_between_trades = int(
-            nn_cfg.get("min_bars_between_trades", NN_CONFIG.min_bars_between_trades)
-        )
-        self.budget = DailyTradeBudget(
+        self.score_threshold = float(nn_cfg["score_threshold"])
+        self.enable_long = bool(nn_cfg["enable_long"])
+        self.enable_short = bool(nn_cfg["enable_short"])
+        self.max_trades_per_day = int(nn_cfg["max_trades_per_day"])
+        self.min_bars_between_trades = int(nn_cfg["min_bars_between_trades"])
+        self.session_mode = str(nn_cfg.get("session_mode", "RTH"))
+        self.deadline_time = nn_cfg.get("deadline_time")
+        self.deadline_relax_factor = float(nn_cfg.get("deadline_relax_factor", 0.98))
+        self.execution_mode = str(nn_cfg.get("execution_mode", "time_exit"))
+        self.exit_price_mode = str(nn_cfg.get("exit_price_mode", "next_open"))
+        self.horizon_bars = int(nn_cfg["horizon_bars"])
+        self.bar_minutes = int(nn_cfg.get("bar_minutes", 5))
+        self.stop_loss_ticks = int(nn_cfg.get("stop_loss_ticks", TRAINING_CONFIG.stop_loss_ticks))
+        self.target_multiplier = float(nn_cfg.get("target_multiplier", TRAINING_CONFIG.target_multiplier))
+        self.tick_size = float(nn_cfg.get("tick_size", RISK_CONFIG.tick_size))
+        self.tick_value = float(nn_cfg.get("tick_value", RISK_CONFIG.tick_value))
+
+        self.selector = DailyTopNSelector(
             max_trades_per_day=self.max_trades_per_day,
             min_bars_between_trades=self.min_bars_between_trades,
-            bar_minutes=5,
+            score_threshold=self.score_threshold,
+            bar_minutes=self.bar_minutes,
+            session_mode=self.session_mode,
+            session_start=self.session_start,
+            session_end=self.session_end,
+            deadline_time=self.deadline_time or pd.Timestamp("11:30").time(),
+            deadline_relax_factor=self.deadline_relax_factor,
         )
+        self.open_position: Optional[Dict[str, object]] = None
+
+    def _bar_index(self, ts: pd.Timestamp) -> int:
+        ts = pd.to_datetime(ts, utc=True)
+        nanos_per_bar = int(self.bar_minutes * 60 * 1_000_000_000)
+        return int(ts.value // nanos_per_bar)
 
     def generate_signal(self, bars_df: pd.DataFrame) -> Optional[Signal]:
         if bars_df.empty:
@@ -61,8 +93,41 @@ class MLStrategy:
             return None
 
         last_row = bars_df.iloc[-1]
-        ts_local = _to_chicago(last_row["timestamp"])
-        if ts_local.time() < RISK_CONFIG.session_start or ts_local.time() >= RISK_CONFIG.session_end:
+        bar_index = self._bar_index(last_row["timestamp"])
+
+        if self.open_position is not None and self.execution_mode == "time_exit":
+            entry_idx = int(self.open_position["entry_idx"])
+            hold_bars = bar_index - entry_idx
+            if hold_bars >= self.horizon_bars:
+                reason = f"TIME_EXIT after {hold_bars} bars"
+                if self.exit_price_mode == "next_open":
+                    exit_price = float(last_row["close"])
+                else:
+                    exit_price = float(last_row["close"])
+                self.open_position = None
+                return Signal(
+                    action=SignalAction.EXIT,
+                    symbol=self.symbol,
+                    timestamp=last_row["timestamp"].to_pydatetime(),
+                    stop_price=exit_price,
+                    target_price=exit_price,
+                    reason=reason,
+                    metadata={
+                        "strategy_mode": "ml_only",
+                        "execution_mode": self.execution_mode,
+                        "exit_price_mode": self.exit_price_mode,
+                    },
+                )
+
+        if self.open_position is not None:
+            return None
+
+        if not in_session(
+            last_row["timestamp"],
+            session_mode=self.session_mode,
+            session_start=self.session_start,
+            session_end=self.session_end,
+        ):
             return None
 
         long_prob = probs["long_prob"]
@@ -70,24 +135,24 @@ class MLStrategy:
         score = probs["score"]
         direction = probs["direction"]
 
-        if score < float(self.score_threshold):
-            return None
-
         if direction == "long" and not self.enable_long:
             return None
         if direction == "short" and not self.enable_short:
             return None
 
-        if not self.budget.can_take(last_row["timestamp"]):
+        if not self.selector.should_enter(
+            last_row["timestamp"], score=float(score), direction=str(direction), bar_index=bar_index
+        ):
+            self.selector.log_rejection()
             return None
 
         # Use fixed stop from config to match backtest and model training
         # This ensures live performance matches backtest expectations
-        stop_ticks = TRAINING_CONFIG.stop_loss_ticks
+        stop_ticks = self.stop_loss_ticks
 
         last_close = float(last_row["close"])
-        stop_distance = stop_ticks * RISK_CONFIG.tick_size
-        target_distance = stop_distance * TRAINING_CONFIG.target_multiplier
+        stop_distance = stop_ticks * self.tick_size
+        target_distance = stop_distance * self.target_multiplier
 
         if direction == "long":
             action = SignalAction.ENTER_LONG
@@ -101,12 +166,13 @@ class MLStrategy:
         metadata = {
             "ideal_entry": last_close,
             "risk_ticks": stop_ticks,
-            "target_rr_multiple": TRAINING_CONFIG.target_multiplier,
+            "target_rr_multiple": self.target_multiplier,
             "strategy_mode": "ml_only",
             "long_prob": long_prob,
             "short_prob": short_prob,
             "score": score,
             "score_threshold": float(self.score_threshold),
+            "execution_mode": self.execution_mode,
         }
 
         reason = (
@@ -114,7 +180,12 @@ class MLStrategy:
             f"long_prob={long_prob:.3f} short_prob={short_prob:.3f}"
         )
 
-        self.budget.register_trade(last_row["timestamp"])
+        self.selector.register_trade(last_row["timestamp"], bar_index=bar_index)
+        self.open_position = {
+            "entry_time": last_row["timestamp"],
+            "entry_idx": bar_index,
+            "direction": direction,
+        }
 
         return Signal(
             action=action,
