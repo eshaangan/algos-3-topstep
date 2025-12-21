@@ -102,17 +102,28 @@ class NNConfig:
     score_quantile: float = 0.975
     score_threshold: Optional[float] = None
 
-    max_trades_per_day: int = 2
+    # Trade frequency control (safe 4-trades/day with quality gates)
+    max_trades_per_day: int = 4  # Increased from 2, but gated by confidence + quality
     min_bars_between_trades: int = 12
     enable_long: bool = True
     enable_short: bool = True
+
+    # Confidence gates (pure ML, no pattern matching)
+    confidence_mode: str = "p_long_vs_p_short"  # "p_long_vs_p_short" or "distance_from_0.5"
+    confidence_min: float = 0.05  # Min confidence for trades 3-4
+    quality_margin: float = 0.01  # Trades 3-4 must be within this of best score
+    allow_extra_trades_if_quality: bool = True  # Enable trades 3-4 with quality gates
+
+    # Daily risk controls (Topstep-friendly)
+    daily_stop_loss: float = 400.0  # Stop trading after losing this much in a day
+    daily_profit_lock: float = 500.0  # Stop trading after winning this much in a day
 
     selection_mode: str = "day_adaptive_topn"
     day_percentile_floor: float = 0.90
     global_floor_score: Optional[float] = None
 
     session_mode: str = "RTH"  # "RTH" or "24H"
-    target_trades_per_day: int = 2
+    target_trades_per_day: int = 2  # Keep at 2 for quantile calibration
     auto_score_quantile: bool = True
     score_quantile_min: float = 0.90
     score_quantile_max: float = 0.995

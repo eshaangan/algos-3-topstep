@@ -210,6 +210,15 @@ class DayAdaptiveTopNSelector:
     deadline_time: time = time(11, 30)
     deadline_relax_factor: float = 0.98
 
+    # Quality gates for extra trades (trades 3-4)
+    confidence_min: float = 0.05
+    quality_margin: float = 0.01
+    allow_extra_trades_if_quality: bool = True
+
+    # Daily risk controls
+    daily_stop_loss: float = 400.0
+    daily_profit_lock: float = 500.0
+
     trades_today: int = 0
     last_trade_time: Optional[pd.Timestamp] = None
     last_trade_idx: Optional[int] = None
@@ -217,6 +226,10 @@ class DayAdaptiveTopNSelector:
     top_candidates: list[dict] = field(default_factory=list)
     day_scores: list[float] = field(default_factory=list)
     last_rejection_reason: Optional[str] = None
+
+    # Daily PnL tracking
+    daily_pnl: float = 0.0
+    best_score_today: float = 0.0
 
     def _reset_if_new_day(self, ts: pd.Timestamp) -> None:
         day = _to_chicago(ts).date()
@@ -227,6 +240,8 @@ class DayAdaptiveTopNSelector:
             self.last_trade_idx = None
             self.top_candidates.clear()
             self.day_scores.clear()
+            self.daily_pnl = 0.0
+            self.best_score_today = 0.0
 
     def _passes_spacing(self, ts: pd.Timestamp, bar_index: Optional[int]) -> bool:
         if self.last_trade_time is None and self.last_trade_idx is None:
@@ -277,7 +292,21 @@ class DayAdaptiveTopNSelector:
         score: Optional[float],
         direction: str,
         bar_index: Optional[int] = None,
+        confidence: Optional[float] = None,
     ) -> bool:
+        """
+        Determine if a trade should be entered.
+
+        Args:
+            ts: Current timestamp
+            score: Model score (max of p_long, p_short)
+            direction: Trade direction
+            bar_index: Bar index (optional)
+            confidence: Model confidence (optional, required for trades 3-4)
+
+        Returns:
+            True if trade should be entered, False otherwise
+        """
         self.last_rejection_reason = None
         self._reset_if_new_day(ts)
 
@@ -288,25 +317,62 @@ class DayAdaptiveTopNSelector:
         score_val = float(score)
         self._update_day_scores(score_val)
 
+        # Track best score of the day
+        if score_val > self.best_score_today:
+            self.best_score_today = score_val
+
+        # Daily PnL gates (Topstep-friendly risk controls)
+        if self.daily_pnl <= -self.daily_stop_loss:
+            self.last_rejection_reason = "daily_stop"
+            return False
+
+        if self.daily_pnl >= self.daily_profit_lock:
+            self.last_rejection_reason = "daily_profit_lock"
+            return False
+
+        # Budget check
         if self.trades_today >= self.max_trades_per_day:
             self.last_rejection_reason = "budget"
             return False
 
+        # Spacing check
         if not self._passes_spacing(ts, bar_index):
             self.last_rejection_reason = "spacing"
             return False
 
+        # Update top candidates
         if bar_index is not None:
             self._update_top_candidates(score_val, int(bar_index), direction)
 
+        # Floor check
         floor = self._current_floor(ts)
         if score_val < floor:
             self.last_rejection_reason = "floor"
             return False
 
+        # Top-N check
         if bar_index is not None and not self._is_in_top_n(int(bar_index), direction):
             self.last_rejection_reason = "budget"
             return False
+
+        # Quality gates for trades 3-4
+        # Trades 1-2: standard logic (above passes)
+        # Trades 3-4: require high confidence + quality margin
+        if self.trades_today >= 2 and self.allow_extra_trades_if_quality:
+            # Extra trades require confidence gate
+            if confidence is None or np.isnan(confidence):
+                self.last_rejection_reason = "confidence"
+                return False
+
+            if float(confidence) < self.confidence_min:
+                self.last_rejection_reason = "confidence"
+                return False
+
+            # Extra trades must be close to best score of day
+            if self.best_score_today > 0:
+                if score_val < (self.best_score_today - self.quality_margin):
+                    self.last_rejection_reason = "quality_margin"
+                    return False
 
         return True
 
@@ -316,6 +382,17 @@ class DayAdaptiveTopNSelector:
         self.last_trade_time = ts
         if bar_index is not None:
             self.last_trade_idx = int(bar_index)
+
+    def update_daily_pnl(self, pnl: float, ts: pd.Timestamp) -> None:
+        """
+        Update daily PnL after a trade closes.
+
+        Args:
+            pnl: Trade PnL (positive or negative)
+            ts: Trade exit timestamp
+        """
+        self._reset_if_new_day(ts)
+        self.daily_pnl += pnl
 
     def log_rejection(self, prefix: str = "Signal rejected") -> None:
         if self.last_rejection_reason and LOGGER.isEnabledFor(logging.DEBUG):

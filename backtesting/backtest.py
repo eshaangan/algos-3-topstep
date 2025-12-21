@@ -208,6 +208,11 @@ def run_backtest_nn(
             session_end=session_end,
             deadline_time=deadline_time or time(11, 30),
             deadline_relax_factor=deadline_relax_factor,
+            confidence_min=0.05,  # Default, can be overridden by config
+            quality_margin=0.01,  # Default, can be overridden by config
+            allow_extra_trades_if_quality=True,
+            daily_stop_loss=400.0,  # Default, can be overridden by config
+            daily_profit_lock=500.0,  # Default, can be overridden by config
         )
     else:
         selector = DailyTopNSelector(
@@ -311,6 +316,9 @@ def run_backtest_nn(
                 trailing_peak = max(trailing_peak, equity)
                 equity_curve.append(equity)
 
+                # Update selector's daily PnL tracking for quality gates
+                selector.update_daily_pnl(pnl, bar["timestamp"])
+
                 trades.append(
                     {
                         "entry_time": position["entry_time"],
@@ -380,6 +388,7 @@ def run_backtest_nn(
         direction = probs.get("direction")
         long_prob = probs.get("long_prob")
         short_prob = probs.get("short_prob")
+        confidence = probs.get("confidence")  # New: get confidence for quality gates
 
         if pd.isna(score) or pd.isna(long_prob) or pd.isna(short_prob):
             if logger.isEnabledFor(logging.DEBUG):
@@ -395,8 +404,13 @@ def run_backtest_nn(
                 logger.debug("Signal rejected: short_disabled idx=%s", i)
             continue
 
+        # Pass confidence to selector for quality gates on trades 3-4
         if not selector.should_enter(
-            bar["timestamp"], score=float(score), direction=str(direction), bar_index=i
+            bar["timestamp"],
+            score=float(score),
+            direction=str(direction),
+            bar_index=i,
+            confidence=float(confidence) if not pd.isna(confidence) else None,
         ):
             selector.log_rejection()
             continue
@@ -469,6 +483,10 @@ def run_backtest_nn(
         pnl = raw_pnl - fees
         equity += pnl
         equity_curve.append(equity)
+
+        # Update selector's daily PnL tracking
+        selector.update_daily_pnl(pnl, last_bar["timestamp"])
+
         trades.append(
             {
                 "entry_time": position["entry_time"],

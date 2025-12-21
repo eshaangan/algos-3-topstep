@@ -144,6 +144,55 @@ def _apply_calibrator(calibrator: Optional[LogisticRegression], logits: np.ndarr
     return calibrator.predict_proba(logits.reshape(-1, 1))[:, 1]
 
 
+def compute_confidence(
+    long_prob: float,
+    short_prob: float,
+    *,
+    confidence_mode: str = "p_long_vs_p_short",
+) -> float:
+    """
+    Compute confidence score from model probabilities (pure ML).
+
+    Args:
+        long_prob: Probability of long label
+        short_prob: Probability of short label
+        confidence_mode: How to compute confidence:
+            - "p_long_vs_p_short": abs(p_long - p_short) (default)
+            - "distance_from_0.5": abs(max(p_long, p_short) - 0.5) * 2
+
+    Returns:
+        Confidence score in [0, 1]
+
+    Notes:
+        - Higher confidence means the model is more certain about direction
+        - confidence_mode="p_long_vs_p_short" measures directional divergence
+        - confidence_mode="distance_from_0.5" measures how far from coin-flip
+    """
+    if confidence_mode == "p_long_vs_p_short":
+        return abs(long_prob - short_prob)
+    elif confidence_mode == "distance_from_0.5":
+        score = max(long_prob, short_prob)
+        return abs(score - 0.5) * 2.0
+    else:
+        raise ValueError(f"Unknown confidence_mode={confidence_mode!r}")
+
+
+def compute_confidence_batch(
+    long_probs: np.ndarray,
+    short_probs: np.ndarray,
+    *,
+    confidence_mode: str = "p_long_vs_p_short",
+) -> np.ndarray:
+    """Batch version of compute_confidence."""
+    if confidence_mode == "p_long_vs_p_short":
+        return np.abs(long_probs - short_probs)
+    elif confidence_mode == "distance_from_0.5":
+        scores = np.maximum(long_probs, short_probs)
+        return np.abs(scores - 0.5) * 2.0
+    else:
+        raise ValueError(f"Unknown confidence_mode={confidence_mode!r}")
+
+
 def load_nn_bundle(model_dir: str, *, fold: int = 0, device: Optional[str] = None) -> NNBundle:
     base = Path(model_dir)
     fold_dir = base / f"fold_{fold}"
@@ -247,6 +296,11 @@ def predict_scores_for_bars(bars_df: pd.DataFrame, bundle: NNBundle) -> pd.DataF
     score = np.maximum(long_prob, short_prob)
     direction = np.where(long_prob >= short_prob, "long", "short")
 
+    # Compute confidence
+    nn_cfg = bundle.config.get("nn_config", {})
+    confidence_mode = str(nn_cfg.get("confidence_mode", "p_long_vs_p_short"))
+    confidence = compute_confidence_batch(long_prob, short_prob, confidence_mode=confidence_mode)
+
     prob_df = pd.DataFrame(
         {
             "idx": valid_idx,
@@ -254,6 +308,7 @@ def predict_scores_for_bars(bars_df: pd.DataFrame, bundle: NNBundle) -> pd.DataF
             "short_prob": short_prob,
             "score": score,
             "direction": direction,
+            "confidence": confidence,
         }
     )
 
@@ -287,6 +342,11 @@ def predict_latest(
         short_prob = 0.0
     else:
         short_prob = float(_apply_calibrator(bundle.short_calibrator, np.array([short_logit]))[0])
+
+    # Compute confidence
+    nn_cfg = bundle.config.get("nn_config", {})
+    confidence_mode = str(nn_cfg.get("confidence_mode", "p_long_vs_p_short"))
+    confidence = compute_confidence(long_prob, short_prob, confidence_mode=confidence_mode)
     score = max(long_prob, short_prob)
     direction = "long" if long_prob >= short_prob else "short"
 
@@ -295,4 +355,5 @@ def predict_latest(
         "short_prob": short_prob,
         "score": score,
         "direction": direction,
+        "confidence": confidence,
     }

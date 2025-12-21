@@ -82,6 +82,11 @@ class MLStrategy:
                 session_end=self.session_end,
                 deadline_time=self.deadline_time or pd.Timestamp("11:30").time(),
                 deadline_relax_factor=self.deadline_relax_factor,
+                confidence_min=float(nn_cfg.get("confidence_min", 0.05)),
+                quality_margin=float(nn_cfg.get("quality_margin", 0.01)),
+                allow_extra_trades_if_quality=bool(nn_cfg.get("allow_extra_trades_if_quality", True)),
+                daily_stop_loss=float(nn_cfg.get("daily_stop_loss", 400.0)),
+                daily_profit_lock=float(nn_cfg.get("daily_profit_lock", 500.0)),
             )
         else:
             self.selector = DailyTopNSelector(
@@ -269,14 +274,20 @@ class MLStrategy:
         short_prob = probs["short_prob"]
         score = probs["score"]
         direction = probs["direction"]
+        confidence = probs.get("confidence")  # New: get confidence for quality gates
 
         if direction == "long" and not self.enable_long:
             return None
         if direction == "short" and not self.enable_short:
             return None
 
+        # Pass confidence to selector for quality gates on trades 3-4
         if not self.selector.should_enter(
-            last_row["timestamp"], score=float(score), direction=str(direction), bar_index=bar_index
+            last_row["timestamp"],
+            score=float(score),
+            direction=str(direction),
+            bar_index=bar_index,
+            confidence=float(confidence) if confidence is not None else None,
         ):
             self.selector.log_rejection()
             return None
