@@ -37,7 +37,7 @@
     "enable_long": true,
     "enable_short": true,
     "confidence_mode": "p_long_vs_p_short",
-    "confidence_min": 0.05,
+    "confidence_min": 0.06,
     "quality_margin": 0.01,
     "allow_extra_trades_if_quality": true,
     "daily_stop_loss": 400.0,
@@ -72,7 +72,11 @@
     "target_multiplier": 2.0,
     "tick_size": 0.25,
     "tick_value": 1.25,
-    "bar_minutes": 5
+    "bar_minutes": 5,
+    "use_dynamic_catastop": true,
+    "catastop_atr_multiplier": 2.0,
+    "catastop_min_ticks": 24,
+    "catastop_max_ticks": 72
   },
   "risk_config": {
     "starting_balance": 50000.0,

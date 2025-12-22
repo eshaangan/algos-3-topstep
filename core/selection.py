@@ -355,20 +355,20 @@ class DayAdaptiveTopNSelector:
             self.last_rejection_reason = "budget"
             return False
 
-        # Quality gates for trades 3-4
-        # Trades 1-2: standard logic (above passes)
-        # Trades 3-4: require high confidence + quality margin
+        # ========== CONFIDENCE FILTER (APPLIES TO ALL TRADES) ==========
+        # This is the ML-only uncertainty filter to reduce CATASTOP frequency
+        # Reject ALL trades (not just 3-4) if model is uncertain about direction
+        if confidence is None or np.isnan(confidence):
+            self.last_rejection_reason = "confidence"
+            return False
+
+        if float(confidence) < self.confidence_min:
+            self.last_rejection_reason = "confidence"
+            return False
+
+        # ========== QUALITY MARGIN (TRADES 3-4 ONLY) ==========
+        # Extra trades (beyond first 2) must also be near best score of day
         if self.trades_today >= 2 and self.allow_extra_trades_if_quality:
-            # Extra trades require confidence gate
-            if confidence is None or np.isnan(confidence):
-                self.last_rejection_reason = "confidence"
-                return False
-
-            if float(confidence) < self.confidence_min:
-                self.last_rejection_reason = "confidence"
-                return False
-
-            # Extra trades must be close to best score of day
             if self.best_score_today > 0:
                 if score_val < (self.best_score_today - self.quality_margin):
                     self.last_rejection_reason = "quality_margin"

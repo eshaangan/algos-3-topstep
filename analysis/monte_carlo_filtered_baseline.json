@@ -1,0 +1,17 @@
+{
+  "runs": 10000,
+  "pass_rate": 0.0,
+  "days_to_pass": {},
+  "fail_reasons": {
+    "daily_loss": 0,
+    "trailing_drawdown": 5338,
+    "consistency_limit": 0,
+    "max_days": 4662
+  },
+  "max_drawdown": {
+    "p05": 1089.8399999996625,
+    "p50": 2002.34999999938,
+    "p95": 2060.199999999524,
+    "mean": 1807.5973049994175
+  }
+}

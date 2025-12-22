@@ -167,6 +167,10 @@ def run_backtest_nn(
     save_trades_path: Optional[str] = None,
     tick_size: Optional[float] = None,
     tick_value: Optional[float] = None,
+    use_dynamic_catastop: bool = False,
+    catastop_atr_multiplier: float = 2.0,
+    catastop_min_ticks: int = 24,
+    catastop_max_ticks: int = 72,
 ) -> Dict[str, object]:
     """
     Pure ML backtest using either global threshold or day-adaptive top-N selection.
@@ -181,6 +185,13 @@ def run_backtest_nn(
     session_end = session_end or RISK_CONFIG.session_end
     if catastrophic_stop_ticks is None:
         catastrophic_stop_ticks = int(TRAINING_CONFIG.threshold_ticks) * 4
+
+    # Add features to bars if using dynamic catastop (need ATR)
+    if use_dynamic_catastop:
+        from features.engineer import add_features
+        bars_with_features = add_features(bars_df, verbose=False)
+    else:
+        bars_with_features = None
 
     if execution_mode == "time_exit":
         if exit_price_mode != "bar_close":
@@ -240,6 +251,15 @@ def run_backtest_nn(
     daily_trade_count = 0
     daily_trades_list: List[int] = []
 
+    # RTH days tracking (for accurate trading days count)
+    rth_bars_per_day: Dict[date, int] = {}
+
+    # Confidence tracking (for quality analysis)
+    confidence_winners: List[float] = []
+    confidence_losers: List[float] = []
+    confidence_catastop: List[float] = []
+    confidence_timeexit: List[float] = []
+
     # Feasibility tracking
     rejected_by_feasibility = 0
 
@@ -247,6 +267,15 @@ def run_backtest_nn(
         bar = bars_df.iloc[i]
         bar_time = _to_chicago(bar["timestamp"])
         bar_day = bar_time.date()
+
+        # Track RTH bars per day for accurate trading days count
+        if in_session(
+            bar["timestamp"],
+            session_mode=session_mode,
+            session_start=session_start,
+            session_end=session_end,
+        ):
+            rth_bars_per_day[bar_day] = rth_bars_per_day.get(bar_day, 0) + 1
 
         if current_day != bar_day:
             if current_day is not None:
@@ -319,6 +348,18 @@ def run_backtest_nn(
                 # Update selector's daily PnL tracking for quality gates
                 selector.update_daily_pnl(pnl, bar["timestamp"])
 
+                # Track confidence for quality analysis
+                conf_val = position.get("confidence")
+                if conf_val is not None and not pd.isna(conf_val):
+                    if pnl > 0:
+                        confidence_winners.append(float(conf_val))
+                    else:
+                        confidence_losers.append(float(conf_val))
+                    if exit_reason == "CATASTOP":
+                        confidence_catastop.append(float(conf_val))
+                    elif exit_reason == "TIME_EXIT":
+                        confidence_timeexit.append(float(conf_val))
+
                 trades.append(
                     {
                         "entry_time": position["entry_time"],
@@ -331,6 +372,7 @@ def run_backtest_nn(
                         "reason": exit_reason,
                         "stop_ticks": position["stop_ticks"],
                         "score": position["score"],
+                        "confidence": position.get("confidence"),
                     }
                 )
 
@@ -434,8 +476,22 @@ def run_backtest_nn(
         else:
             entry_price -= slippage
 
+        # Compute catastrophic stop (dynamic or fixed)
         if execution_mode == "time_exit":
-            stop_ticks = int(catastrophic_stop_ticks)
+            if use_dynamic_catastop and bars_with_features is not None:
+                # Dynamic stop based on ATR at signal time (causal)
+                signal_bar = bars_with_features.iloc[i]
+                atr_ticks = signal_bar.get("atr_ticks", 0)
+                if pd.isna(atr_ticks) or atr_ticks <= 0:
+                    # Fallback to fixed if ATR unavailable
+                    stop_ticks = int(catastrophic_stop_ticks)
+                else:
+                    # Compute dynamic stop: clamp(atr * multiplier, min, max)
+                    raw_stop = int(atr_ticks * catastop_atr_multiplier)
+                    stop_ticks = max(catastop_min_ticks, min(catastop_max_ticks, raw_stop))
+            else:
+                # Fixed stop
+                stop_ticks = int(catastrophic_stop_ticks)
             stop_distance = stop_ticks * tick_size
             target_distance = stop_distance * target_multiplier
         else:
@@ -460,6 +516,7 @@ def run_backtest_nn(
             "entry_idx": entry_idx,
             "stop_ticks": stop_ticks,
             "score": score,
+            "confidence": float(confidence) if not pd.isna(confidence) else None,
         }
 
         selector.register_trade(next_bar["timestamp"], bar_index=entry_idx)
@@ -487,6 +544,14 @@ def run_backtest_nn(
         # Update selector's daily PnL tracking
         selector.update_daily_pnl(pnl, last_bar["timestamp"])
 
+        # Track confidence for final position
+        conf_val = position.get("confidence")
+        if conf_val is not None and not pd.isna(conf_val):
+            if pnl > 0:
+                confidence_winners.append(float(conf_val))
+            else:
+                confidence_losers.append(float(conf_val))
+
         trades.append(
             {
                 "entry_time": position["entry_time"],
@@ -499,6 +564,7 @@ def run_backtest_nn(
                 "reason": "SEGMENT_END" if end < len(bars_df) else "FINAL_BAR",
                 "stop_ticks": position["stop_ticks"],
                 "score": position["score"],
+                "confidence": position.get("confidence"),
             }
         )
 
@@ -559,7 +625,44 @@ def run_backtest_nn(
         pct_days_with_1 = 0.0
         pct_days_with_2 = 0.0
 
+    # Compute RTH days metrics (accurate trading days count)
+    min_rth_bars = 30  # Days need >=30 RTH bars to be considered trading days
+    rth_days_in_data = sum(1 for count in rth_bars_per_day.values() if count >= min_rth_bars)
+
+    # Count RTH days with trades (need to map trade days to RTH days)
+    trade_days_set = set()
+    if not trades_df.empty and "entry_time" in trades_df.columns:
+        for entry_time in trades_df["entry_time"]:
+            trade_day = _to_chicago(entry_time).date()
+            trade_days_set.add(trade_day)
+    rth_days_with_trades = sum(1 for day in trade_days_set if rth_bars_per_day.get(day, 0) >= min_rth_bars)
+    pct_rth_days_traded = (
+        float(rth_days_with_trades) / rth_days_in_data * 100.0 if rth_days_in_data > 0 else 0.0
+    )
+
+    # Compute confidence statistics
+    confidence_stats = {}
+    if confidence_winners or confidence_losers:
+        all_confidence = confidence_winners + confidence_losers
+        confidence_stats = {
+            "avg_confidence_all": float(np.mean(all_confidence)) if all_confidence else 0.0,
+            "avg_confidence_winners": float(np.mean(confidence_winners)) if confidence_winners else 0.0,
+            "avg_confidence_losers": float(np.mean(confidence_losers)) if confidence_losers else 0.0,
+            "avg_confidence_catastop": float(np.mean(confidence_catastop)) if confidence_catastop else 0.0,
+            "avg_confidence_timeexit": float(np.mean(confidence_timeexit)) if confidence_timeexit else 0.0,
+            "median_confidence_all": float(np.median(all_confidence)) if all_confidence else 0.0,
+        }
+        # Confidence percentiles
+        if all_confidence:
+            percentiles = [50, 75, 90, 95, 99]
+            for p in percentiles:
+                confidence_stats[f"p{p}_confidence"] = float(np.percentile(all_confidence, p))
+
     daily_stats = {
+        "calendar_days": len(daily_trades_list),
+        "rth_days_in_data": rth_days_in_data,
+        "rth_days_with_trades": rth_days_with_trades,
+        "pct_rth_days_traded": pct_rth_days_traded,
         "total_trading_days": len(daily_trades_list),
         "avg_trades_per_day": float(np.mean(daily_trades_list)) if daily_trades_list else 0.0,
         "avg_trades_per_active_day": avg_active,
@@ -598,6 +701,7 @@ def run_backtest_nn(
         "exit_reason_counts": exit_reason_counts,
         "exit_reason_avg_pnl": exit_reason_avg_pnl,
         "feasibility_stats": feasibility_stats,
+        "confidence_stats": confidence_stats,
     }
 
 def load_models(model_dir: str) -> Tuple[object, object, Dict[str, object]]:

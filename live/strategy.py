@@ -70,6 +70,12 @@ class MLStrategy:
         self.tick_size = float(nn_cfg["tick_size"])
         self.tick_value = float(nn_cfg["tick_value"])
 
+        # Dynamic catastrophic stop parameters
+        self.use_dynamic_catastop = bool(nn_cfg.get("use_dynamic_catastop", False))
+        self.catastop_atr_multiplier = float(nn_cfg.get("catastop_atr_multiplier", 2.0))
+        self.catastop_min_ticks = int(nn_cfg.get("catastop_min_ticks", 24))
+        self.catastop_max_ticks = int(nn_cfg.get("catastop_max_ticks", 72))
+
         if self.selection_mode.lower() == "day_adaptive_topn":
             self.selector = DayAdaptiveTopNSelector(
                 max_trades_per_day=self.max_trades_per_day,
@@ -196,7 +202,24 @@ class MLStrategy:
 
                 entry_price = float(last_row["open"])
                 if self.execution_mode == "time_exit":
-                    stop_ticks = self.catastrophic_stop_ticks
+                    # Compute dynamic catastrophic stop if enabled
+                    if self.use_dynamic_catastop:
+                        # Get ATR from previous bar (causal)
+                        from features.engineer import add_features
+                        bars_with_features = add_features(bars_df, verbose=False)
+                        if len(bars_with_features) >= 2:
+                            signal_bar = bars_with_features.iloc[-2]  # Previous bar (signal bar)
+                            atr_ticks = signal_bar.get("atr_ticks", 0)
+                            if pd.isna(atr_ticks) or atr_ticks <= 0:
+                                stop_ticks = self.catastrophic_stop_ticks
+                            else:
+                                # Dynamic stop: clamp(atr * multiplier, min, max)
+                                raw_stop = int(atr_ticks * self.catastop_atr_multiplier)
+                                stop_ticks = max(self.catastop_min_ticks, min(self.catastop_max_ticks, raw_stop))
+                        else:
+                            stop_ticks = self.catastrophic_stop_ticks
+                    else:
+                        stop_ticks = self.catastrophic_stop_ticks
                 else:
                     stop_ticks = self.stop_loss_ticks
                 stop_distance = stop_ticks * self.tick_size

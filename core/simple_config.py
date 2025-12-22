@@ -97,7 +97,13 @@ class NNConfig:
     threshold_ticks: int = 12
     feature_lookback: int = 100
     embargo_bars: int = 0  # 0 means "compute from horizon + lookback"
-    catastrophic_stop_ticks: Optional[int] = None  # Defaults to 4x threshold_ticks when saved
+    catastrophic_stop_ticks: Optional[int] = None  # Defaults to 4x threshold_ticks when saved (FIXED mode)
+
+    # Dynamic catastrophic stop sizing (regime-adaptive)
+    use_dynamic_catastop: bool = True  # Enable dynamic stop sizing based on ATR
+    catastop_atr_multiplier: float = 2.0  # Multiplier for ATR-based stop (2.0x ATR)
+    catastop_min_ticks: int = 24  # Minimum stop size (low vol floor)
+    catastop_max_ticks: int = 72  # Maximum stop size (high vol ceiling)
 
     score_quantile: float = 0.975
     score_threshold: Optional[float] = None
@@ -109,8 +115,9 @@ class NNConfig:
     enable_short: bool = True
 
     # Confidence gates (pure ML, no pattern matching)
+    # CRITICAL: confidence_min now applies to ALL trades to reduce CATASTOP frequency
     confidence_mode: str = "p_long_vs_p_short"  # "p_long_vs_p_short" or "distance_from_0.5"
-    confidence_min: float = 0.05  # Min confidence for trades 3-4
+    confidence_min: float = 0.06  # Min confidence for ALL trades (raised from 0.05)
     quality_margin: float = 0.01  # Trades 3-4 must be within this of best score
     allow_extra_trades_if_quality: bool = True  # Enable trades 3-4 with quality gates
 

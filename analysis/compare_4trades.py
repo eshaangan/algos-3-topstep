@@ -123,6 +123,13 @@ def main():
     daily_stats = results["daily_stats"]
     print(json.dumps(daily_stats, indent=2))
 
+    print("\nConfidence stats:")
+    confidence_stats = results.get("confidence_stats", {})
+    if confidence_stats:
+        print(json.dumps(confidence_stats, indent=2))
+    else:
+        print("  No confidence data available")
+
     print("\nExit reasons:")
     exit_reasons = results.get("exit_reason_counts", {})
     print(json.dumps(exit_reasons, indent=2))

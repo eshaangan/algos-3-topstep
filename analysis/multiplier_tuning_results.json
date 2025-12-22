@@ -1,0 +1,92 @@
+{
+  "baseline": {
+    "stop_type": "fixed_48_ticks",
+    "trades": 632,
+    "catastop_rate": 27.056962025316455,
+    "profit_factor": 0.9242209074049437,
+    "avg_pnl": -2.2079113924050615,
+    "pass_rate": 0.01
+  },
+  "multiplier_tests": [
+    {
+      "multiplier": 2.0,
+      "trades": 547,
+      "catastop_count": 184,
+      "catastop_rate": 33.63802559414991,
+      "timeexit_count": 363,
+      "catastop_avg_pnl": -78.75570652173914,
+      "timeexit_avg_pnl": 34.26349862258953,
+      "win_rate": 0.48628884826325414,
+      "profit_factor": 0.875632165807628,
+      "avg_pnl": -3.753930530164534,
+      "net_pnl": -2053.4,
+      "max_drawdown": 2053.399999998408,
+      "pass_rate": 0.0,
+      "median_days": 0,
+      "fail_trailing_dd": 6082,
+      "fail_max_days": 3915,
+      "composite_score": 0.440574330784926
+    },
+    {
+      "multiplier": 2.5,
+      "trades": 498,
+      "catastop_count": 143,
+      "catastop_rate": 28.714859437751006,
+      "timeexit_count": 355,
+      "catastop_avg_pnl": -88.32762237762238,
+      "timeexit_avg_pnl": 29.73661971830986,
+      "win_rate": 0.5,
+      "profit_factor": 0.8646785025816992,
+      "avg_pnl": -4.165361445783131,
+      "net_pnl": -2074.3499999999995,
+      "max_drawdown": 2074.3499999985506,
+      "pass_rate": 0.01,
+      "median_days": 166.0,
+      "fail_trailing_dd": 6471,
+      "fail_max_days": 3523,
+      "composite_score": 0.4580962627653359
+    },
+    {
+      "multiplier": 3.0,
+      "trades": 565,
+      "catastop_count": 143,
+      "catastop_rate": 25.309734513274336,
+      "timeexit_count": 422,
+      "catastop_avg_pnl": -96.48321678321679,
+      "timeexit_avg_pnl": 27.68744075829384,
+      "win_rate": 0.5026548672566372,
+      "profit_factor": 0.8786901057514555,
+      "avg_pnl": -3.7398230088495565,
+      "net_pnl": -2112.9999999999995,
+      "max_drawdown": 2112.9999999983556,
+      "pass_rate": 0.01,
+      "median_days": 240.0,
+      "fail_trailing_dd": 6167,
+      "fail_max_days": 3831,
+      "composite_score": 0.4745190830971938
+    },
+    {
+      "multiplier": 3.5,
+      "trades": 502,
+      "catastop_count": 113,
+      "catastop_rate": 22.50996015936255,
+      "timeexit_count": 389,
+      "catastop_avg_pnl": -104.16902654867258,
+      "timeexit_avg_pnl": 24.997943444730073,
+      "win_rate": 0.5099601593625498,
+      "profit_factor": 0.8696134074795996,
+      "avg_pnl": -4.0774900398406375,
+      "net_pnl": -2046.8999999999999,
+      "max_drawdown": 2046.899999998539,
+      "pass_rate": 0.0,
+      "median_days": 0,
+      "fail_trailing_dd": 6408,
+      "fail_max_days": 3590,
+      "composite_score": 0.4838828408584698
+    }
+  ],
+  "recommended": {
+    "multiplier": 3.5,
+    "composite_score": 0.4838828408584698
+  }
+}
