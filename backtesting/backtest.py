@@ -170,7 +170,9 @@ def run_backtest_nn(
     use_dynamic_catastop: bool = False,
     catastop_atr_multiplier: float = 2.0,
     catastop_min_ticks: int = 24,
-    catastop_max_ticks: int = 72,
+    catastop_max_ticks: int = 140,
+    risk_per_trade_usd: float = 200.0,
+    max_contracts: int = 5,
 ) -> Dict[str, object]:
     """
     Pure ML backtest using either global threshold or day-adaptive top-N selection.
@@ -247,6 +249,15 @@ def run_backtest_nn(
     trailing_locked = False
     current_day: Optional[date] = None
     position: Optional[Dict[str, object]] = None
+
+    # Diagnostic tracking for dynamic stops
+    stop_ticks_used: List[float] = []
+    atr_ticks_at_entry: List[float] = []
+    atr_fallback_count = 0
+
+    # Track contracts and dollar risk for position sizing diagnostics
+    contracts_used: List[int] = []
+    dollar_risk_per_trade: List[float] = []
 
     daily_trade_count = 0
     daily_trades_list: List[int] = []
@@ -482,13 +493,26 @@ def run_backtest_nn(
                 # Dynamic stop based on ATR at signal time (causal)
                 signal_bar = bars_with_features.iloc[i]
                 atr_ticks = signal_bar.get("atr_ticks", 0)
+
+                # Verify ATR units: should be ~10-50 for MES 5-min, not ~0.5 or ~200
+                if not pd.isna(atr_ticks) and atr_ticks > 0:
+                    if atr_ticks < 5 or atr_ticks > 200:
+                        logger.warning(
+                            f"Suspicious atr_ticks={atr_ticks:.2f} at idx={i}. "
+                            f"Expected ~10-50 for MES 5-min. Check ATR units (should be in ticks, not price)."
+                        )
+
                 if pd.isna(atr_ticks) or atr_ticks <= 0:
                     # Fallback to fixed if ATR unavailable
                     stop_ticks = int(catastrophic_stop_ticks)
+                    atr_fallback_count += 1
                 else:
                     # Compute dynamic stop: clamp(atr * multiplier, min, max)
                     raw_stop = int(atr_ticks * catastop_atr_multiplier)
                     stop_ticks = max(catastop_min_ticks, min(catastop_max_ticks, raw_stop))
+                    # Track ATR and stop for diagnostics
+                    atr_ticks_at_entry.append(float(atr_ticks))
+                    stop_ticks_used.append(float(stop_ticks))
             else:
                 # Fixed stop
                 stop_ticks = int(catastrophic_stop_ticks)
@@ -506,9 +530,18 @@ def run_backtest_nn(
             stop_price = entry_price + stop_distance
             target_price = entry_price - target_distance
 
+        # Position sizing: risk-based contracts
+        dollar_risk_per_contract = stop_ticks * tick_value
+        contracts = max(1, min(max_contracts, int(risk_per_trade_usd / dollar_risk_per_contract)))
+
+        # Track for diagnostics
+        contracts_used.append(contracts)
+        actual_dollar_risk = contracts * dollar_risk_per_contract
+        dollar_risk_per_trade.append(actual_dollar_risk)
+
         position = {
             "direction": direction,
-            "contracts": 1,
+            "contracts": contracts,
             "entry_price": entry_price,
             "stop_price": stop_price,
             "target_price": target_price,
@@ -694,14 +727,90 @@ def run_backtest_nn(
         ),
     }
 
+    # Dynamic stop diagnostics
+    stop_diagnostics = {}
+    if len(stop_ticks_used) > 0:
+        stop_arr = np.array(stop_ticks_used)
+        atr_arr = np.array(atr_ticks_at_entry)
+        # Calculate ratio: stop / atr
+        ratio_arr = stop_arr / np.maximum(atr_arr, 1e-9)
+
+        stop_diagnostics = {
+            "stop_ticks_distribution": {
+                "p50": float(np.percentile(stop_arr, 50)),
+                "p90": float(np.percentile(stop_arr, 90)),
+                "p95": float(np.percentile(stop_arr, 95)),
+                "min": float(np.min(stop_arr)),
+                "max": float(np.max(stop_arr)),
+                "mean": float(np.mean(stop_arr)),
+                "count": len(stop_arr),
+            },
+            "atr_ticks_distribution": {
+                "p50": float(np.percentile(atr_arr, 50)),
+                "p90": float(np.percentile(atr_arr, 90)),
+                "p95": float(np.percentile(atr_arr, 95)),
+                "min": float(np.min(atr_arr)),
+                "max": float(np.max(atr_arr)),
+                "mean": float(np.mean(atr_arr)),
+                "count": len(atr_arr),
+            },
+            "stop_atr_ratio_distribution": {
+                "p50": float(np.percentile(ratio_arr, 50)),
+                "p90": float(np.percentile(ratio_arr, 90)),
+                "p95": float(np.percentile(ratio_arr, 95)),
+                "min": float(np.min(ratio_arr)),
+                "max": float(np.max(ratio_arr)),
+                "mean": float(np.mean(ratio_arr)),
+            },
+            "atr_fallback_count": atr_fallback_count,
+        }
+
+    # Contract distribution (position sizing diagnostics)
+    contract_distribution = {}
+    if len(contracts_used) > 0:
+        contracts_array = np.array(contracts_used)
+        contract_distribution = {
+            "p50": float(np.percentile(contracts_array, 50)),
+            "p90": float(np.percentile(contracts_array, 90)),
+            "p95": float(np.percentile(contracts_array, 95)),
+            "min": float(np.min(contracts_array)),
+            "max": float(np.max(contracts_array)),
+            "mean": float(np.mean(contracts_array)),
+            "count": len(contracts_array),
+        }
+
+    # Dollar risk distribution per trade
+    dollar_risk_distribution = {}
+    if len(dollar_risk_per_trade) > 0:
+        risk_array = np.array(dollar_risk_per_trade)
+        dollar_risk_distribution = {
+            "p50": float(np.percentile(risk_array, 50)),
+            "p90": float(np.percentile(risk_array, 90)),
+            "p95": float(np.percentile(risk_array, 95)),
+            "min": float(np.min(risk_array)),
+            "max": float(np.max(risk_array)),
+            "mean": float(np.mean(risk_array)),
+            "target": risk_per_trade_usd,
+        }
+
+    # CATASTOP rate
+    total_trades = len(trades)
+    catastop_count = exit_reason_counts.get("CATASTOP", 0)
+    catastop_rate = (catastop_count / total_trades * 100.0) if total_trades > 0 else 0.0
+
     return {
         "summary": summary,
         "trades": trades,
+        "trades_df": trades_df,
         "daily_stats": daily_stats,
         "exit_reason_counts": exit_reason_counts,
         "exit_reason_avg_pnl": exit_reason_avg_pnl,
         "feasibility_stats": feasibility_stats,
         "confidence_stats": confidence_stats,
+        "stop_diagnostics": stop_diagnostics,
+        "contract_distribution": contract_distribution,
+        "dollar_risk_distribution": dollar_risk_distribution,
+        "catastop_rate": catastop_rate,
     }
 
 def load_models(model_dir: str) -> Tuple[object, object, Dict[str, object]]:

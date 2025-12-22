@@ -1,0 +1,12 @@
+https://github.com/BlackArbsCEO/Adv_Fin_ML_Exercises
+
+https://github.com/charlesrambo/advances_in_financial_ML
+
+Advances in Financial Machine Learning (Ch. 3–5, 7, 10, 12)
+
+    Author: Marcos López de Prado (2018)
+
+    Type: Book / Core Reference
+
+    Summary: The industry bible for avoiding backtest overfitting. Introduces Triple Barrier Labeling (fixed horizons are flawed; exits should be profit, stop, or time), Meta-Labeling (model size or participation separate from direction), and Purged Cross-Validation.
+

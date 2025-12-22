@@ -46,15 +46,19 @@ def compute_probabilities_v2(
     long_model: object,
     short_model: object,
     feature_cols: List[str],
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Compute per-bar probabilities and scores.
 
     Returns:
-        DataFrame with idx, long_prob, short_prob, score, direction
+        Tuple of (prob_df, features_df):
+            prob_df: DataFrame with idx, long_prob, short_prob, score, direction, confidence
+            features_df: Full features DataFrame including atr_ticks for dynamic stop sizing
     """
     features_df = add_features(bars_df, verbose=False)
-    features_df = features_df.reset_index().rename(columns={"index": "idx"})
+    # Reset index to integer positions (drop=True to avoid column conflicts)
+    features_df = features_df.reset_index(drop=True)
+    features_df["idx"] = features_df.index
 
     # Get valid rows (no NaN in features)
     valid_mask = features_df[feature_cols].notna().all(axis=1)
@@ -74,6 +78,9 @@ def compute_probabilities_v2(
     score = np.maximum(long_prob, short_prob)
     direction = np.where(long_prob >= short_prob, "long", "short")
 
+    # Compute confidence (for parity with live)
+    confidence = np.abs(long_prob - short_prob)
+
     prob_df = pd.DataFrame(
         {
             "idx": valid_idx,
@@ -81,6 +88,7 @@ def compute_probabilities_v2(
             "short_prob": short_prob,
             "score": score,
             "direction": direction,
+            "confidence": confidence,
         }
     )
 
@@ -88,7 +96,7 @@ def compute_probabilities_v2(
     full = pd.DataFrame({"idx": features_df["idx"].values})
     full = full.merge(prob_df, on="idx", how="left")
 
-    return full
+    return full, features_df
 
 
 def run_backtest_v2(
@@ -121,6 +129,14 @@ def run_backtest_v2(
     slippage_ticks: int = 1,
     commission_per_contract: float = 2.35,
     save_trades_path: Optional[str] = None,
+    use_dynamic_catastop: bool = True,
+    catastop_atr_multiplier: float = 2.0,
+    catastop_min_ticks: int = 24,
+    catastop_max_ticks: int = 140,
+    confidence_filter_enabled: bool = False,
+    confidence_min: float = 0.06,
+    risk_per_trade_usd: float = 200.0,
+    max_contracts: int = 5,
 ) -> Dict[str, object]:
     """
     Run backtest with V2 strategy: pure ML score + daily trade budget.
@@ -190,13 +206,19 @@ def run_backtest_v2(
     if start < 0 or end > len(bars_df) or start >= end:
         raise ValueError(f"Invalid window: start={start}, end={end}, len={len(bars_df)}")
 
-    # Compute probabilities and scores
-    prob_df = compute_probabilities_v2(bars_df, long_model, short_model, feature_cols)
+    # Compute probabilities and scores (also get features for ATR)
+    prob_df, features_df = compute_probabilities_v2(bars_df, long_model, short_model, feature_cols)
 
     # State
     trades: List[Dict[str, object]] = []
     equity_curve: List[float] = [RISK_CONFIG.starting_balance]
     equity = RISK_CONFIG.starting_balance
+
+    # Track stop ticks used for reporting
+    stop_ticks_used: List[int] = []
+    # Track contracts and dollar risk for position sizing diagnostics
+    contracts_used: List[int] = []
+    dollar_risk_per_trade: List[float] = []
     trailing_peak = equity
     daily_pnl = 0.0
     daily_locked = False
@@ -402,6 +424,7 @@ def run_backtest_v2(
         short_prob = probs.get("short_prob")
         score = probs.get("score")
         direction = probs.get("direction")
+        confidence = probs.get("confidence")
 
         # Check for valid signal
         if pd.isna(score) or pd.isna(long_prob) or pd.isna(short_prob):
@@ -415,9 +438,19 @@ def run_backtest_v2(
         if direction == "short" and not enable_short:
             continue
 
-        # 3. Daily top-N selection + spacing
+        # 3. Confidence filter (optional, for parity with live)
+        if confidence_filter_enabled:
+            if pd.isna(confidence) or float(confidence) < confidence_min:
+                continue
+
+        # 4. Daily top-N selection + spacing
+        # Pass confidence for logging/debugging (selector can use it or ignore it)
         if not selector.should_enter(
-            bar["timestamp"], score=float(score), direction=str(direction), bar_index=i
+            bar["timestamp"],
+            score=float(score),
+            direction=str(direction),
+            bar_index=i,
+            confidence=float(confidence) if not pd.isna(confidence) else None,
         ):
             selector.log_rejection()
             continue
@@ -443,19 +476,40 @@ def run_backtest_v2(
         else:
             entry_price = next_bar["open"] - slippage_ticks * RISK_CONFIG.tick_size
 
-        # Position sizing (simple: 1 contract for now)
-        # TODO: Could add dynamic sizing based on fixed_risk_per_trade
-        contracts = 1
-
-        # Stop and target prices
+        # Determine stop ticks FIRST (needed for position sizing)
         if execution_mode == "time_exit":
-            stop_ticks = int(catastrophic_stop_ticks)
-            stop_distance = stop_ticks * RISK_CONFIG.tick_size
-            target_distance = stop_distance * target_multiplier
+            if use_dynamic_catastop:
+                # Dynamic stop based on ATR at signal time (causal)
+                signal_bar = features_df.iloc[i]
+                atr_ticks = signal_bar.get("atr_ticks", 0)
+                if pd.isna(atr_ticks) or atr_ticks <= 0:
+                    # Fallback to fixed if ATR unavailable
+                    stop_ticks = int(catastrophic_stop_ticks)
+                else:
+                    # Compute dynamic stop: clamp(atr * multiplier, min, max)
+                    raw_stop = int(atr_ticks * catastop_atr_multiplier)
+                    stop_ticks = max(catastop_min_ticks, min(catastop_max_ticks, raw_stop))
+            else:
+                # Fixed stop
+                stop_ticks = int(catastrophic_stop_ticks)
+            stop_ticks_used.append(stop_ticks)
         else:
             stop_ticks = int(stop_loss_ticks)
-            stop_distance = stop_ticks * RISK_CONFIG.tick_size
-            target_distance = stop_distance * target_multiplier
+
+        # Position sizing: risk-based contracts
+        # Dollar risk per contract = stop_ticks * tick_value
+        dollar_risk_per_contract = stop_ticks * RISK_CONFIG.tick_value
+        # Calculate contracts to achieve target dollar risk
+        contracts = max(1, min(max_contracts, int(risk_per_trade_usd / dollar_risk_per_contract)))
+
+        # Track for diagnostics
+        contracts_used.append(contracts)
+        actual_dollar_risk = contracts * dollar_risk_per_contract
+        dollar_risk_per_trade.append(actual_dollar_risk)
+
+        # Stop and target prices
+        stop_distance = stop_ticks * RISK_CONFIG.tick_size
+        target_distance = stop_distance * target_multiplier
 
         if direction == "long":
             stop_price = entry_price - stop_distance
@@ -612,6 +666,53 @@ def run_backtest_v2(
         ),
     }
 
+    # Stop ticks distribution (for dynamic catastrophic stops)
+    stop_ticks_distribution = {}
+    if len(stop_ticks_used) > 0:
+        stop_ticks_array = np.array(stop_ticks_used)
+        stop_ticks_distribution = {
+            "p50": float(np.percentile(stop_ticks_array, 50)),
+            "p90": float(np.percentile(stop_ticks_array, 90)),
+            "p95": float(np.percentile(stop_ticks_array, 95)),
+            "min": float(np.min(stop_ticks_array)),
+            "max": float(np.max(stop_ticks_array)),
+            "mean": float(np.mean(stop_ticks_array)),
+            "count": len(stop_ticks_used),
+        }
+
+    # Contract distribution (position sizing diagnostics)
+    contract_distribution = {}
+    if len(contracts_used) > 0:
+        contracts_array = np.array(contracts_used)
+        contract_distribution = {
+            "p50": float(np.percentile(contracts_array, 50)),
+            "p90": float(np.percentile(contracts_array, 90)),
+            "p95": float(np.percentile(contracts_array, 95)),
+            "min": float(np.min(contracts_array)),
+            "max": float(np.max(contracts_array)),
+            "mean": float(np.mean(contracts_array)),
+            "count": len(contracts_array),
+        }
+
+    # Dollar risk distribution per trade
+    dollar_risk_distribution = {}
+    if len(dollar_risk_per_trade) > 0:
+        risk_array = np.array(dollar_risk_per_trade)
+        dollar_risk_distribution = {
+            "p50": float(np.percentile(risk_array, 50)),
+            "p90": float(np.percentile(risk_array, 90)),
+            "p95": float(np.percentile(risk_array, 95)),
+            "min": float(np.min(risk_array)),
+            "max": float(np.max(risk_array)),
+            "mean": float(np.mean(risk_array)),
+            "target": risk_per_trade_usd,
+        }
+
+    # CATASTOP rate
+    total_trades = len(trades)
+    catastop_count = exit_reason_counts.get("CATASTOP", 0)
+    catastop_rate = (catastop_count / total_trades * 100.0) if total_trades > 0 else 0.0
+
     return {
         "summary": summary,
         "trades": trades,
@@ -620,6 +721,10 @@ def run_backtest_v2(
         "exit_reason_counts": exit_reason_counts,
         "exit_reason_avg_pnl": exit_reason_avg_pnl,
         "feasibility_stats": feasibility_stats,
+        "stop_ticks_distribution": stop_ticks_distribution,
+        "contract_distribution": contract_distribution,
+        "dollar_risk_distribution": dollar_risk_distribution,
+        "catastop_rate": catastop_rate,
     }
 
 
@@ -683,6 +788,18 @@ def main() -> None:
     if catastrophic_stop_ticks is None:
         catastrophic_stop_ticks = int(TRAINING_CONFIG.threshold_ticks) * 4
 
+    # Dynamic catastrophic stop parameters
+    use_dynamic_catastop = bool(policy_v2.get("use_dynamic_catastop", True))
+    catastop_atr_multiplier = float(policy_v2.get("catastop_atr_multiplier", 3.5))
+    catastop_min_ticks = int(policy_v2.get("catastop_min_ticks", 24))
+    catastop_max_ticks = int(policy_v2.get("catastop_max_ticks", 140))
+    confidence_filter_enabled = bool(policy_v2.get("confidence_filter_enabled", False))
+    confidence_min = float(policy_v2.get("confidence_min", 0.06))
+
+    # Position sizing parameters
+    risk_per_trade_usd = float(policy_v2.get("risk_per_trade_usd", 200.0))
+    max_contracts = int(policy_v2.get("max_contracts", 5))
+
     print("\n" + "=" * 60)
     print("V2 BACKTEST: PURE ML STRATEGY")
     print("=" * 60)
@@ -694,6 +811,21 @@ def main() -> None:
     print(f"  Min bars between: {min_bars_between_trades}")
     print(f"  Long enabled: {enable_long}")
     print(f"  Short enabled: {enable_short}")
+    print(f"\nDynamic Stop Configuration:")
+    print(f"  Use dynamic catastop: {use_dynamic_catastop}")
+    if use_dynamic_catastop:
+        print(f"  ATR multiplier: {catastop_atr_multiplier:.1f}x")
+        print(f"  Min ticks: {catastop_min_ticks}")
+        print(f"  Max ticks: {catastop_max_ticks}")
+    else:
+        print(f"  Fixed stop: {catastrophic_stop_ticks} ticks")
+    print(f"  Confidence filter: {confidence_filter_enabled}")
+    if confidence_filter_enabled:
+        print(f"  Confidence min: {confidence_min:.2f}")
+
+    print(f"\nPosition Sizing:")
+    print(f"  Risk per trade: ${risk_per_trade_usd:.0f}")
+    print(f"  Max contracts: {max_contracts}")
 
     # Load data
     with pd.HDFStore(args.data_path, "r") as store:
@@ -729,6 +861,14 @@ def main() -> None:
         start_idx=args.start_idx,
         end_idx=args.end_idx,
         save_trades_path=args.save_trades,
+        use_dynamic_catastop=use_dynamic_catastop,
+        catastop_atr_multiplier=catastop_atr_multiplier,
+        catastop_min_ticks=catastop_min_ticks,
+        catastop_max_ticks=catastop_max_ticks,
+        confidence_filter_enabled=confidence_filter_enabled,
+        confidence_min=confidence_min,
+        risk_per_trade_usd=risk_per_trade_usd,
+        max_contracts=max_contracts,
     )
 
     # Print results
@@ -745,6 +885,26 @@ def main() -> None:
     if results.get("exit_reason_avg_pnl"):
         print("\nExit reason avg PnL:")
         print(json.dumps(results["exit_reason_avg_pnl"], indent=2))
+
+    # CATASTOP rate
+    if "catastop_rate" in results:
+        print(f"\nCATASTOP rate: {results['catastop_rate']:.2f}%")
+
+    # Stop ticks distribution (dynamic stops)
+    if results.get("stop_ticks_distribution"):
+        print("\nDynamic stop distribution:")
+        print(json.dumps(results["stop_ticks_distribution"], indent=2))
+
+    # Contract distribution (position sizing)
+    if results.get("contract_distribution"):
+        print("\nContract distribution:")
+        print(json.dumps(results["contract_distribution"], indent=2))
+
+    # Dollar risk distribution
+    if results.get("dollar_risk_distribution"):
+        print("\nDollar risk distribution:")
+        print(json.dumps(results["dollar_risk_distribution"], indent=2))
+
     if results.get("feasibility_stats"):
         print("\nFeasibility stats:")
         print(json.dumps(results["feasibility_stats"], indent=2))

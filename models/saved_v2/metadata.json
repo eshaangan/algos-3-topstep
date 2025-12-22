@@ -65,6 +65,30 @@
     "min_probability_long": 0.65,
     "min_probability_short": 0.65
   },
+  "policy_v2": {
+    "score_threshold": 0.55,
+    "selection_mode": "global_threshold",
+    "day_percentile_floor": 0.90,
+    "global_floor_score": 0.50,
+    "max_trades_per_day": 2,
+    "min_bars_between_trades": 12,
+    "enable_long": true,
+    "enable_short": true,
+    "horizon_bars": 12,
+    "execution_mode": "time_exit",
+    "exit_price_mode": "bar_close",
+    "session_mode": "RTH",
+    "deadline_time": null,
+    "deadline_relax_factor": 0.98,
+    "bar_minutes": 5,
+    "catastrophic_stop_ticks": 48,
+    "use_dynamic_catastop": true,
+    "catastop_atr_multiplier": 3.5,
+    "catastop_min_ticks": 24,
+    "catastop_max_ticks": 72,
+    "confidence_filter_enabled": false,
+    "confidence_min": 0.06
+  },
   "metrics": {
     "long": {
       "training": {

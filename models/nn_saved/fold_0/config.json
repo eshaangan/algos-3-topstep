@@ -74,9 +74,11 @@
     "tick_value": 1.25,
     "bar_minutes": 5,
     "use_dynamic_catastop": true,
-    "catastop_atr_multiplier": 2.0,
+    "catastop_atr_multiplier": 3.5,
     "catastop_min_ticks": 24,
-    "catastop_max_ticks": 72
+    "catastop_max_ticks": 140,
+    "risk_per_trade_usd": 200,
+    "max_contracts": 5
   },
   "risk_config": {
     "starting_balance": 50000.0,

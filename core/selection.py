@@ -155,6 +155,7 @@ class DailyTopNSelector:
         score: Optional[float],
         direction: str,
         bar_index: Optional[int] = None,
+        confidence: Optional[float] = None,
     ) -> bool:
         self.last_rejection_reason = None
         self._reset_if_new_day(ts)
