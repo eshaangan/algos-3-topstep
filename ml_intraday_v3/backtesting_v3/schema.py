@@ -28,6 +28,7 @@ def write_backtest_schema(
     cv_kind: str,
     n_splits: int,
     cost_mode_policy: str,
+    pnl_mode: str,
     code_version: str = "1.0.0",
 ) -> str:
     output_path = Path(output_path)
@@ -44,6 +45,7 @@ def write_backtest_schema(
         "cv_kind": cv_kind,
         "n_splits": n_splits,
         "cost_mode_policy": cost_mode_policy,
+        "pnl_mode": pnl_mode,
     }
 
     schema_hash = compute_backtest_schema_hash(schema)

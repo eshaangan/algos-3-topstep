@@ -12,6 +12,7 @@ from .decisions import decide_trades
 from .fills import get_entry_exit, compute_cost_points, apply_forced_flatten
 from .risk import RiskManager
 from .metrics import compute_backtest_metrics
+from core.instrument import InstrumentSpec
 
 
 def run_backtest(
@@ -20,6 +21,8 @@ def run_backtest(
     primary_preds_df: pd.DataFrame,
     meta_preds_df: pd.DataFrame | None,
     execution_spec: dict,
+    instrument_spec: InstrumentSpec,
+    label_schema: dict,
     risk_cfg: dict,
     backtest_cfg: dict,
     bar_size: str,
@@ -41,15 +44,18 @@ def run_backtest(
         "flatten_time_chicago", None
     )
     contract_multiplier = float(
-        risk_cfg.get("topstep", {}).get("contract_multiplier", 1.0)
+        instrument_spec.contract_multiplier_usd_per_point
     )
-    cost_points = compute_cost_points(execution_spec, risk_cfg, bar_size)
+    cost_points = compute_cost_points(execution_spec, instrument_spec, bar_size)
     use_event_ret_net = bool(
         backtest_cfg.get("costs", {}).get("use_event_ret_net", False)
     )
     cost_mode_policy = (
         "event_ret_net_preferred" if use_event_ret_net else "price_minus_costs"
     )
+    cost_mode = (label_schema or {}).get("cost_mode")
+    if cost_mode not in ["net_in_events", "gross_in_events"]:
+        raise ValueError("label_schema.cost_mode missing or invalid")
 
     risk_mgr = RiskManager(risk_cfg)
 
@@ -133,21 +139,23 @@ def run_backtest(
                 elif breach_reason == "risk_drawdown":
                     liquidation_reason = "trailing_dd_breach"
 
-                if (
-                    use_event_ret_net
-                    and "ret_net" in row
-                    and pd.notna(row["ret_net"])
-                    and exit_reason == "event_exit"
-                ):
-                    pnl_points = float(row["ret_net"])
-                    costs_usd = 0.0
-                    cost_mode = "event_ret_net"
+                costs_usd = cost_points * contract_multiplier * contracts
+                if cost_mode == "net_in_events" and exit_reason == "event_exit":
+                    if "ret_net" not in row or pd.isna(row["ret_net"]):
+                        raise ValueError(
+                            "label_schema.cost_mode=net_in_events but ret_net missing"
+                        )
+                    gross_points = float(row["ret_net"]) + cost_points
+                    pnl_points = gross_points
+                    trade_cost_mode = "event_ret_net"
                 else:
-                    pnl_points = (exit_px - entry_px) - cost_points
-                    costs_usd = cost_points * contract_multiplier * contracts
-                    cost_mode = "price_minus_costs"
+                    gross_points = exit_px - entry_px
+                    pnl_points = gross_points
+                    trade_cost_mode = "price_minus_costs"
 
-                pnl_usd = pnl_points * contract_multiplier * contracts
+                pnl_usd = (
+                    pnl_points * contract_multiplier * contracts - costs_usd
+                )
 
                 if liquidation_reason:
                     exit_source = "mtm_risk"
@@ -187,7 +195,7 @@ def run_backtest(
                 "liquidation_reason": liquidation_reason,
                 "p_primary": row.get("p_primary"),
                 "p_meta": row.get("p_meta"),
-                "cost_mode": cost_mode if executed else None,
+                "cost_mode": trade_cost_mode if executed else None,
             }
         )
 

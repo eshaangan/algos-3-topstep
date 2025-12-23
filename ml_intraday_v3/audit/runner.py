@@ -11,6 +11,9 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+from core.instrument import InstrumentSpec, validate_risk_config_no_instrument_economics
+from run_manifest import hash_content
+
 from .schema import write_audit_schema
 from .checks_alignment import (
     check_events_on_grid,
@@ -34,11 +37,13 @@ from .checks_experiments import (
 )
 
 
-def _load_yaml(path: Path) -> dict:
+def _load_yaml_with_hash(path: Path) -> tuple[dict, str | None]:
     if not path.exists():
-        return {}
+        return {}, None
     with open(path, "r") as f:
-        return yaml.safe_load(f) or {}
+        content = f.read()
+    parsed = yaml.safe_load(content) or {}
+    return parsed, hash_content(content)
 
 
 def _load_bar_sizes(run_dir: Path) -> list[str]:
@@ -56,6 +61,9 @@ def _load_bar_sizes(run_dir: Path) -> list[str]:
 
 def _audit_schema_definitions() -> dict:
     return {
+        "provenance": [
+            "config_sources",
+        ],
         "alignment": [
             "events_on_grid",
             "features_index_match",
@@ -82,8 +90,21 @@ def _audit_schema_definitions() -> dict:
     }
 
 
+def _find_config_path_in_run_dir(run_dir: Path, name: str) -> Path | None:
+    candidates = [
+        run_dir / "configs" / f"{name}.yaml",
+        run_dir / "configs" / f"{name}.yml",
+        run_dir / f"{name}.yaml",
+        run_dir / f"{name}.yml",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _select_config(
-    manifest: dict | None, name: str, default_path: Path
+    manifest: dict | None, run_dir: Path, name: str, default_path: Path
 ) -> tuple[dict, dict]:
     provenance = {"name": name}
     config = {}
@@ -94,52 +115,55 @@ def _select_config(
                 continue
             if "content" in entry and entry["content"] is not None:
                 config = entry["content"]
+                content_hash = entry.get("content_hash")
+                if content_hash is None:
+                    content_hash = hash_content(entry["content"])
                 provenance.update(
                     {
-                        "source": "manifest_content",
+                        "source": "manifest",
+                        "source_detail": "content",
                         "path": entry.get("path"),
-                        "content_hash": entry.get("content_hash"),
+                        "content_hash": content_hash,
                     }
                 )
                 return config, provenance
             if entry.get("path"):
                 path = Path(entry["path"])
                 if path.exists():
-                    config = _load_yaml(path)
+                    config, content_hash = _load_yaml_with_hash(path)
                     provenance.update(
                         {
-                            "source": "manifest_path",
+                            "source": "manifest",
+                            "source_detail": "path",
                             "path": str(path),
-                            "content_hash": entry.get("content_hash"),
+                            "content_hash": entry.get("content_hash")
+                            or content_hash,
                         }
                     )
                     return config, provenance
 
-    config = _load_yaml(default_path)
+    run_dir_path = _find_config_path_in_run_dir(run_dir, name)
+    if run_dir_path:
+        config, content_hash = _load_yaml_with_hash(run_dir_path)
+        provenance.update(
+            {
+                "source": "run_dir",
+                "path": str(run_dir_path),
+                "content_hash": content_hash,
+            }
+        )
+        return config, provenance
+
+    config, content_hash = _load_yaml_with_hash(default_path)
     provenance.update(
         {
-            "source": "default_path",
+            "source": "default",
             "path": str(default_path),
-            "content_hash": None,
+            "content_hash": content_hash,
             "fallback_used": True,
         }
     )
     return config, provenance
-
-
-def _extract_instrument_params(execution_spec: dict) -> tuple[dict, dict]:
-    instrument = execution_spec.get("instrument", {}) if execution_spec else {}
-    params = {
-        "tick_size_points": instrument.get("tick_size_points"),
-        "tick_value_usd": instrument.get("tick_value_usd"),
-        "contract_multiplier": instrument.get("contract_multiplier"),
-    }
-    missing = [k for k, v in params.items() if v is None]
-    provenance = {
-        "source": "execution_spec",
-        "missing_fields": missing,
-    }
-    return params, provenance
 
 
 def run_audit(run_dir: Path | str, strict: bool = False) -> dict:
@@ -157,19 +181,29 @@ def run_audit(run_dir: Path | str, strict: bool = False) -> dict:
             manifest = json.load(f)
 
     risk_cfg, risk_prov = _select_config(
-        manifest, "risk", Path("ml_intraday_v3/configs/risk.yaml")
+        manifest, run_dir, "risk", Path("ml_intraday_v3/configs/risk.yaml")
     )
+    validate_risk_config_no_instrument_economics(risk_cfg)
     backtest_cfg, backtest_prov = _select_config(
-        manifest, "backtest", Path("ml_intraday_v3/configs/backtest.yaml")
+        manifest,
+        run_dir,
+        "backtest",
+        Path("ml_intraday_v3/configs/backtest.yaml"),
     )
     execution_spec, execution_spec_prov = _select_config(
         manifest,
+        run_dir,
         "execution_spec",
         Path("ml_intraday_v3/configs/execution_spec.yaml"),
     )
-    instrument_params, instrument_prov = _extract_instrument_params(
-        execution_spec
-    )
+    instrument_spec = InstrumentSpec.from_execution_spec(execution_spec)
+    instrument_prov = {
+        "name": "instrument",
+        "source": execution_spec_prov.get("source"),
+        "path": execution_spec_prov.get("path"),
+        "content_hash": hash_content(execution_spec.get("instrument", {})),
+        "derived_from": "execution_spec",
+    }
 
     per_bar_reports = {}
     for bar_size in bar_sizes:
@@ -235,7 +269,7 @@ def run_audit(run_dir: Path | str, strict: bool = False) -> dict:
             if not events_df.empty
             else {"status": "SKIP", "reason": "missing_events"},
             "pnl_identity": check_pnl_identity(
-                bar_dir, instrument_params=instrument_params
+                bar_dir, instrument_spec=instrument_spec
             ),
         }
 
@@ -250,7 +284,50 @@ def run_audit(run_dir: Path | str, strict: bool = False) -> dict:
             "diagnostics_inputs": check_experiment_diagnostics(exp_root),
         }
 
+        audit_inputs = {
+            "instrument_config_source": instrument_prov.get("source"),
+            "instrument_config_path": instrument_prov.get("path"),
+            "instrument_config_hash": instrument_prov.get("content_hash"),
+            "risk_config_source": risk_prov.get("source"),
+            "risk_config_path": risk_prov.get("path"),
+            "risk_config_hash": risk_prov.get("content_hash"),
+            "backtest_config_source": backtest_prov.get("source"),
+            "backtest_config_path": backtest_prov.get("path"),
+            "backtest_config_hash": backtest_prov.get("content_hash"),
+            "execution_spec_source": execution_spec_prov.get("source"),
+            "execution_spec_path": execution_spec_prov.get("path"),
+            "execution_spec_hash": execution_spec_prov.get("content_hash"),
+        }
+
+        default_sources = [
+            name
+            for name, prov in [
+                ("instrument_config", instrument_prov),
+                ("risk_config", risk_prov),
+                ("backtest_config", backtest_prov),
+                ("execution_spec", execution_spec_prov),
+            ]
+            if prov.get("source") == "default"
+        ]
+        provenance_status = "PASS"
+        provenance_message = "All configs resolved from manifest or run_dir"
+        if default_sources:
+            provenance_status = "WARN"
+            provenance_message = (
+                "Default configs used for: "
+                + ", ".join(default_sources)
+            )
+        provenance_checks = {
+            "config_sources": {
+                "status": provenance_status,
+                "defaults_used": default_sources,
+                "message": provenance_message,
+                "strict": strict,
+            }
+        }
+
         checks = {
+            "provenance": provenance_checks,
             "alignment": alignment_checks,
             "leakage": leakage_checks,
             "accounting": accounting_checks,
@@ -271,6 +348,7 @@ def run_audit(run_dir: Path | str, strict: bool = False) -> dict:
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "strict": strict,
             "overall_status": overall_status,
+            "audit_inputs": audit_inputs,
             "provenance": {
                 "risk_config": risk_prov,
                 "backtest_config": backtest_prov,

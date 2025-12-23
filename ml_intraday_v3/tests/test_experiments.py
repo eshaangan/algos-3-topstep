@@ -45,6 +45,10 @@ def test_experiments_smoke(tmp_path):
     )
     events_df.to_parquet(bar_dir / "events.parquet")
 
+    label_schema = {"schema_version": "1.0.0", "cost_mode": "gross_in_events"}
+    with open(bar_dir / "label_schema.json", "w") as f:
+        json.dump(label_schema, f)
+
     cv_splits = {
         "bar_size": "1m",
         "purged_kfold": [
@@ -108,6 +112,11 @@ def test_experiments_smoke(tmp_path):
         json.dump(training_cfg, f)
 
     exec_cfg = {
+        "instrument": {
+            "symbol": "MES",
+            "tick_size_points": 0.25,
+            "contract_multiplier_usd_per_point": 5.0,
+        },
         "fill_model": {"fill_price": "next_bar_open"},
         "costs": {"slippage_ticks": {"1m": 0.0}, "commission_per_contract": 0.0},
     }
@@ -116,7 +125,7 @@ def test_experiments_smoke(tmp_path):
         json.dump(exec_cfg, f)
 
     risk_cfg = {
-        "topstep": {"starting_balance": 50000, "contract_multiplier": 5},
+        "topstep": {"starting_balance": 50000},
         "daily_loss_limit": {"enabled": False},
         "trailing_drawdown": {"enabled": False},
         "intraday_controls": {

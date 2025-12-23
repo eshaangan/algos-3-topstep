@@ -10,10 +10,9 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from core.instrument import InstrumentSpec
 
-TICK_SIZE_POINTS = 0.25
-DEFAULT_TICK_VALUE_USD = 1.25
+logger = logging.getLogger(__name__)
 
 
 def _get_fill_offsets(fill_price: str) -> Dict[str, int]:
@@ -49,16 +48,18 @@ def _decide_ohlc_touch(
 
 
 def _compute_cost_points(
-    execution_spec: dict, bar_size: str, tick_value_usd: float
+    execution_spec: dict, bar_size: str, instrument_spec: InstrumentSpec
 ) -> Tuple[float, float]:
     """Return total round-trip cost in points and per-side cost in points."""
     costs = execution_spec.get("costs", {})
     slippage_ticks = costs.get("slippage_ticks", {}).get(bar_size, 0.0)
     commission = float(costs.get("commission_per_contract", 0.0))
 
-    point_value = tick_value_usd / TICK_SIZE_POINTS
+    point_value = instrument_spec.contract_multiplier_usd_per_point
     commission_points = commission / point_value if point_value else 0.0
-    slippage_points = float(slippage_ticks) * TICK_SIZE_POINTS
+    slippage_points = (
+        float(slippage_ticks) * instrument_spec.tick_size_points
+    )
     per_side = commission_points + slippage_points
     round_trip = 2.0 * per_side
     return round_trip, per_side
@@ -70,6 +71,7 @@ def apply_triplebarrier(
     bar_size: str,
     labeling_config: dict,
     execution_spec: dict,
+    instrument_spec: InstrumentSpec,
 ) -> pd.DataFrame:
     """
     Apply triple-barrier labeling to events.
@@ -132,9 +134,8 @@ def apply_triplebarrier(
     )
     account_for_costs = bool(tb_cfg.get("account_for_costs", False))
 
-    tick_value_usd = float(tb_cfg.get("tick_value_usd", DEFAULT_TICK_VALUE_USD))
     total_cost_points, _ = _compute_cost_points(
-        execution_spec, bar_size, tick_value_usd
+        execution_spec, bar_size, instrument_spec
     )
     cost_buffer = total_cost_points if account_for_costs else 0.0
 

@@ -14,6 +14,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from labels import apply_triplebarrier
+from core.instrument import load_instrument_from_execution_spec
 from cli import build_labels_command
 
 
@@ -40,6 +41,11 @@ def _minimal_labeling_config(horizon_bars=2, account_for_costs=False):
 
 def _minimal_execution_spec(touch_ordering="ohlc_path", slippage_ticks=0.0):
     return {
+        "instrument": {
+            "symbol": "MES",
+            "tick_size_points": 0.25,
+            "contract_multiplier_usd_per_point": 5.0,
+        },
         "fill_model": {
             "fill_price": "next_bar_open",
             "touch_ordering": touch_ordering,
@@ -57,6 +63,11 @@ def _make_bars(timestamps, ohlc_rows):
     df["is_synthetic"] = False
     df.index = pd.DatetimeIndex(timestamps)
     return df
+
+
+INSTRUMENT_SPEC = load_instrument_from_execution_spec(
+    Path(__file__).parent.parent / "configs" / "execution_spec.yaml"
+)
 
 
 def test_triple_barrier_first_touch_upper_lower_known_path():
@@ -90,6 +101,7 @@ def test_triple_barrier_first_touch_upper_lower_known_path():
         bar_size="1m",
         labeling_config=_minimal_labeling_config(),
         execution_spec=_minimal_execution_spec(),
+        instrument_spec=INSTRUMENT_SPEC,
     )
 
     assert labeled.loc[0, "y"] == 1
@@ -128,6 +140,7 @@ def test_triple_barrier_neither_touch_vertical_exit():
         bar_size="1m",
         labeling_config=_minimal_labeling_config(),
         execution_spec=_minimal_execution_spec(),
+        instrument_spec=INSTRUMENT_SPEC,
     )
 
     assert labeled.loc[0, "y"] == 0
@@ -166,6 +179,7 @@ def test_touch_ordering_stop_first_vs_target_first_differs_when_both_hit_same_ba
         bar_size="1m",
         labeling_config=_minimal_labeling_config(horizon_bars=1),
         execution_spec=_minimal_execution_spec(touch_ordering="stop_first"),
+        instrument_spec=INSTRUMENT_SPEC,
     )
 
     labeled_target = apply_triplebarrier(
@@ -174,6 +188,7 @@ def test_touch_ordering_stop_first_vs_target_first_differs_when_both_hit_same_ba
         bar_size="1m",
         labeling_config=_minimal_labeling_config(horizon_bars=1),
         execution_spec=_minimal_execution_spec(touch_ordering="target_first"),
+        instrument_spec=INSTRUMENT_SPEC,
     )
 
     assert labeled_stop.loc[0, "y"] == -1
@@ -212,7 +227,6 @@ def test_build_labels_writes_artifacts_and_updates_manifest(tmp_path):
 
     labeling_path = tmp_path / "labeling.yaml"
     execution_path = tmp_path / "execution_spec.yaml"
-
     with open(labeling_path, "w") as f:
         json.dump(labeling_config, f)
     with open(execution_path, "w") as f:
@@ -279,10 +293,11 @@ def test_label_backtest_parity_harness_synthetic():
         bar_size="1m",
         labeling_config=labeling_cfg,
         execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
     )
 
     def parity_sim(row):
-        tick_size = 0.25
+        tick_size = INSTRUMENT_SPEC.tick_size_points
         slippage = exec_spec["costs"]["slippage_ticks"]["1m"] * tick_size
         total_cost = 2.0 * slippage
 

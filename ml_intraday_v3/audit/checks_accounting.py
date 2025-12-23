@@ -6,9 +6,12 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, List
+import json
 
 import numpy as np
 import pandas as pd
+
+from core.instrument import InstrumentSpec
 
 
 def _load_trades(backtest_dir: Path) -> pd.DataFrame:
@@ -32,6 +35,22 @@ def _find_backtest_dir(bar_dir: Path) -> Path | None:
         if candidate.exists():
             return candidate
     return subdirs[0]
+
+
+def _load_label_schema(bar_dir: Path) -> dict | None:
+    path = bar_dir / "label_schema.json"
+    if not path.exists():
+        return None
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def _load_backtest_schema(backtest_dir: Path) -> dict | None:
+    path = backtest_dir / "backtest_schema.json"
+    if not path.exists():
+        return None
+    with open(path, "r") as f:
+        return json.load(f)
 
 
 def check_cost_mode(
@@ -62,42 +81,63 @@ def check_cost_mode(
 
     cost_mode = joined.get("cost_mode")
     cost_mode_policy = None
-    schema_path = backtest_dir / "backtest_schema.json"
-    if schema_path.exists():
-        import json
+    label_schema = _load_label_schema(bar_dir)
+    backtest_schema = _load_backtest_schema(backtest_dir)
+    if label_schema is None:
+        return {"status": "FAIL", "reason": "missing_label_schema"}
+    if backtest_schema is None:
+        return {"status": "FAIL", "reason": "missing_backtest_schema"}
 
-        with open(schema_path, "r") as f:
-            schema = json.load(f)
-        cost_mode_policy = schema.get("cost_mode_policy")
+    cost_mode_policy = backtest_schema.get("cost_mode_policy")
+    label_cost_mode = label_schema.get("cost_mode")
+    if label_cost_mode not in ["net_in_events", "gross_in_events"]:
+        return {"status": "FAIL", "reason": "invalid_label_cost_mode"}
+
+    expected_pnl_mode = (
+        "use_events_ret_net"
+        if label_cost_mode == "net_in_events"
+        else "compute_from_prices_then_subtract_costs"
+    )
+    pnl_mode = backtest_schema.get("pnl_mode")
+    if pnl_mode != expected_pnl_mode:
+        return {
+            "status": "FAIL",
+            "reason": "pnl_mode_mismatch",
+            "label_cost_mode": label_cost_mode,
+            "expected_pnl_mode": expected_pnl_mode,
+            "backtest_pnl_mode": pnl_mode,
+        }
 
     issues = 0
-    if cost_mode_policy == "event_ret_net_preferred" and "ret_net" in joined.columns:
-        mask = (
-            joined.get("exit_reason", "") == "event_exit"
-        ) & joined["ret_net"].notna()
+    if label_cost_mode == "net_in_events":
+        if "ret_net" not in joined.columns or joined["ret_net"].isna().all():
+            return {
+                "status": "FAIL",
+                "reason": "ret_net_missing_for_net_mode",
+            }
+        mask = (joined.get("exit_reason", "") == "event_exit") & joined[
+            "ret_net"
+        ].notna()
         if "cost_mode" in joined.columns:
-            issues = int((joined.loc[mask, "cost_mode"] != "event_ret_net").sum())
+            issues = int(
+                (joined.loc[mask, "cost_mode"] != "event_ret_net").sum()
+            )
         else:
             issues = int(mask.sum())
-
-    if "costs_usd" in joined.columns and "cost_mode" in joined.columns:
-        costs_nonzero = joined.loc[
-            joined["cost_mode"] == "event_ret_net", "costs_usd"
-        ]
-        if not costs_nonzero.empty:
-            issues += int((costs_nonzero.abs() > 1e-6).sum())
 
     status = "PASS" if issues == 0 else "FAIL"
     return {
         "status": status,
         "issues": issues,
         "cost_mode_policy": cost_mode_policy,
+        "label_cost_mode": label_cost_mode,
+        "pnl_mode": pnl_mode,
     }
 
 
 def check_pnl_identity(
     bar_dir: Path,
-    instrument_params: dict,
+    instrument_spec: InstrumentSpec,
     tolerance: float = 1e-6,
 ) -> dict:
     backtest_dir = _find_backtest_dir(bar_dir)
@@ -112,57 +152,44 @@ def check_pnl_identity(
     if executed.empty:
         return {"status": "SKIP", "reason": "no_executed_trades"}
 
-    if "pnl_points" not in executed.columns or "pnl_usd" not in executed.columns:
-        return {"status": "SKIP", "reason": "missing_pnl_columns"}
+    label_schema = _load_label_schema(bar_dir)
+    backtest_schema = _load_backtest_schema(backtest_dir)
+    if label_schema is None or backtest_schema is None:
+        return {"status": "FAIL", "reason": "missing_schema_for_identity"}
 
-    tick_size = float(instrument_params.get("tick_size_points", 0.0))
-    tick_value = float(instrument_params.get("tick_value_usd", 0.0))
-    contract_multiplier = instrument_params.get("contract_multiplier")
-
-    if tick_size <= 0.0 or tick_value <= 0.0:
+    label_cost_mode = label_schema.get("cost_mode")
+    pnl_mode = backtest_schema.get("pnl_mode")
+    if label_cost_mode not in ["net_in_events", "gross_in_events"]:
+        return {"status": "FAIL", "reason": "invalid_label_cost_mode"}
+    expected_pnl_mode = (
+        "use_events_ret_net"
+        if label_cost_mode == "net_in_events"
+        else "compute_from_prices_then_subtract_costs"
+    )
+    if pnl_mode != expected_pnl_mode:
         return {
-            "status": "SKIP",
-            "reason": "invalid_instrument_params",
-            "instrument_params": instrument_params,
+            "status": "FAIL",
+            "reason": "pnl_mode_mismatch",
+            "label_cost_mode": label_cost_mode,
+            "expected_pnl_mode": expected_pnl_mode,
+            "backtest_pnl_mode": pnl_mode,
         }
 
-    point_value = tick_value / tick_size
-    if contract_multiplier is not None:
-        contract_multiplier = float(contract_multiplier)
+    if "pnl_points" not in executed.columns or "pnl_usd" not in executed.columns:
+        return {"status": "SKIP", "reason": "missing_pnl_columns"}
+    if "costs_usd" not in executed.columns:
+        return {"status": "SKIP", "reason": "missing_costs_usd"}
 
-    cost_mode = (
-        executed["cost_mode"].mode().iloc[0]
-        if "cost_mode" in executed.columns
-        else None
-    )
-    pnl_semantics = "unknown"
-    if cost_mode in ["price_minus_costs", "event_ret_net"]:
-        pnl_semantics = "net_of_costs"
+    tick_size = float(instrument_spec.tick_size_points)
+    tick_value = float(instrument_spec.tick_value_usd)
+    point_value = float(instrument_spec.contract_multiplier_usd_per_point)
 
-    if pnl_semantics == "net_of_costs":
-        expected = executed["pnl_points"] * point_value
-        identity_formula = "pnl_usd ≈ pnl_points * point_value"
-    else:
-        if "costs_usd" not in executed.columns:
-            return {
-                "status": "SKIP",
-                "reason": "missing_costs_usd_for_gross_check",
-                "pnl_points_semantics": pnl_semantics,
-            }
-        expected = executed["pnl_points"] * point_value - executed["costs_usd"]
-        identity_formula = "pnl_usd ≈ pnl_points * point_value - costs_usd"
+    expected = executed["pnl_points"] * point_value - executed["costs_usd"]
+    identity_formula = "pnl_usd ≈ pnl_points * point_value - costs_usd"
 
     diff = (executed["pnl_usd"] - expected).abs()
     violations = int((diff > tolerance).sum())
     status = "PASS" if violations == 0 else "FAIL"
-
-    params_check = None
-    if contract_multiplier is not None:
-        params_check = {
-            "contract_multiplier": contract_multiplier,
-            "point_value": point_value,
-            "consistent": abs(point_value - contract_multiplier) <= 1e-6,
-        }
 
     return {
         "status": status,
@@ -170,7 +197,12 @@ def check_pnl_identity(
         "point_value": point_value,
         "tolerance": tolerance,
         "identity_formula_used": identity_formula,
-        "pnl_points_semantics": pnl_semantics,
-        "instrument_params": instrument_params,
-        "instrument_consistency": params_check,
+        "pnl_points_semantics": "gross",
+        "instrument": {
+            "symbol": instrument_spec.symbol,
+            "tick_size": tick_size,
+            "tick_value_usd": tick_value,
+            "contract_multiplier_usd_per_point": point_value,
+            "currency": instrument_spec.currency,
+        },
     }

@@ -129,11 +129,12 @@ Every run writes a **single** `run_manifest.json` at `runs/<run_id>/run_manifest
 
 ### `execution_spec.yaml`
 
-**Single source of truth** for fills, costs, and execution constraints.
+**Single source of truth** for instrument economics, fills, costs, and execution constraints.
 
 Used by: labels, backtesting, live trading.
 
 Key sections:
+- `instrument`: Symbol, tick size (points), contract multiplier (USD/point)
 - `fill_model`: Where fills occur (next_bar_open/close), touch ordering
 - `costs`: Slippage (ticks) and commission (per bar size)
 - `position_limits`: Max contracts, max concurrent positions
@@ -184,10 +185,10 @@ Key sections:
 
 ### `risk.yaml`
 
-Topstep risk gates and position limits.
+Topstep risk gates and position limits (no instrument economics).
 
 Key sections:
-- `topstep`: Account type, balance, contract multiplier
+- `topstep`: Account type, balance
 - `daily_loss_limit`: Max daily loss ($1,000 for $50k combine)
 - `trailing_drawdown`: Max drawdown from HWM ($2,500 for $50k combine)
 - `position_limits`: Max contracts, notional exposure

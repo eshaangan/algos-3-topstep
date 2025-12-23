@@ -21,6 +21,11 @@ from training.dataset import build_event_dataset, build_meta_dataset
 from training.preprocess import FoldPreprocessor
 from training.metrics import compute_metrics
 from backtesting_v3 import run_backtest
+from core.instrument import (
+    InstrumentSpec,
+    load_instrument_from_execution_spec,
+    validate_risk_config_no_instrument_economics,
+)
 
 from .windows import compute_walkforward_windows
 from .metrics import aggregate_window_metrics
@@ -269,6 +274,8 @@ def run_walkforward(run_dir: Path | str, walkforward_config_path: Path | str) ->
         "risk",
         Path("ml_intraday_v3/configs/risk.yaml"),
     )
+    validate_risk_config_no_instrument_economics(risk_cfg)
+    instrument_spec = InstrumentSpec.from_execution_spec(execution_spec)
 
     thresholds = eval_cfg.get("thresholds", {})
     use_meta = bool(eval_cfg.get("use_meta", False))
@@ -299,6 +306,11 @@ def run_walkforward(run_dir: Path | str, walkforward_config_path: Path | str) ->
         bars_df = pd.read_parquet(bars_path)
         events_df = pd.read_parquet(events_path)
         events_df["t0"] = pd.to_datetime(events_df["t0"])
+        label_schema_path = bar_dir / "label_schema.json"
+        if not label_schema_path.exists():
+            raise FileNotFoundError(f"label_schema.json not found: {label_schema_path}")
+        with open(label_schema_path, "r") as f:
+            label_schema = json.load(f)
 
         dataset = build_event_dataset(run_dir, bar_size, training_cfg)
         dataset = dataset.sort_values("t0").reset_index(drop=True)
@@ -492,6 +504,8 @@ def run_walkforward(run_dir: Path | str, walkforward_config_path: Path | str) ->
                 primary_preds_df=primary_preds,
                 meta_preds_df=meta_preds if local_backtest_cfg["decision"]["use_meta"] else None,
                 execution_spec=execution_spec,
+                instrument_spec=instrument_spec,
+                label_schema=label_schema,
                 risk_cfg=risk_cfg,
                 backtest_cfg=local_backtest_cfg,
                 bar_size=bar_size,
@@ -527,6 +541,7 @@ def run_walkforward(run_dir: Path | str, walkforward_config_path: Path | str) ->
                         "backtest": hash_content(backtest_cfg),
                         "execution_spec": hash_content(execution_spec),
                         "risk": hash_content(risk_cfg),
+                        "instrument": hash_content(execution_spec.get("instrument", {})),
                         "feature_schema": feature_schema_hash,
                         "label_schema": label_schema_hash,
                         "weight_schema": weight_schema_hash,
@@ -537,6 +552,12 @@ def run_walkforward(run_dir: Path | str, walkforward_config_path: Path | str) ->
                         "backtest_config": backtest_prov,
                         "execution_spec": exec_prov,
                         "risk_config": risk_prov,
+                        "instrument_config": {
+                            "source": exec_prov.get("source"),
+                            "path": exec_prov.get("path"),
+                            "content_hash": hash_content(execution_spec.get("instrument", {})),
+                            "derived_from": "execution_spec",
+                        },
                     },
                 }
                 manifest = _load_manifest(run_dir)

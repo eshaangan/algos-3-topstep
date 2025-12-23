@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from run_manifest import hash_content
+from core.instrument import InstrumentSpec
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ def write_label_schema(
     bar_size: str,
     labeling_config: dict,
     execution_spec: dict,
+    instrument_spec: InstrumentSpec,
     touch_ordering_definition: str,
     code_version: str = "1.0.0",
 ) -> str:
@@ -69,6 +71,7 @@ def write_label_schema(
         "bar_size": bar_size,
         "n_columns": len(columns),
         "columns": columns,
+        "cost_mode": "net_in_events" if "ret_net" in columns else "gross_in_events",
         "label_encoding": label_encoding,
         "touch_ordering": execution_spec.get("fill_model", {}).get(
             "touch_ordering", "ohlc_path"
@@ -78,8 +81,9 @@ def write_label_schema(
             "fill_price", "next_bar_open"
         ),
         "return_units": "price_points",
-        "tick_size_points": 0.25,
-        "tick_value_usd": label_cfg.get("tick_value_usd", 1.25),
+        "tick_size_points": instrument_spec.tick_size_points,
+        "tick_value_usd": instrument_spec.tick_value_usd,
+        "contract_multiplier_usd_per_point": instrument_spec.contract_multiplier_usd_per_point,
         "account_for_costs": bool(label_cfg.get("account_for_costs", False)),
         "execution_spec_hash": execution_spec_hash,
         "config_snapshot": labeling_config,

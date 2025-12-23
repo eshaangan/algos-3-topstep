@@ -27,6 +27,7 @@ from data import (
     apply_roll_schedule,
     write_roll_schedule,
     load_roll_schedule,
+    RollSchedule,
     reindex_to_grid,
     resample_1m_to_5m,
     add_session_features,
@@ -328,70 +329,152 @@ class TestQAChecks:
 class TestRollSchedule:
     """Test roll schedule functions."""
 
-    def test_roll_schedule_deterministic_on_synthetic_data(self):
-        """Test that roll schedule is deterministic with same seed."""
-        # Create synthetic data with symbol column
-        dates = pd.date_range("2025-01-01 09:30:00", periods=100, freq="1min", tz="UTC")
-
-        symbols = ["ESH5"] * 50 + ["ESM5"] * 50  # Roll at bar 50
+    def test_continuous_mode_already_continuous_no_change(self):
+        """already_continuous should ignore symbol changes and keep data unchanged."""
+        dates = pd.date_range(
+            "2025-01-01 09:30:00", periods=5, freq="1min", tz="UTC"
+        )
+        symbols = ["F1", "F2", "F2", "F2", "F2"]
 
         df = pd.DataFrame(
             {
-                "open": 100.0,
-                "high": 100.5,
-                "low": 99.5,
-                "close": 100.0,
-                "volume": 5000,
+                "open": [100.0] * 5,
+                "high": [100.5] * 5,
+                "low": [99.5] * 5,
+                "close": [100.0] * 5,
+                "volume": [5000] * 5,
                 "symbol": symbols,
             },
             index=dates,
         )
 
-        df.index.name = "ts"
+        schedule = build_roll_schedule(df, mode="already_continuous")
+        df_out = apply_roll_schedule(
+            df, schedule, roll_day_policy="exclude", mode="already_continuous"
+        )
 
-        # Build schedule twice with same seed
-        schedule1 = build_roll_schedule(df, seed=42)
-        schedule2 = build_roll_schedule(df, seed=42)
+        pd.testing.assert_frame_equal(df_out, df)
+        assert len(schedule.roll_datetimes) == 1
+        assert schedule.contracts[0] == symbols[0]
 
-        # Should be identical
-        assert len(schedule1.roll_dates) == len(schedule2.roll_dates)
-        assert schedule1.roll_dates == schedule2.roll_dates
-        assert schedule1.front_contracts == schedule2.front_contracts
-        assert schedule1.back_contracts == schedule2.back_contracts
+    def test_calendar_roll_switches_contract_without_lookahead(self, tmp_path):
+        """calendar_roll should switch contracts at roll time only."""
+        dates = pd.date_range(
+            "2025-01-01 09:30:00", periods=6, freq="1min", tz="UTC"
+        )
+        front = pd.DataFrame(
+            {
+                "open": [100.0] * 6,
+                "high": [100.5] * 6,
+                "low": [99.5] * 6,
+                "close": [100.0] * 6,
+                "volume": [1000] * 6,
+                "symbol": ["F1"] * 6,
+            },
+            index=dates,
+        )
+        back = pd.DataFrame(
+            {
+                "open": [200.0] * 6,
+                "high": [200.5] * 6,
+                "low": [199.5] * 6,
+                "close": [200.0] * 6,
+                "volume": [2000] * 6,
+                "symbol": ["F2"] * 6,
+            },
+            index=dates,
+        )
+        df = pd.concat([front, back]).sort_index()
+
+        roll_path = tmp_path / "roll_schedule.csv"
+        roll_df = pd.DataFrame(
+            {
+                "contract": ["F1", "F2"],
+                "roll_datetime_utc": [dates[0], dates[3]],
+            }
+        )
+        roll_df.to_csv(roll_path, index=False)
+
+        schedule = build_roll_schedule(
+            df, mode="calendar_roll", roll_schedule_path=roll_path
+        )
+        df_out = apply_roll_schedule(
+            df, schedule, roll_day_policy="keep", mode="calendar_roll"
+        )
+
+        assert len(df_out) == len(dates)
+        assert (df_out.loc[dates[:3], "close"] == 100.0).all()
+        assert (df_out.loc[dates[3:], "close"] == 200.0).all()
+
+    def test_roll_day_policy_exclude_drops_roll_day(self, tmp_path):
+        """exclude policy should drop all bars on the roll date."""
+        day1 = pd.date_range(
+            "2025-01-01 09:30:00", periods=3, freq="1min", tz="UTC"
+        )
+        day2 = pd.date_range(
+            "2025-01-02 09:30:00", periods=3, freq="1min", tz="UTC"
+        )
+        dates = day1.append(day2)
+        front = pd.DataFrame(
+            {
+                "open": [100.0] * 6,
+                "high": [100.5] * 6,
+                "low": [99.5] * 6,
+                "close": [100.0] * 6,
+                "volume": [1000] * 6,
+                "symbol": ["F1"] * 6,
+            },
+            index=dates,
+        )
+        back = pd.DataFrame(
+            {
+                "open": [200.0] * 6,
+                "high": [200.5] * 6,
+                "low": [199.5] * 6,
+                "close": [200.0] * 6,
+                "volume": [2000] * 6,
+                "symbol": ["F2"] * 6,
+            },
+            index=dates,
+        )
+        df = pd.concat([front, back]).sort_index()
+
+        roll_path = tmp_path / "roll_schedule.csv"
+        roll_df = pd.DataFrame(
+            {
+                "contract": ["F1", "F2"],
+                "roll_datetime_utc": [dates[0], dates[1]],
+            }
+        )
+        roll_df.to_csv(roll_path, index=False)
+
+        schedule = build_roll_schedule(
+            df, mode="calendar_roll", roll_schedule_path=roll_path
+        )
+        df_out = apply_roll_schedule(
+            df, schedule, roll_day_policy="exclude", mode="calendar_roll"
+        )
+
+        roll_date = dates[1].normalize()
+        assert not df_out.index.normalize().isin([roll_date]).any()
+        assert df_out.index.normalize().isin([day2[0].normalize()]).all()
 
     def test_roll_schedule_write_load_roundtrip(self, tmp_path):
         """Test that roll schedule can be written and loaded back."""
-        dates = pd.date_range("2025-01-01 09:30:00", periods=100, freq="1min", tz="UTC")
-
-        symbols = ["ESH5"] * 50 + ["ESM5"] * 50
-
-        df = pd.DataFrame(
-            {
-                "open": 100.0,
-                "high": 100.5,
-                "low": 99.5,
-                "close": 100.0,
-                "volume": 5000,
-                "symbol": symbols,
-            },
-            index=dates,
+        roll_dt = pd.Timestamp("2025-01-01 12:00:00", tz="UTC")
+        schedule = RollSchedule(
+            roll_datetimes=[roll_dt],
+            contracts=["F1"],
+            mode="calendar_roll",
         )
 
-        df.index.name = "ts"
-
-        schedule = build_roll_schedule(df, seed=42)
-
-        # Write to file
         output_path = tmp_path / "roll_schedule.csv"
         write_roll_schedule(schedule, output_path)
 
-        # Load back
         loaded_schedule = load_roll_schedule(output_path)
 
-        # Should match
-        assert len(loaded_schedule.roll_dates) == len(schedule.roll_dates)
-        assert loaded_schedule.front_contracts == schedule.front_contracts
-        assert loaded_schedule.back_contracts == schedule.back_contracts
+        assert loaded_schedule.roll_datetimes == [roll_dt]
+        assert loaded_schedule.contracts == ["F1"]
 
 
 class TestSessionFeatures:
@@ -470,9 +553,9 @@ class TestEndToEndBuildData:
                 "required_columns": ["open", "high", "low", "close", "volume"],
             },
             "continuization": {
-                "instrument": "MES",
-                "roll_method": "volume",
-                "roll_day_handling": "exclude",
+                "mode": "already_continuous",
+                "roll_schedule_path": None,
+                "roll_day_policy": "exclude",
             },
             "reindexing": {
                 "bar_sizes": ["1m", "5m"],
@@ -513,7 +596,15 @@ class TestEndToEndBuildData:
             yaml.dump(config, f)
 
         # Also create minimal execution_spec for manifest
-        exec_spec = {"version": "1.0.0", "costs": {"slippage_ticks": {"1m": 1.0}}}
+        exec_spec = {
+            "version": "1.0.0",
+            "instrument": {
+                "symbol": "MES",
+                "tick_size_points": 0.25,
+                "contract_multiplier_usd_per_point": 5.0,
+            },
+            "costs": {"slippage_ticks": {"1m": 1.0}},
+        }
         with open(config_dir / "execution_spec.yaml", "w") as f:
             yaml.dump(exec_spec, f)
 

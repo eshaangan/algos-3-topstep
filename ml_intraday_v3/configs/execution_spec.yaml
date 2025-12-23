@@ -2,6 +2,12 @@
 # Used by: labels, backtesting, and live trading
 # Version: 1.0
 
+# Instrument economics (single source of truth)
+instrument:
+  symbol: "MES"
+  tick_size_points: 0.25
+  contract_multiplier_usd_per_point: 5.0
+
 # Fill model parameters
 fill_model:
   # Where orders get filled: "next_bar_open" or "next_bar_close"
@@ -15,7 +21,6 @@ fill_model:
 # Cost model - applied per contract per side
 costs:
   # Slippage in ticks (per bar size)
-  # ES/MES tick value = 0.25 points
   slippage_ticks:
     "1m": 1.0   # 1 tick = $1.25 for MES, $12.50 for ES
     "5m": 1.5   # Wider spread assumption for 5m bars
@@ -71,12 +76,3 @@ holding_constraints:
 # Execution alignment contract version
 # Increment this if any execution assumptions change
 spec_version: "1.0.0"
-
-# Instrument parameters (single source for point/tick conversion)
-instrument:
-  # Tick size in points (ES/MES = 0.25)
-  tick_size_points: 0.25
-  # Tick value in USD per contract (MES = $1.25)
-  tick_value_usd: 1.25
-  # USD per point per contract (MES = $5)
-  contract_multiplier: 5

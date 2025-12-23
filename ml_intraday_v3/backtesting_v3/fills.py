@@ -5,7 +5,7 @@ Entry/exit and cost computation consistent with labeling assumptions.
 from dataclasses import dataclass
 import pandas as pd
 
-TICK_SIZE_POINTS = 0.25
+from core.instrument import InstrumentSpec
 
 
 @dataclass
@@ -25,15 +25,17 @@ def _get_fill_offsets(fill_price: str) -> dict:
     raise ValueError(f"Unsupported fill_price: {fill_price}")
 
 
-def compute_cost_points(execution_spec: dict, risk_cfg: dict, bar_size: str) -> float:
+def compute_cost_points(
+    execution_spec: dict, instrument_spec: InstrumentSpec, bar_size: str
+) -> float:
     costs = execution_spec.get("costs", {})
     slippage_ticks = float(costs.get("slippage_ticks", {}).get(bar_size, 0.0))
     commission = float(costs.get("commission_per_contract", 0.0))
-    contract_multiplier = float(
-        risk_cfg.get("topstep", {}).get("contract_multiplier", 1.0)
+    point_value = float(instrument_spec.contract_multiplier_usd_per_point)
+    commission_points = commission / point_value if point_value else 0.0
+    slippage_points = slippage_ticks * float(
+        instrument_spec.tick_size_points
     )
-    commission_points = commission / contract_multiplier if contract_multiplier else 0.0
-    slippage_points = slippage_ticks * TICK_SIZE_POINTS
     return 2.0 * (commission_points + slippage_points)
 
 

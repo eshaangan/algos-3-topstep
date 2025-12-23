@@ -16,8 +16,12 @@ from backtesting_v3.decisions import decide_trades
 from backtesting_v3.risk import RiskManager
 from backtesting_v3.fills import apply_forced_flatten, FillResult
 from backtesting_v3.simulator import run_backtest
+from core.instrument import load_instrument_from_execution_spec
 from cli import build_backtest_command
 
+INSTRUMENT_SPEC = load_instrument_from_execution_spec(
+    Path(__file__).parent.parent / "configs" / "execution_spec.yaml"
+)
 
 def test_decision_meta_filters_trades():
     events_df = pd.DataFrame({"event_id": [1, 2], "t0": [0, 1]})
@@ -38,7 +42,7 @@ def test_decision_meta_filters_trades():
 
 def test_risk_daily_loss_gate_skips_trades():
     risk_cfg = {
-        "topstep": {"starting_balance": 1000, "contract_multiplier": 5},
+        "topstep": {"starting_balance": 1000},
         "daily_loss_limit": {
             "enabled": True,
             "max_daily_loss": 100,
@@ -103,6 +107,10 @@ def test_build_backtest_writes_artifacts_and_updates_manifest(tmp_path):
     )
     events_df.to_parquet(bar_dir / "events.parquet")
 
+    label_schema = {"schema_version": "1.0.0", "cost_mode": "gross_in_events"}
+    with open(bar_dir / "label_schema.json", "w") as f:
+        json.dump(label_schema, f)
+
     cv_splits = {
         "bar_size": "1m",
         "purged_kfold": [
@@ -145,6 +153,11 @@ def test_build_backtest_writes_artifacts_and_updates_manifest(tmp_path):
         json.dump(backtest_cfg, f)
 
     exec_cfg = {
+        "instrument": {
+            "symbol": "MES",
+            "tick_size_points": 0.25,
+            "contract_multiplier_usd_per_point": 5.0,
+        },
         "fill_model": {"fill_price": "next_bar_open"},
         "costs": {"slippage_ticks": {"1m": 0.0}, "commission_per_contract": 0.0},
     }
@@ -153,7 +166,7 @@ def test_build_backtest_writes_artifacts_and_updates_manifest(tmp_path):
         json.dump(exec_cfg, f)
 
     risk_cfg = {
-        "topstep": {"starting_balance": 50000, "contract_multiplier": 5},
+        "topstep": {"starting_balance": 50000},
         "daily_loss_limit": {"enabled": False},
         "trailing_drawdown": {"enabled": False},
         "intraday_controls": {"max_trades_per_day": 10, "min_seconds_between_trades": 0, "max_consecutive_losses": 10},
@@ -203,11 +216,16 @@ def test_mtm_daily_loss_forces_exit_early():
     )
     primary_preds = pd.DataFrame({"event_id": [1], "y_prob": [0.9]})
     exec_spec = {
+        "instrument": {
+            "symbol": "MES",
+            "tick_size_points": 0.25,
+            "contract_multiplier_usd_per_point": 5.0,
+        },
         "fill_model": {"fill_price": "next_bar_open"},
         "costs": {"slippage_ticks": {"1m": 0.0}, "commission_per_contract": 0.0},
     }
     risk_cfg = {
-        "topstep": {"starting_balance": 1000, "contract_multiplier": 1},
+        "topstep": {"starting_balance": 1000},
         "daily_loss_limit": {"enabled": True, "max_daily_loss": 5, "pnl_calculation": "realized_and_unrealized", "reset_time": "17:00", "reset_timezone": "America/Chicago"},
         "trailing_drawdown": {"enabled": False},
         "intraday_controls": {"max_trades_per_day": 10, "min_seconds_between_trades": 0, "max_consecutive_losses": 10},
@@ -227,6 +245,8 @@ def test_mtm_daily_loss_forces_exit_early():
         primary_preds_df=primary_preds,
         meta_preds_df=None,
         execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
+        label_schema={"cost_mode": "gross_in_events"},
         risk_cfg=risk_cfg,
         backtest_cfg=backtest_cfg,
         bar_size="1m",
@@ -254,11 +274,16 @@ def test_mtm_trailing_dd_forces_exit_early():
     )
     primary_preds = pd.DataFrame({"event_id": [2], "y_prob": [0.9]})
     exec_spec = {
+        "instrument": {
+            "symbol": "MES",
+            "tick_size_points": 0.25,
+            "contract_multiplier_usd_per_point": 5.0,
+        },
         "fill_model": {"fill_price": "next_bar_open"},
         "costs": {"slippage_ticks": {"1m": 0.0}, "commission_per_contract": 0.0},
     }
     risk_cfg = {
-        "topstep": {"starting_balance": 1000, "contract_multiplier": 1},
+        "topstep": {"starting_balance": 1000},
         "daily_loss_limit": {"enabled": False},
         "trailing_drawdown": {"enabled": True, "max_drawdown": 5, "pnl_calculation": "realized_and_unrealized", "hwm_update_policy": "end_of_day"},
         "intraday_controls": {"max_trades_per_day": 10, "min_seconds_between_trades": 0, "max_consecutive_losses": 10},
@@ -278,6 +303,8 @@ def test_mtm_trailing_dd_forces_exit_early():
         primary_preds_df=primary_preds,
         meta_preds_df=None,
         execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
+        label_schema={"cost_mode": "gross_in_events"},
         risk_cfg=risk_cfg,
         backtest_cfg=backtest_cfg,
         bar_size="1m",
@@ -285,3 +312,53 @@ def test_mtm_trailing_dd_forces_exit_early():
     assert trades_df.loc[0, "exit_ts"] == index[1]
     assert trades_df.loc[0, "liquidation_reason"] == "trailing_dd_breach"
     assert metrics["mtm_trailing_dd_liquidations"] == 1
+
+
+def test_backtest_does_not_double_count_costs_when_events_ret_net():
+    index = pd.date_range("2025-01-01 09:30:00", periods=2, freq="1min")
+    bars_df = pd.DataFrame({"close": [100.0, 100.0]}, index=index)
+    events_df = pd.DataFrame(
+        {
+            "event_id": [1],
+            "t0": [index[0]],
+            "t1": [index[1]],
+            "entry_time": [index[0]],
+            "entry_price": [100.0],
+            "t_touch": [index[1]],
+            "exit_price": [100.0],
+            "ret_net": [-0.5],
+        }
+    )
+    primary_preds = pd.DataFrame({"event_id": [1], "y_prob": [0.9]})
+    exec_spec = {
+        "instrument": {
+            "symbol": "MES",
+            "tick_size_points": 0.25,
+            "contract_multiplier_usd_per_point": 5.0,
+        },
+        "fill_model": {"fill_price": "next_bar_open"},
+        "costs": {"slippage_ticks": {"1m": 2.0}, "commission_per_contract": 0.0},
+    }
+    backtest_cfg = {"decision": {"use_meta": False, "primary_threshold": 0.5}}
+    risk_cfg = {
+        "topstep": {"starting_balance": 1000},
+        "daily_loss_limit": {"enabled": False},
+        "trailing_drawdown": {"enabled": False},
+        "intraday_controls": {"max_trades_per_day": 10, "min_seconds_between_trades": 0, "max_consecutive_losses": 10},
+    }
+
+    trades_df, _, _ = run_backtest(
+        events_df=events_df,
+        bars_df=bars_df,
+        primary_preds_df=primary_preds,
+        meta_preds_df=None,
+        execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
+        label_schema={"cost_mode": "net_in_events"},
+        risk_cfg=risk_cfg,
+        backtest_cfg=backtest_cfg,
+        bar_size="1m",
+    )
+    pnl_usd = trades_df.loc[0, "pnl_usd"]
+    expected = events_df.loc[0, "ret_net"] * INSTRUMENT_SPEC.point_value_usd
+    assert pnl_usd == expected

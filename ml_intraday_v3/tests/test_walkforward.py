@@ -50,6 +50,10 @@ def test_walkforward_writes_window_artifacts(tmp_path):
     )
     events_df.to_parquet(bar_dir / "events.parquet")
 
+    label_schema = {"schema_version": "1.0.0", "cost_mode": "gross_in_events"}
+    with open(bar_dir / "label_schema.json", "w") as f:
+        json.dump(label_schema, f)
+
     weights_df = pd.DataFrame(
         {"event_id": [0, 1, 2, 3], "w_final": [1.0, 1.0, 1.0, 1.0]}
     )

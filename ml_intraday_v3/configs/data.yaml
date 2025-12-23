@@ -23,29 +23,15 @@ raw_data:
 
 # Contract continuization
 continuization:
-  # Contract type
-  instrument: "MES"  # or "ES"
+  # Continuization mode: "already_continuous" or "calendar_roll"
+  mode: "already_continuous"
 
-  # Roll method: "volume" or "fixed_calendar"
-  roll_method: "volume"
+  # Required for calendar_roll: CSV with columns [contract, roll_datetime_utc]
+  roll_schedule_path: null
 
-  # Volume-based roll parameters (if roll_method == "volume")
-  volume_roll:
-    # Roll when front contract volume < back contract volume
-    use_volume_crossover: true
-
-    # Minimum days before expiry to allow rolling
-    min_days_before_expiry: 2
-
-  # Roll schedule output path (persisted artifact)
-  roll_schedule_path: "runs/{run_id}/bar_size={bar_size}/roll_schedule.csv"
-
-  # Roll-day policy: "exclude" or "include"
-  # "exclude" (DEFAULT - research-grade): Drop entire day when roll occurs
-  #   - Avoids any contamination from contract transitions
-  #   - Conservative approach for ML training
-  # "include": Keep all bars, stitch front/back month at roll point
-  #   - Risk: price discontinuities at roll boundary
+  # Roll-day policy: "exclude" or "keep"
+  # "exclude" (DEFAULT): Drop entire day when roll occurs
+  # "keep": Keep all bars on roll day
   roll_day_policy: "exclude"
 
 # Reindexing configuration
@@ -113,6 +99,7 @@ qa:
   checks:
     - "monotonic_index"      # Timestamps must be strictly increasing
     - "no_duplicates"        # No duplicate timestamps
+    - "no_duplicates_after_merge"  # Duplicate timestamps after contract merge
     - "missing_bar_pct"      # Report % missing bars per day
     - "ohlc_validity"        # L <= O,C <= H
     - "volume_sanity"        # Volume >= 0

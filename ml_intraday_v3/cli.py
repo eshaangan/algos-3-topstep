@@ -62,6 +62,10 @@ from backtesting_v3 import run_backtest, write_backtest_schema
 from experiments import run_experiments
 from audit import run_audit
 from walkforward import run_walkforward
+from core.instrument import (
+    load_instrument_from_execution_spec,
+    validate_risk_config_no_instrument_economics,
+)
 import numpy as np
 
 # Setup logging
@@ -166,15 +170,8 @@ def build_data_command(args):
     continuization_config = config.get("continuization", {})
     roll_schedule = build_roll_schedule(
         df_std,
-        instrument=continuization_config.get("instrument", "MES"),
-        roll_method=continuization_config.get("roll_method", "volume"),
-        use_volume_crossover=continuization_config.get("volume_roll", {}).get(
-            "use_volume_crossover", True
-        ),
-        min_days_before_expiry=continuization_config.get("volume_roll", {}).get(
-            "min_days_before_expiry", 2
-        ),
-        seed=args.seed,
+        mode=continuization_config.get("mode", "already_continuous"),
+        roll_schedule_path=continuization_config.get("roll_schedule_path"),
     )
 
     # ------------------------------------------------------------------------
@@ -187,7 +184,8 @@ def build_data_command(args):
     df_continuous = apply_roll_schedule(
         df_std,
         roll_schedule,
-        roll_day_handling=continuization_config.get("roll_day_policy", "exclude"),
+        roll_day_policy=continuization_config.get("roll_day_policy", "exclude"),
+        mode=continuization_config.get("mode", "already_continuous"),
     )
 
     # ------------------------------------------------------------------------
@@ -673,6 +671,9 @@ def build_labels_command(args):
     execution_spec = load_config(execution_spec_path)
     logger.info(f"Loaded execution spec from {execution_spec_path}")
 
+    instrument_spec = load_instrument_from_execution_spec(execution_spec_path)
+    logger.info("Loaded instrument spec from execution_spec")
+
     # Compute config hashes for schema/manifest
     with open(labeling_config_path, "r") as f:
         labeling_config_hash = hash_content(f.read())
@@ -752,6 +753,7 @@ def build_labels_command(args):
             bar_size=bar_size,
             labeling_config=labeling_config,
             execution_spec=execution_spec,
+            instrument_spec=instrument_spec,
         )
         logger.info(f"Labeled {len(labeled_df)} events")
 
@@ -774,6 +776,7 @@ def build_labels_command(args):
             bar_size=bar_size,
             labeling_config=labeling_config,
             execution_spec=execution_spec,
+            instrument_spec=instrument_spec,
             touch_ordering_definition=touch_def,
             code_version="1.0.0",
         )
@@ -818,7 +821,6 @@ def build_labels_command(args):
             "content_hash": labeling_config_hash,
             "content": labeling_config,
         }
-
         config_names = [c.get("name") for c in manifest.get("configs", [])]
         if "labeling" not in config_names:
             manifest["configs"].append(labeling_config_entry)
@@ -1572,11 +1574,15 @@ def build_backtest_command(args):
         sys.exit(1)
     execution_spec = load_config(execution_spec_path)
 
+    instrument_spec = load_instrument_from_execution_spec(execution_spec_path)
+    logger.info("Loaded instrument spec from execution_spec")
+
     risk_config_path = Path(args.risk_config)
     if not risk_config_path.exists():
         logger.error(f"Risk config not found: {risk_config_path}")
         sys.exit(1)
     risk_config = load_config(risk_config_path)
+    validate_risk_config_no_instrument_economics(risk_config)
 
     cv_kind = args.cv_kind
     manifest_path = run_dir / "run_manifest.json"
@@ -1606,8 +1612,14 @@ def build_backtest_command(args):
         events_path = bar_dir / "events.parquet"
         bars_path = bar_dir / "bars.parquet"
         cv_path = bar_dir / "cv_splits.json"
+        label_schema_path = bar_dir / "label_schema.json"
 
-        if not events_path.exists() or not bars_path.exists() or not cv_path.exists():
+        if (
+            not events_path.exists()
+            or not bars_path.exists()
+            or not cv_path.exists()
+            or not label_schema_path.exists()
+        ):
             logger.error(f"Missing events/bars/cv_splits for {bar_size}")
             sys.exit(1)
 
@@ -1615,6 +1627,16 @@ def build_backtest_command(args):
         bars_df = pd.read_parquet(bars_path)
         with open(cv_path, "r") as f:
             cv_data = json.load(f)
+        with open(label_schema_path, "r") as f:
+            label_schema = json.load(f)
+        label_cost_mode = label_schema.get("cost_mode")
+        if label_cost_mode not in ["net_in_events", "gross_in_events"]:
+            raise ValueError("label_schema.cost_mode missing or invalid")
+        pnl_mode = (
+            "use_events_ret_net"
+            if label_cost_mode == "net_in_events"
+            else "compute_from_prices_then_subtract_costs"
+        )
 
         if cv_kind == "purged_kfold":
             splits = cv_data.get("purged_kfold", [])
@@ -1666,6 +1688,8 @@ def build_backtest_command(args):
                 primary_preds_df=primary_preds,
                 meta_preds_df=meta_preds,
                 execution_spec=execution_spec,
+                instrument_spec=instrument_spec,
+                label_schema=label_schema,
                 risk_cfg=risk_config,
                 backtest_cfg=backtest_config,
                 bar_size=bar_size,
@@ -1716,6 +1740,7 @@ def build_backtest_command(args):
             cv_kind=cv_kind,
             n_splits=len(summary_rows),
             cost_mode_policy=cost_mode_policy,
+            pnl_mode=pnl_mode,
             code_version="1.0.0",
         )
 
@@ -1741,6 +1766,9 @@ def build_backtest_command(args):
             else:
                 manifest["per_bar_artifacts"] = {}
 
+        if "configs" not in manifest:
+            manifest["configs"] = []
+        config_names = [c.get("name") for c in manifest.get("configs", [])]
         for bar_size, artifacts in per_bar_backtest_artifacts.items():
             if bar_size not in manifest["per_bar_artifacts"]:
                 manifest["per_bar_artifacts"][bar_size] = {}

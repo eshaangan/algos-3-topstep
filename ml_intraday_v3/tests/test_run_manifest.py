@@ -260,6 +260,11 @@ class TestRunManifest:
 
         execution_spec = {
             "version": "1.0.0",
+            "instrument": {
+                "symbol": "MES",
+                "tick_size_points": 0.25,
+                "contract_multiplier_usd_per_point": 5.0,
+            },
             "costs": {
                 "slippage_ticks": {"1m": 1.0, "5m": 1.5},
                 "commission_per_contract": 0.62,

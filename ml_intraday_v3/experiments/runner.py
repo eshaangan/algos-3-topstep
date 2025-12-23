@@ -17,6 +17,11 @@ import yaml
 from run_manifest import hash_content
 from backtesting_v3 import run_backtest
 from training import train_on_splits
+from core.instrument import (
+    InstrumentSpec,
+    load_instrument_from_execution_spec,
+    validate_risk_config_no_instrument_economics,
+)
 
 from .aggregation import aggregate_split_metrics
 from .diagnostics import compute_pbo, compute_dsr
@@ -96,6 +101,7 @@ def _run_backtests_for_variant(
     training_dir: Path,
     backtest_cfg: dict,
     execution_spec: dict,
+    instrument_spec: InstrumentSpec,
     risk_cfg: dict,
     variant_id: str,
     output_root: Path,
@@ -103,12 +109,15 @@ def _run_backtests_for_variant(
     bar_dir = run_dir / f"bar_size={bar_size}"
     events_path = bar_dir / "events.parquet"
     bars_path = bar_dir / "bars.parquet"
-    if not events_path.exists() or not bars_path.exists():
+    label_schema_path = bar_dir / "label_schema.json"
+    if not events_path.exists() or not bars_path.exists() or not label_schema_path.exists():
         raise FileNotFoundError(
             f"Missing events/bars for {bar_size}: {events_path}, {bars_path}"
         )
     events_df = pd.read_parquet(events_path)
     bars_df = pd.read_parquet(bars_path)
+    with open(label_schema_path, "r") as f:
+        label_schema = json.load(f)
 
     splits, split_id_key, prefix = _load_splits(bar_dir, cv_kind)
     output_dir = (
@@ -153,6 +162,8 @@ def _run_backtests_for_variant(
             primary_preds_df=primary_preds,
             meta_preds_df=meta_preds,
             execution_spec=execution_spec,
+            instrument_spec=instrument_spec,
+            label_schema=label_schema,
             risk_cfg=risk_cfg,
             backtest_cfg=backtest_cfg,
             bar_size=bar_size,
@@ -252,11 +263,12 @@ def run_experiments(run_dir: Path | str, grid_config_path: Path | str) -> dict:
     risk_cfg_path = Path(
         grid_cfg.get("risk_config", "ml_intraday_v3/configs/risk.yaml")
     )
-
     base_training_cfg = _load_yaml(training_cfg_path)
     base_backtest_cfg = _load_yaml(backtest_cfg_path)
     execution_spec = _load_yaml(execution_spec_path)
     risk_cfg = _load_yaml(risk_cfg_path)
+    validate_risk_config_no_instrument_economics(risk_cfg)
+    instrument_spec = load_instrument_from_execution_spec(execution_spec_path)
 
     bar_sizes = _load_bar_sizes(run_dir)
     variants = _enumerate_grid(grid)
@@ -348,6 +360,7 @@ def run_experiments(run_dir: Path | str, grid_config_path: Path | str) -> dict:
                 training_dir=training_dir,
                 backtest_cfg=backtest_cfg,
                 execution_spec=execution_spec,
+                instrument_spec=instrument_spec,
                 risk_cfg=risk_cfg,
                 variant_id=variant_id,
                 output_root=exp_dir / "backtests",

@@ -24,6 +24,11 @@ def sample_execution_spec():
     """Sample execution spec config for testing."""
     return {
         "version": "1.0.0",
+        "instrument": {
+            "symbol": "MES",
+            "tick_size_points": 0.25,
+            "contract_multiplier_usd_per_point": 5.0,
+        },
         "fill_model": {
             "fill_price": "next_bar_open",
             "touch_ordering": "ohlc_path",
