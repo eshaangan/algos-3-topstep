@@ -14,6 +14,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from labels import apply_triplebarrier
+from labels.schema import write_label_schema
 from core.instrument import load_instrument_from_execution_spec
 from cli import build_labels_command
 
@@ -285,7 +286,7 @@ def test_label_backtest_parity_harness_synthetic():
     )
 
     exec_spec = _minimal_execution_spec(slippage_ticks=1.0)
-    labeling_cfg = _minimal_labeling_config(horizon_bars=2)
+    labeling_cfg = _minimal_labeling_config(horizon_bars=2, account_for_costs=True)
 
     labeled = apply_triplebarrier(
         bars_df=bars_df,
@@ -304,8 +305,9 @@ def test_label_backtest_parity_harness_synthetic():
         t0_idx = bars_df.index.get_loc(row["t0"])
         entry_idx = t0_idx + 1
         entry_price = bars_df.iloc[entry_idx]["open"]
-        upper = entry_price + row["pt_mult"] * row["sigma"]
-        lower = entry_price - row["sl_mult"] * row["sigma"]
+        cost_buffer = total_cost
+        upper = entry_price + row["pt_mult"] * row["sigma"] + cost_buffer
+        lower = entry_price - row["sl_mult"] * row["sigma"] + cost_buffer
 
         t1_idx = bars_df.index.get_loc(row["t1"])
         touch = "vertical"
@@ -342,3 +344,91 @@ def test_label_backtest_parity_harness_synthetic():
         y_sim, ret_net_sim = parity_sim(row)
         assert row["y"] == y_sim
         assert np.isclose(row["ret_net"], ret_net_sim)
+
+
+def test_triple_barrier_cost_mode_semantics(tmp_path):
+    timestamps = pd.date_range("2025-01-01 09:30:00", periods=3, freq="1min")
+    bars_df = _make_bars(
+        timestamps,
+        [
+            [100.0, 100.2, 99.8, 100.0],
+            [100.0, 100.2, 99.8, 100.0],
+            [100.0, 100.2, 99.8, 100.2],
+        ],
+    )
+
+    events_df = pd.DataFrame(
+        {
+            "event_id": [0],
+            "t0": [timestamps[0]],
+            "t1": [timestamps[2]],
+            "bar_size": ["1m"],
+            "side": [0],
+            "sigma": [1.0],
+            "pt_mult": [10.0],
+            "sl_mult": [10.0],
+            "horizon_bars": [2],
+        }
+    )
+
+    exec_spec = _minimal_execution_spec(slippage_ticks=1.0)
+    total_cost_points = (
+        2.0
+        * exec_spec["costs"]["slippage_ticks"]["1m"]
+        * exec_spec["instrument"]["tick_size_points"]
+    )
+
+    # Case A: account_for_costs = false
+    labeling_cfg = _minimal_labeling_config(horizon_bars=2, account_for_costs=False)
+    labeled = apply_triplebarrier(
+        bars_df=bars_df,
+        events_df=events_df,
+        bar_size="1m",
+        labeling_config=labeling_cfg,
+        execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
+    )
+    assert np.isclose(labeled.loc[0, "ret_net"], labeled.loc[0, "ret_gross"])
+
+    schema_path = tmp_path / "label_schema_gross.json"
+    write_label_schema(
+        output_path=schema_path,
+        columns=list(labeled.columns),
+        bar_size="1m",
+        labeling_config=labeling_cfg,
+        execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
+        touch_ordering_definition="open->high->low->close",
+        code_version="1.0.0",
+    )
+    with open(schema_path, "r") as f:
+        schema = json.load(f)
+    assert schema["cost_mode"] == "gross_in_events"
+
+    # Case B: account_for_costs = true
+    labeling_cfg = _minimal_labeling_config(horizon_bars=2, account_for_costs=True)
+    labeled = apply_triplebarrier(
+        bars_df=bars_df,
+        events_df=events_df,
+        bar_size="1m",
+        labeling_config=labeling_cfg,
+        execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
+    )
+    expected_ret_net = labeled.loc[0, "ret_gross"] - total_cost_points
+    assert np.isclose(labeled.loc[0, "ret_net"], expected_ret_net)
+
+    schema_path = tmp_path / "label_schema_net.json"
+    write_label_schema(
+        output_path=schema_path,
+        columns=list(labeled.columns),
+        bar_size="1m",
+        labeling_config=labeling_cfg,
+        execution_spec=exec_spec,
+        instrument_spec=INSTRUMENT_SPEC,
+        touch_ordering_definition="open->high->low->close",
+        code_version="1.0.0",
+    )
+    with open(schema_path, "r") as f:
+        schema = json.load(f)
+    assert schema["cost_mode"] == "net_in_events"

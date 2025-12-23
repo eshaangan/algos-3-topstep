@@ -65,13 +65,17 @@ def write_label_schema(
         "label_encoding", {"target_first": 1, "stop_first": -1, "vertical": 0}
     )
 
+    account_for_costs = bool(label_cfg.get("account_for_costs", False))
+    use_execution_spec_costs = bool(label_cfg.get("use_execution_spec_costs", True))
+    cost_mode = "net_in_events" if account_for_costs else "gross_in_events"
+
     schema = {
         "schema_version": "1.0.0",
         "code_version": code_version,
         "bar_size": bar_size,
         "n_columns": len(columns),
         "columns": columns,
-        "cost_mode": "net_in_events" if "ret_net" in columns else "gross_in_events",
+        "cost_mode": cost_mode,
         "label_encoding": label_encoding,
         "touch_ordering": execution_spec.get("fill_model", {}).get(
             "touch_ordering", "ohlc_path"
@@ -84,7 +88,8 @@ def write_label_schema(
         "tick_size_points": instrument_spec.tick_size_points,
         "tick_value_usd": instrument_spec.tick_value_usd,
         "contract_multiplier_usd_per_point": instrument_spec.contract_multiplier_usd_per_point,
-        "account_for_costs": bool(label_cfg.get("account_for_costs", False)),
+        "account_for_costs": account_for_costs,
+        "use_execution_spec_costs": use_execution_spec_costs,
         "execution_spec_hash": execution_spec_hash,
         "config_snapshot": labeling_config,
     }

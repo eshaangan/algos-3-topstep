@@ -224,7 +224,10 @@ def apply_triplebarrier(
             t_touch[i] = index[end_idx].to_numpy()
 
         ret_gross[i] = exit_price[i] - p0
-        ret_net[i] = ret_gross[i] - total_cost_points
+        if account_for_costs:
+            ret_net[i] = ret_gross[i] - total_cost_points
+        else:
+            ret_net[i] = ret_gross[i]
 
     events["entry_time"] = entry_times
     events["entry_price"] = entry_prices
