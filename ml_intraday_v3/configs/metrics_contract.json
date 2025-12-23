@@ -1,0 +1,236 @@
+{
+  "version": "1.0.0",
+  "description": "Metrics contract defining all tracked metrics, their computation methods, and reporting requirements",
+
+  "primary_metrics": {
+    "sharpe_ratio": {
+      "description": "Annualized Sharpe ratio (excess return / std dev)",
+      "formula": "sqrt(252 * bars_per_day) * mean(returns) / std(returns)",
+      "annualization_factor": {
+        "1m": 252,
+        "5m": 252
+      },
+      "bars_per_day": {
+        "1m": 390,
+        "5m": 78
+      },
+      "required": true,
+      "decimals": 3
+    },
+    "mean_return": {
+      "description": "Mean per-trade return (in dollars per contract)",
+      "formula": "mean(trade_pnl)",
+      "required": true,
+      "decimals": 2,
+      "units": "dollars"
+    },
+    "std_return": {
+      "description": "Standard deviation of per-trade returns",
+      "formula": "std(trade_pnl)",
+      "required": true,
+      "decimals": 2,
+      "units": "dollars"
+    },
+    "max_drawdown": {
+      "description": "Maximum peak-to-trough drawdown (fraction of account)",
+      "formula": "max((cummax(equity) - equity) / cummax(equity))",
+      "required": true,
+      "decimals": 4,
+      "units": "fraction"
+    },
+    "win_rate": {
+      "description": "Fraction of trades with positive P&L",
+      "formula": "count(pnl > 0) / count(trades)",
+      "required": true,
+      "decimals": 3,
+      "units": "fraction"
+    },
+    "profit_factor": {
+      "description": "Gross profit / gross loss",
+      "formula": "sum(pnl[pnl > 0]) / abs(sum(pnl[pnl < 0]))",
+      "required": true,
+      "decimals": 3,
+      "handle_zero_denominator": "return NaN"
+    }
+  },
+
+  "secondary_metrics": {
+    "sortino_ratio": {
+      "description": "Annualized Sortino ratio (excess return / downside std dev)",
+      "formula": "sqrt(252 * bars_per_day) * mean(returns) / std(returns[returns < 0])",
+      "annualization_factor": {
+        "1m": 252,
+        "5m": 252
+      },
+      "bars_per_day": {
+        "1m": 390,
+        "5m": 78
+      },
+      "required": false,
+      "decimals": 3
+    },
+    "calmar_ratio": {
+      "description": "Annualized return / max drawdown",
+      "formula": "annualized_return / max_drawdown",
+      "required": false,
+      "decimals": 3,
+      "handle_zero_denominator": "return NaN"
+    },
+    "avg_win": {
+      "description": "Average winning trade P&L",
+      "formula": "mean(pnl[pnl > 0])",
+      "required": false,
+      "decimals": 2,
+      "units": "dollars"
+    },
+    "avg_loss": {
+      "description": "Average losing trade P&L (negative)",
+      "formula": "mean(pnl[pnl < 0])",
+      "required": false,
+      "decimals": 2,
+      "units": "dollars"
+    },
+    "num_trades": {
+      "description": "Total number of trades",
+      "formula": "count(trades)",
+      "required": false,
+      "decimals": 0,
+      "units": "count"
+    },
+    "avg_holding_bars": {
+      "description": "Average number of bars held per trade",
+      "formula": "mean(exit_bar - entry_bar)",
+      "required": false,
+      "decimals": 1,
+      "units": "bars"
+    },
+    "trades_per_day": {
+      "description": "Average number of trades per trading day",
+      "formula": "count(trades) / count(unique_trading_days)",
+      "required": false,
+      "decimals": 2,
+      "units": "count"
+    }
+  },
+
+  "risk_metrics": {
+    "max_consecutive_losses": {
+      "description": "Maximum consecutive losing trades",
+      "formula": "max(consecutive_count(pnl < 0))",
+      "required": true,
+      "decimals": 0,
+      "units": "count"
+    },
+    "max_consecutive_wins": {
+      "description": "Maximum consecutive winning trades",
+      "formula": "max(consecutive_count(pnl > 0))",
+      "required": false,
+      "decimals": 0,
+      "units": "count"
+    },
+    "daily_loss_limit_breaches": {
+      "description": "Number of days exceeding Topstep daily loss limit",
+      "formula": "count(daily_pnl < -1000)",
+      "required": true,
+      "decimals": 0,
+      "units": "count"
+    },
+    "max_drawdown_breach": {
+      "description": "Whether max trailing drawdown was breached",
+      "formula": "any(drawdown > 2500)",
+      "required": true,
+      "decimals": 0,
+      "units": "boolean"
+    },
+    "var_95": {
+      "description": "Value at Risk (95th percentile of losses)",
+      "formula": "percentile(pnl, 5)",
+      "required": false,
+      "decimals": 2,
+      "units": "dollars"
+    },
+    "cvar_95": {
+      "description": "Conditional VaR (expected loss beyond 95% VaR)",
+      "formula": "mean(pnl[pnl < var_95])",
+      "required": false,
+      "decimals": 2,
+      "units": "dollars"
+    }
+  },
+
+  "overfitting_diagnostics": {
+    "pbo": {
+      "description": "Probability of Backtest Overfitting",
+      "formula": "P(IS_sharpe > OOS_sharpe) across CPCV paths",
+      "required": true,
+      "decimals": 3,
+      "units": "probability",
+      "threshold": 0.50,
+      "threshold_interpretation": "PBO > 0.5 indicates likely overfitting"
+    },
+    "dsr": {
+      "description": "Deflated Sharpe Ratio",
+      "formula": "sharpe * sqrt(1 - skew^2/n + kurtosis/n - (2*skew^2 + kurtosis - 3)/(2*n))",
+      "required": true,
+      "decimals": 3,
+      "threshold": 0.0,
+      "threshold_interpretation": "DSR < 0 indicates statistically insignificant Sharpe"
+    },
+    "is_oos_sharpe_ratio": {
+      "description": "Ratio of in-sample to out-of-sample Sharpe",
+      "formula": "median(IS_sharpe) / median(OOS_sharpe)",
+      "required": true,
+      "decimals": 3,
+      "threshold": 1.5,
+      "threshold_interpretation": "Ratio > 1.5 suggests overfitting"
+    }
+  },
+
+  "regime_metrics": {
+    "sharpe_by_volatility_regime": {
+      "description": "Sharpe ratio broken down by volatility regime (low/med/high)",
+      "enabled": false,
+      "required_column": "volatility_regime",
+      "required": false
+    },
+    "sharpe_by_markov_regime": {
+      "description": "Sharpe ratio broken down by Markov regime states",
+      "enabled": false,
+      "required_column": "markov_regime",
+      "required": false
+    }
+  },
+
+  "reporting_config": {
+    "summary_statistics": {
+      "include_quantiles": true,
+      "quantiles": [0.05, 0.25, 0.50, 0.75, 0.95],
+      "include_ci": true,
+      "ci_method": "block_bootstrap",
+      "ci_level": 0.95,
+      "bootstrap_samples": 1000,
+      "block_length": {
+        "1m": 240,
+        "5m": 60
+      }
+    },
+    "cpcv_distribution": {
+      "plot_sharpe_distribution": true,
+      "plot_is_vs_oos": true,
+      "report_quartiles": true
+    },
+    "comparison_baselines": [
+      "v2_model",
+      "rule_based_baseline",
+      "random_entry"
+    ]
+  },
+
+  "validation_rules": {
+    "min_trades_required": 30,
+    "min_days_required": 21,
+    "fail_on_risk_breach": true,
+    "warn_on_pbo_threshold": 0.50,
+    "warn_on_is_oos_ratio": 1.50
+  }
+}

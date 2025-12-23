@@ -1,0 +1,21 @@
+# Experiment grid configuration - offline evaluation only
+# Version: 1.0
+
+cv_kind: "purged_kfold"
+
+training_config: "ml_intraday_v3/configs/training.yaml"
+backtest_config: "ml_intraday_v3/configs/backtest.yaml"
+execution_spec: "ml_intraday_v3/configs/execution_spec.yaml"
+risk_config: "ml_intraday_v3/configs/risk.yaml"
+
+grid:
+  primary_threshold: [0.50, 0.55]
+  meta_threshold: [0.50]
+  model_C: [1.0]
+
+diagnostics:
+  selection_metric: "total_pnl_usd"
+  compute_pbo: true
+  compute_dsr: true
+  n_trials: 3
+  target_sharpe: 0.0

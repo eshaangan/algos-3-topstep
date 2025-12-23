@@ -1,0 +1,132 @@
+# Data configuration - ingestion, continuization, and reindexing
+# Version: 1.0
+
+# Raw data sources
+raw_data:
+  # Path to raw data files (relative to project root)
+  # Expected format: HDF5 or Parquet with OHLCV columns
+  input_path: "data/processed/mes_bars.h5"
+
+  # Input format
+  input_format: "hdf5"  # or "parquet"
+
+  # Expected columns in raw data
+  required_columns:
+    - "open"
+    - "high"
+    - "low"
+    - "close"
+    - "volume"
+
+  # Timestamp column name (if not index)
+  timestamp_column: null  # null means index is timestamp
+
+# Contract continuization
+continuization:
+  # Contract type
+  instrument: "MES"  # or "ES"
+
+  # Roll method: "volume" or "fixed_calendar"
+  roll_method: "volume"
+
+  # Volume-based roll parameters (if roll_method == "volume")
+  volume_roll:
+    # Roll when front contract volume < back contract volume
+    use_volume_crossover: true
+
+    # Minimum days before expiry to allow rolling
+    min_days_before_expiry: 2
+
+  # Roll schedule output path (persisted artifact)
+  roll_schedule_path: "runs/{run_id}/bar_size={bar_size}/roll_schedule.csv"
+
+  # Roll-day policy: "exclude" or "include"
+  # "exclude" (DEFAULT - research-grade): Drop entire day when roll occurs
+  #   - Avoids any contamination from contract transitions
+  #   - Conservative approach for ML training
+  # "include": Keep all bars, stitch front/back month at roll point
+  #   - Risk: price discontinuities at roll boundary
+  roll_day_policy: "exclude"
+
+# Reindexing configuration
+reindexing:
+  # Bar sizes to generate
+  bar_sizes:
+    - "1m"
+    - "5m"
+
+  # Resampling policy
+  # "build_1m_resample_5m": build canonical 1m, then resample to 5m
+  # "native": use native bar size from data source
+  resample_policy: "build_1m_resample_5m"
+
+  # Missing bar handling (RESEARCH-GRADE DEFAULTS)
+  missing_bars:
+    # How to fill missing bars: "nan" or "forward_fill"
+    # "nan" (DEFAULT - research-grade): Keep missing bars as NaN
+    #   - No synthetic price paths created
+    #   - Forces explicit handling downstream
+    #   - Models/features must handle NaN appropriately
+    # "forward_fill" (RISKY): Forward-fill OHLCV from prior bar
+    #   - Creates synthetic price paths
+    #   - Sets volume=0 on filled bars
+    #   - Only use if you understand the implications
+    missing_fill_mode: "nan"
+
+    # Maximum consecutive missing bars to forward-fill
+    # Only used if missing_fill_mode="forward_fill"
+    # Set to 0 to disable forward-filling entirely
+    forward_fill_max_consecutive: 0
+
+    # Mark synthetic/filled bars in output (always true for safety)
+    add_synthetic_flag: true
+
+  # Timezone for stored data
+  output_timezone: "UTC"
+
+  # Session labeling (for features/filters, not trading constraints)
+  session_labeling:
+    timezone: "America/Chicago"
+    sessions:
+      - name: "rth"
+        start_time: "08:30"
+        end_time: "15:00"
+      - name: "eth"  # Extended hours (for features only, not trading)
+        start_time: "17:00"
+        end_time: "16:00"  # Wraps midnight
+
+# Quality assurance (RESEARCH-GRADE FAIL-FAST DEFAULTS)
+qa:
+  # QA report output path
+  qa_report_path: "runs/{run_id}/bar_size={bar_size}/qa_report.json"
+
+  # Fail-fast mode: halt pipeline on violations (DEFAULT: true)
+  # true (DEFAULT - research-grade): Raise exception and stop on any violation
+  #   - Ensures data quality issues are fixed immediately
+  #   - Prevents garbage-in-garbage-out
+  # false (WARNING MODE): Write violations to qa_report.json but continue
+  #   - Use ONLY for debugging or exploration
+  #   - NOT recommended for production runs
+  qa_fail_fast: true
+
+  # QA checks to perform
+  checks:
+    - "monotonic_index"      # Timestamps must be strictly increasing
+    - "no_duplicates"        # No duplicate timestamps
+    - "missing_bar_pct"      # Report % missing bars per day
+    - "ohlc_validity"        # L <= O,C <= H
+    - "volume_sanity"        # Volume >= 0
+
+  # Failure thresholds (enforced if qa_fail_fast=true)
+  thresholds:
+    max_missing_bar_pct_per_day: 0.10  # Fail if >10% bars missing in a day
+    max_ohlc_violations: 0              # Fail if any OHLC violations
+    max_duplicate_timestamps: 0         # Fail if any duplicate timestamps
+
+# Output paths (artifact storage per bar size)
+output:
+  bars_path: "runs/{run_id}/bar_size={bar_size}/bars.parquet"
+  metadata_path: "runs/{run_id}/bar_size={bar_size}/data_metadata.json"
+
+# Data version
+data_spec_version: "1.0.0"

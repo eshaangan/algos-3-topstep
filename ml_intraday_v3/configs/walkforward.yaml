@@ -1,0 +1,19 @@
+# Walk-forward evaluation configuration
+# Version: 1.0
+
+schedule:
+  train_window_days: 60
+  test_window_days: 5
+  step_days: 5
+  min_train_events: 2000
+
+retrain_policy:
+  max_model_age_days: 7
+  retrain_on_drift: false
+
+evaluation:
+  bar_sizes: ["1m", "5m"]
+  thresholds:
+    primary_threshold: 0.55
+    meta_threshold: 0.5
+  use_meta: true

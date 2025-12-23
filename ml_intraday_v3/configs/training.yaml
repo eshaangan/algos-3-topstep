@@ -1,0 +1,68 @@
+# Training configuration - primary model baseline
+# Version: 1.0
+
+model:
+  kind: "logreg"
+  params:
+    C: 1.0
+    penalty: "l2"
+    solver: "lbfgs"
+    max_iter: 200
+    class_weight: null
+
+features:
+  use_columns: "all"  # or explicit list
+  drop_meta_columns:
+    - "is_synthetic"
+    - "usable_for_training"
+
+target:
+  column: "y"
+  positive_label: 1
+
+sample_weight:
+  column: "w_final"
+  enabled: true
+
+preprocessing:
+  scaler: "standard"
+  impute: "median"
+
+eval:
+  metrics:
+    - "accuracy"
+    - "balanced_accuracy"
+    - "roc_auc"
+    - "log_loss"
+    - "brier"
+    - "precision"
+    - "recall"
+    - "f1"
+  threshold: 0.5
+
+output:
+  write_predictions: true
+  write_model: true
+
+seed: 42
+
+meta:
+  enabled: true
+  threshold_primary: 0.55
+  target:
+    kind: "y_positive"  # y_positive | ret_net_positive | y_and_ret_net
+  features:
+    include_primary_prob: true
+    include_primary_logit: true
+    include_original_features: true
+  model:
+    kind: "logreg"
+    params:
+      C: 1.0
+      penalty: "l2"
+      solver: "lbfgs"
+      max_iter: 200
+      class_weight: null
+  output:
+    write_meta_predictions: true
+    write_meta_model: true

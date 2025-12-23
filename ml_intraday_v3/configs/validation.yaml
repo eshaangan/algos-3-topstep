@@ -1,0 +1,183 @@
+# Validation configuration - Purged+Embargoed CV, CPCV, and overfitting diagnostics
+# Version: 1.0
+
+# Purged + Embargoed CV configuration
+purged_cv:
+  # Number of folds
+  n_splits: 6
+
+  # Purging policy: remove training samples whose event intervals overlap test
+  purging:
+    enabled: true
+
+    # Purge based on event t1 (end time) overlapping test interval
+    purge_on_t1: true
+
+  # Embargo policy: remove training samples immediately after test fold
+  embargo:
+    enabled: true
+
+    # Embargo duration in bars (bar-size specific)
+    # Conservative default: ~3 hours for 1m, ~4 hours for 5m
+    embargo_bars:
+      "1m": 200   # 200 bars = 3.33 hours
+      "5m": 50    # 50 bars = 4.17 hours
+
+  # Test set sizing
+  # "equal_time": each fold has equal time span
+  # "equal_samples": each fold has equal number of events
+  test_set_policy: "equal_samples"
+
+# Combinatorial Purged CV (CPCV) for model selection
+cpcv:
+  # Enable CPCV
+  enabled: true
+
+  # Number of groups (K)
+  # Total folds = K, number of paths = C(K, test_groups)
+  n_groups: 6
+
+  # Number of groups held out for test in each path
+  test_groups: 2
+
+  # Maximum number of paths to evaluate (cap for computational feasibility)
+  # C(6,2) = 15, so we'll limit to 10 for baseline
+  max_paths: 10
+
+  # Path selection method if max_paths < total_combinations
+  # "random": randomly sample paths
+  # "balanced": select paths with balanced test coverage
+  path_selection: "lexicographic"
+
+  # Apply purging and embargo within each path
+  apply_purging: true
+  apply_embargo: true
+
+  # Inherit embargo_bars from purged_cv
+  use_purged_cv_embargo: true
+
+# Backtest overfitting diagnostics
+overfitting_diagnostics:
+  # Probability of Backtest Overfitting (PBO)
+  pbo:
+    enabled: true
+
+    # Compute PBO from CPCV results
+    # PBO = probability that IS performance > OOS performance across paths
+    use_cpcv_results: true
+
+    # Number of bootstrap samples for PBO confidence interval (optional)
+    n_bootstrap: 1000
+
+  # Deflated Sharpe Ratio (DSR)
+  dsr:
+    enabled: true
+
+    # Number of trials (strategies/configs tested)
+    # If unknown, set conservatively high (e.g., 10)
+    n_trials: 10
+
+    # Target Sharpe (benchmark for statistical significance)
+    target_sharpe: 0.0
+
+    # Use CPCV variance estimates for DSR calculation
+    use_cpcv_variance: true
+
+  # Data-snooping controls (SPA/Reality Check style)
+  # Optional; disabled in baseline
+  data_snooping:
+    enabled: false
+
+    # Test statistic: "sharpe", "mean_return", "win_rate"
+    test_statistic: "sharpe"
+
+    # Number of bootstrap resamples
+    n_bootstrap: 5000
+
+    # Bootstrap method: "block" or "stationary"
+    bootstrap_method: "block"
+
+    # Block length (in bars) for block bootstrap
+    block_length:
+      "1m": 240   # ~4 hours
+      "5m": 60    # ~5 hours
+
+# Walk-forward validation (optional, for live retrain policy)
+# Disabled in baseline research phase
+walk_forward:
+  enabled: false
+
+  # Train window size (in days)
+  train_window_days: 252  # ~1 year
+
+  # Test window size (in days)
+  test_window_days: 21    # ~1 month
+
+  # Step size (in days)
+  step_days: 21
+
+  # Retrain frequency: "every_step" or "on_degradation"
+  retrain_policy: "every_step"
+
+# Train/validation/test split for single holdout (alternative to CV)
+# Only used if purged_cv.enabled == false
+holdout_split:
+  # Train/val/test proportions (must sum to 1.0)
+  train_pct: 0.60
+  val_pct: 0.20
+  test_pct: 0.20
+
+  # Apply purging between train/val and val/test
+  purge_between_splits: true
+
+  # Embargo between splits (in bars)
+  embargo_between_splits:
+    "1m": 200
+    "5m": 50
+
+# Metrics to track across CV folds/paths
+metrics:
+  # Primary metrics (always computed)
+  primary:
+    - "sharpe_ratio"
+    - "mean_return"
+    - "std_return"
+    - "max_drawdown"
+    - "win_rate"
+    - "profit_factor"
+
+  # Secondary metrics (optional)
+  secondary:
+    - "sortino_ratio"
+    - "calmar_ratio"
+    - "avg_win"
+    - "avg_loss"
+    - "num_trades"
+
+  # Per-regime metrics (if regime features available)
+  regime_breakdown:
+    enabled: false  # Disabled until regime features implemented
+    regime_column: "volatility_regime"  # Column name in features
+
+# Output paths
+output:
+  # CV splits (fold indices, event IDs)
+  cv_splits_path: "runs/{run_id}/bar_size={bar_size}/cv_splits.json"
+
+  # CPCV paths metadata
+  cpcv_paths_path: "runs/{run_id}/bar_size={bar_size}/cpcv_paths.json"
+
+  # Metrics by CV fold
+  cv_metrics_path: "runs/{run_id}/bar_size={bar_size}/cv_fold_metrics.csv"
+
+  # Metrics by CPCV path
+  cpcv_metrics_path: "runs/{run_id}/bar_size={bar_size}/cpcv_path_metrics.csv"
+
+  # PBO report
+  pbo_report_path: "runs/{run_id}/bar_size={bar_size}/pbo_report.md"
+
+  # DSR report
+  dsr_report_path: "runs/{run_id}/bar_size={bar_size}/dsr_report.md"
+
+# Validation version
+validation_spec_version: "1.0.0"

@@ -1,0 +1,26 @@
+# Backtest configuration - offline evaluation only
+# Version: 1.0
+
+decision:
+  use_meta: true
+  primary_threshold: 0.55
+  meta_threshold: 0.5
+  require_meta_for_trade: true
+
+sizing:
+  contracts: 1
+  max_concurrent_positions: 1
+
+costs:
+  use_execution_spec: true
+  use_event_ret_net: true
+
+risk:
+  use_risk_yaml: true
+
+session:
+  flatten_time_chicago: "15:55"
+
+outputs:
+  write_trade_log: true
+  write_equity_curve: true

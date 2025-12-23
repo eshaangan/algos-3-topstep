@@ -1,0 +1,82 @@
+# Execution specification - single source of truth for fills, costs, and constraints
+# Used by: labels, backtesting, and live trading
+# Version: 1.0
+
+# Fill model parameters
+fill_model:
+  # Where orders get filled: "next_bar_open" or "next_bar_close"
+  fill_price: "next_bar_open"
+
+  # Intrabar touch ordering for stop/target detection
+  # Options: "stop_first", "target_first", "ohlc_path"
+  # "ohlc_path" uses OHLC sequence to determine first touch
+  touch_ordering: "ohlc_path"
+
+# Cost model - applied per contract per side
+costs:
+  # Slippage in ticks (per bar size)
+  # ES/MES tick value = 0.25 points
+  slippage_ticks:
+    "1m": 1.0   # 1 tick = $1.25 for MES, $12.50 for ES
+    "5m": 1.5   # Wider spread assumption for 5m bars
+
+  # Commission per contract per side (in dollars)
+  commission_per_contract: 0.62  # Typical futures commission
+
+  # Round-trip cost summary (for reference, not used in calculation):
+  # 1m: 2 * (1.0 tick + commission) = 2 * (1.25 + 0.62) = $3.74 per contract RT (MES)
+  # 5m: 2 * (1.5 tick + commission) = 2 * (1.875 + 0.62) = $4.99 per contract RT (MES)
+
+# Position sizing and risk limits
+position_limits:
+  # Maximum contracts per position
+  max_contracts_per_position: 2
+
+  # Maximum concurrent positions (1 = no pyramiding)
+  max_concurrent_positions: 1
+
+  # Contract rounding (always round down for safety)
+  rounding: "floor"
+
+# Session constraints
+session_rules:
+  # Trading sessions (America/Chicago timezone)
+  # ES/MES trades nearly 24/5 but we restrict to liquid hours
+  allowed_sessions:
+    - name: "rth"  # Regular Trading Hours
+      start_time: "08:30"
+      end_time: "15:00"
+      timezone: "America/Chicago"
+
+  # Entry restrictions
+  # No new entries within this many bars of session end
+  no_entry_before_close_bars:
+    "1m": 30   # Don't enter in last 30 min of RTH
+    "5m": 6    # Don't enter in last 30 min of RTH
+
+  # Exit policy
+  # Force flatten all positions at session close
+  force_flatten_at_close: true
+
+# Holding period constraints
+holding_constraints:
+  # Maximum bars to hold (must match labeling vertical barrier)
+  max_holding_bars:
+    "1m": 24  # Max 24 min hold
+    "5m": 24  # Max 2 hours hold (5*24 = 120 min)
+
+  # Whether to force exit at max_holding_bars
+  force_exit_at_max: true
+
+# Execution alignment contract version
+# Increment this if any execution assumptions change
+spec_version: "1.0.0"
+
+# Instrument parameters (single source for point/tick conversion)
+instrument:
+  # Tick size in points (ES/MES = 0.25)
+  tick_size_points: 0.25
+  # Tick value in USD per contract (MES = $1.25)
+  tick_value_usd: 1.25
+  # USD per point per contract (MES = $5)
+  contract_multiplier: 5

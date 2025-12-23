@@ -1,0 +1,184 @@
+# Retrain policy configuration - when and how to retrain models
+# Version: 1.0
+# Note: Disabled in initial research phase; will be used for live deployment
+
+# Retrain scheduling
+schedule:
+  # Enable automatic retraining
+  enabled: false  # Disabled in research phase
+
+  # Retrain frequency: "calendar", "rolling_window", "on_degradation"
+  frequency_type: "rolling_window"
+
+  # Calendar-based retraining (if frequency_type == "calendar")
+  calendar:
+    # Retrain every N days
+    retrain_every_n_days: 30
+
+    # Retrain on specific days of week (0=Monday, 6=Sunday)
+    # Empty list = retrain every N days regardless of weekday
+    retrain_on_weekdays: []  # [6] would mean Sundays only
+
+    # Retrain at specific time (America/Chicago)
+    retrain_time: "18:00"
+    retrain_timezone: "America/Chicago"
+
+  # Rolling window retraining (if frequency_type == "rolling_window")
+  rolling_window:
+    # Train window size (in days)
+    train_window_days: 252  # ~1 trading year
+
+    # Step size (in days) - how often to retrain
+    step_days: 21  # ~1 month
+
+    # Min required data (in days) before first retrain
+    min_data_days: 126  # ~6 months
+
+  # Performance degradation triggers (if frequency_type == "on_degradation")
+  degradation_triggers:
+    # Retrain if rolling Sharpe drops below threshold
+    rolling_sharpe_threshold: 0.5
+
+    # Lookback window for rolling metrics (in days)
+    rolling_lookback_days: 21
+
+    # Retrain if win rate drops below threshold
+    win_rate_threshold: 0.45
+
+    # Retrain if drawdown exceeds threshold (fraction of account)
+    drawdown_threshold: 0.05  # 5% drawdown
+
+# Retrain data policy
+data_policy:
+  # How much data to use for retraining
+  # "fixed_window": use last N days
+  # "expanding": use all available data
+  # "rolling": use rolling window (specified in rolling_window config)
+  data_window_type: "rolling"
+
+  # Fixed window size (if data_window_type == "fixed_window")
+  fixed_window_days: 252
+
+  # Include ongoing/incomplete bars in retrain data
+  include_incomplete_bars: false
+
+  # Min number of events required for retrain
+  min_events_for_retrain: 1000
+
+# Feature/label stability checks
+stability_checks:
+  # Enable feature distribution shift detection
+  detect_feature_shift: true
+
+  # Feature shift detection method: "psi" (Population Stability Index) or "ks_test"
+  shift_detection_method: "psi"
+
+  # PSI threshold (typically 0.1 = small shift, 0.25 = large shift)
+  psi_threshold: 0.25
+
+  # Action on feature shift: "retrain", "alert", or "ignore"
+  shift_action: "alert"
+
+  # Label distribution stability check
+  check_label_distribution: true
+
+  # Min label balance (fraction of minority class)
+  min_label_balance: 0.30
+
+# Model versioning
+versioning:
+  # Model registry path
+  model_registry_path: "models/registry/"
+
+  # Model naming convention: "model_{timestamp}" or "model_{version}"
+  naming_convention: "model_{timestamp}"
+
+  # Keep last N models in registry (for rollback)
+  keep_last_n_models: 5
+
+  # Archive old models instead of deleting
+  archive_old_models: true
+  archive_path: "models/archive/"
+
+# Retrain validation
+validation:
+  # Validate retrained model before deployment
+  validate_before_deploy: true
+
+  # Validation method: "holdout" or "cv"
+  validation_method: "holdout"
+
+  # Holdout validation params (if validation_method == "holdout")
+  holdout:
+    # Use last N days as validation set
+    val_days: 21
+
+    # Min Sharpe required on validation set
+    min_val_sharpe: 0.3
+
+    # Min win rate required on validation set
+    min_val_win_rate: 0.45
+
+  # CV validation params (if validation_method == "cv")
+  cv:
+    # Use purged CV for validation
+    use_purged_cv: true
+
+    # Number of folds
+    n_folds: 3
+
+    # Min average Sharpe across folds
+    min_avg_sharpe: 0.4
+
+# Deployment policy
+deployment:
+  # Auto-deploy after successful retrain+validation
+  auto_deploy: false
+
+  # Require manual approval before deployment
+  require_manual_approval: true
+
+  # Deployment staging: "paper" -> "live"
+  # Always deploy to paper trading first for N days
+  paper_trading_days: 7
+
+  # Criteria for promoting from paper to live
+  paper_to_live_criteria:
+    min_sharpe: 0.5
+    min_win_rate: 0.45
+    max_drawdown: 0.03  # 3% max DD in paper trading
+
+# Rollback policy
+rollback:
+  # Auto-rollback triggers
+  auto_rollback_enabled: true
+
+  # Rollback if live Sharpe < threshold for N days
+  rollback_sharpe_threshold: 0.2
+  rollback_sharpe_lookback_days: 5
+
+  # Rollback if drawdown exceeds threshold
+  rollback_drawdown_threshold: 0.04  # 4%
+
+  # Rollback to which model: "previous" or "best_in_registry"
+  rollback_target: "previous"
+
+# Notification settings
+notifications:
+  # Enable notifications
+  enabled: false
+
+  # Notification channels: ["email", "slack", "webhook"]
+  channels: []
+
+  # Events to notify on
+  events:
+    - "retrain_started"
+    - "retrain_completed"
+    - "retrain_failed"
+    - "validation_failed"
+    - "deployment_completed"
+    - "rollback_triggered"
+
+# Retrain policy version
+retrain_policy_version: "1.0.0"

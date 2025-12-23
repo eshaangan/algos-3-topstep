@@ -1,0 +1,145 @@
+# Risk configuration - Topstep risk gates and position limits
+# Version: 1.0
+# Note: These rules must be enforced in backtest AND live to ensure realistic evaluation
+
+# Topstep account parameters
+topstep:
+  # Account type: "combine" (evaluation) or "funded"
+  account_type: "combine"
+
+  # Account balance (starting capital)
+  starting_balance: 50000  # $50k combine
+
+  # Contract multiplier (MES vs ES)
+  # MES: $5 per point
+  # ES: $50 per point
+  contract_multiplier: 5  # MES
+
+  # Tick value
+  tick_value: 1.25  # MES: 0.25 points * $5 = $1.25 per tick
+
+# Daily loss limits
+daily_loss_limit:
+  # Enable daily loss limit enforcement
+  enabled: true
+
+  # Daily loss limit (absolute dollars)
+  # Topstep: $1,000 for $50k combine
+  max_daily_loss: 1000
+
+  # How to compute daily P&L:
+  # "realized": only realized P&L (closed trades)
+  # "realized_and_unrealized": mark-to-market including open positions
+  pnl_calculation: "realized_and_unrealized"
+
+  # Reset time (America/Chicago)
+  # Topstep resets at 17:00 CT (start of new session)
+  reset_time: "17:00"
+  reset_timezone: "America/Chicago"
+
+  # Action on breach: "halt_trading" or "flatten_and_halt"
+  breach_action: "flatten_and_halt"
+
+# Trailing drawdown (max total loss from high-water mark)
+trailing_drawdown:
+  # Enable trailing drawdown enforcement
+  enabled: true
+
+  # Max drawdown from account high-water mark
+  # Topstep: $2,500 for $50k combine
+  max_drawdown: 2500
+
+  # P&L calculation: same as daily loss limit
+  pnl_calculation: "realized_and_unrealized"
+
+  # High-water mark update policy
+  # "end_of_day": update HWM at session close
+  # "real_time": update HWM continuously (more conservative)
+  hwm_update_policy: "end_of_day"
+
+  # Action on breach
+  breach_action: "flatten_and_halt"
+
+# Position limits (redundant with execution_spec but enforced here for safety)
+position_limits:
+  # Max contracts per position
+  max_contracts_per_position: 2
+
+  # Max concurrent positions
+  max_concurrent_positions: 1
+
+  # Max total contracts across all positions
+  max_total_contracts: 2
+
+  # Max notional exposure (in dollars)
+  # MES @ 5000 points = $25,000 notional per contract
+  max_notional_exposure: 50000  # 2 MES contracts
+
+# Intraday risk controls
+intraday_controls:
+  # Max trades per day (circuit breaker for misbehaving strategies)
+  max_trades_per_day: 20
+
+  # Min time between trades (in seconds)
+  # Prevents rapid-fire order spam
+  min_seconds_between_trades: 60  # 1 minute
+
+  # Max consecutive losses before halting
+  max_consecutive_losses: 5
+
+  # Action on max consecutive losses
+  consecutive_loss_action: "halt_trading"  # or "reduce_size"
+
+# Margin requirements (for position sizing, not enforced by Topstep)
+margin:
+  # Initial margin per MES contract
+  initial_margin_per_contract: 1320  # Typical MES margin (~$1,320)
+
+  # Maintenance margin per MES contract
+  maintenance_margin_per_contract: 1200
+
+  # Margin buffer (fraction of account to keep as buffer)
+  margin_buffer: 0.20  # Keep 20% of account as safety buffer
+
+# Forced flatten rules
+forced_flatten:
+  # Flatten all positions at session close
+  # (Already specified in execution_spec, redundant here for clarity)
+  flatten_at_session_close: true
+
+  # Flatten if approaching daily loss limit
+  # Flatten when within this fraction of daily loss limit
+  flatten_at_loss_threshold: 0.90  # Flatten at 90% of daily limit
+
+  # Flatten if approaching trailing drawdown
+  flatten_at_drawdown_threshold: 0.90  # Flatten at 90% of max drawdown
+
+# Risk monitoring and alerts
+monitoring:
+  # Log risk metrics every N bars
+  log_frequency_bars:
+    "1m": 60   # Log every hour for 1m bars
+    "5m": 12   # Log every hour for 5m bars
+
+  # Metrics to track
+  tracked_metrics:
+    - "current_equity"
+    - "daily_pnl"
+    - "drawdown_from_hwm"
+    - "daily_loss_limit_utilization"  # fraction of daily limit used
+    - "drawdown_limit_utilization"    # fraction of max drawdown used
+    - "num_trades_today"
+    - "consecutive_losses"
+    - "open_positions"
+    - "margin_utilization"
+
+# Output paths
+output:
+  # Daily risk utilization log
+  risk_utilization_path: "runs/{run_id}/bar_size={bar_size}/risk_utilization_daily.csv"
+
+  # Risk breach events log (if any)
+  breach_log_path: "runs/{run_id}/bar_size={bar_size}/risk_breaches.csv"
+
+# Risk spec version
+risk_spec_version: "1.0.0"
