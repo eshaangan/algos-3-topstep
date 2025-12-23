@@ -67,6 +67,14 @@ def run_backtest(
         event_id = row["event_id"]
         accept = bool(row["accept"])
         reason = row["decision_reason"]
+        side = row.get("side", 1)
+        try:
+            side = int(side)
+        except Exception:
+            side = 1
+        if side == 0:
+            side = 1
+        side = 1 if side > 0 else -1
 
         entry_ts = None
         exit_ts = None
@@ -119,7 +127,7 @@ def run_backtest(
                 for pos in range(entry_pos, exit_pos + 1):
                     ts = bars_idx[pos]
                     price = float(bars_df.iloc[pos]["close"])
-                    unrealized_points = price - entry_px
+                    unrealized_points = side * (price - entry_px)
                     equity_unrealized = (
                         risk_mgr.equity
                         + unrealized_points * contract_multiplier * contracts
@@ -149,7 +157,7 @@ def run_backtest(
                     pnl_points = gross_points
                     trade_cost_mode = "event_ret_net"
                 else:
-                    gross_points = exit_px - entry_px
+                    gross_points = side * (exit_px - entry_px)
                     pnl_points = gross_points
                     trade_cost_mode = "price_minus_costs"
 
@@ -181,6 +189,7 @@ def run_backtest(
         trades.append(
             {
                 "event_id": event_id,
+                "side": side,
                 "entry_ts": entry_ts,
                 "exit_ts": exit_ts,
                 "entry_px": entry_px,

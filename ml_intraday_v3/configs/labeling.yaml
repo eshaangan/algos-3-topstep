@@ -3,10 +3,23 @@
 
 # Primary model labeling (directional prediction)
 primary_labeling:
-  # Event generation policy: "every_bar" or "filtered"
-  # "every_bar": generate event at every bar (baseline, minimal selection bias)
-  # "filtered": generate events only when primary_filter conditions met
-  event_policy: "every_bar"
+  # Event generation policy:
+  # - "every_bar": event at every bar (baseline; very noisy)
+  # - "cusum": Lopez de Prado CUSUM filter (fewer/noisier events reduced)
+  # - "trend_scanning": Research-only in this repo: uses forward returns to set `side` and filter events,
+  #   which creates lookahead bias if you trade using that `side`. Do NOT use for unbiased backtests
+  #   unless you replace `side` with a t0-available signal/model prediction.
+  event_policy: "cusum"
+
+  # Trend-scanning event filtering (only used if event_policy == "trend_scanning")
+  trend_scanning:
+    # Only keep events whose best-horizon trend t-stat >= threshold.
+    # Raise to reduce events (higher confidence), lower to increase events.
+    tstat_threshold: 2.0
+
+    # Optional CUSUM prefilter to reduce scanning work and avoid flat regimes.
+    use_cusum_prefilter: true
+    cusum_threshold_atr_mult: 1.0
 
   # Primary filter (only used if event_policy == "filtered")
   # Not implemented in baseline; reserved for future use
@@ -27,15 +40,17 @@ primary_labeling:
     volatility_params:
       atr_period: 14
 
-    # Profit target multiples (grid search over these)
+    # Profit target multiples
+    # PHASE 2: MAE/MFE analysis showed baseline barriers were too tight.
+    # PHASE 5 FIX: Use optimized barrier only (remove grid search).
     pt_multipliers:
-      - 1.0
-      - 1.5
+      - 2.9    # MAE/MFE optimized (captures MFE p75)
 
-    # Stop loss multiples (grid search over these)
+    # Stop loss multiples
+    # PHASE 2: Current barriers caused premature stops before recovery.
+    # PHASE 5 FIX: Use optimized barrier only (remove grid search).
     sl_multipliers:
-      - 1.0
-      - 1.5
+      - 3.4    # MAE/MFE optimized (MAE p75 + 15% buffer)
 
     # Vertical barrier horizons in bars (grid search over these)
     # Must match execution_spec.max_holding_bars

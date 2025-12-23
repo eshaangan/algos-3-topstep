@@ -10,13 +10,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_auc_score
+import lightgbm as lgb
 
 from run_manifest import hash_content
 
 from .dataset import build_event_dataset, build_meta_dataset
 from .preprocess import FoldPreprocessor
-from .metrics import compute_metrics
+from .metrics import compute_metrics, compute_multiclass_metrics
 from .schema import write_training_schema
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,19 @@ def _load_schema_hash(schema_path: Path, name: str) -> str:
 
 def _binary_target(y, positive_label):
     return (np.asarray(y) == positive_label).astype(int)
+
+
+def _multiclass_target(y, classes):
+    classes = list(classes)
+    mapping = {c: i for i, c in enumerate(classes)}
+    y_arr = np.asarray(y)
+    out = np.full(len(y_arr), -1, dtype=int)
+    for i, val in enumerate(y_arr):
+        out[i] = mapping.get(val, -1)
+    if (out < 0).any():
+        missing = sorted(set(y_arr[out < 0].tolist()))
+        raise ValueError(f"Found labels not in target.classes: {missing}")
+    return out
 
 
 def train_on_splits(
@@ -96,14 +110,16 @@ def train_on_splits(
 
     model_cfg = cfg.get("model", {})
     model_kind = model_cfg.get("kind", "logreg")
-    if model_kind != "logreg":
-        raise ValueError(f"Unsupported model kind: {model_kind}")
+    if model_kind not in ["logreg", "lgbm"]:
+        raise ValueError(f"Unsupported model kind: {model_kind}. Must be 'logreg' or 'lgbm'.")
 
     model_params = model_cfg.get("params", {})
     training_config_hash = hash_content(training_config)
     target_cfg = cfg.get("target", {})
     target_col = target_cfg.get("column", "y")
     positive_label = target_cfg.get("positive_label", 1)
+    target_mode = target_cfg.get("mode", "binary")
+    target_classes = target_cfg.get("classes", [-1, 0, 1])
 
     weight_cfg = cfg.get("sample_weight", {})
     weight_enabled = bool(weight_cfg.get("enabled", False))
@@ -132,6 +148,27 @@ def train_on_splits(
         train_ids = split.get("train_event_ids", [])
         test_ids = split.get("test_event_ids", [])
 
+        avail_ids = set(dataset.index.to_list())
+        orig_train_count = len(train_ids)
+        orig_test_count = len(test_ids)
+        train_ids = [eid for eid in train_ids if eid in avail_ids]
+        test_ids = [eid for eid in test_ids if eid in avail_ids]
+
+        dropped_train = orig_train_count - len(train_ids)
+        dropped_test = orig_test_count - len(test_ids)
+        if dropped_train or dropped_test:
+            logger.warning(
+                "Dropping %d train and %d test event_ids not present in dataset",
+                dropped_train,
+                dropped_test,
+            )
+
+        if not train_ids or not test_ids:
+            raise ValueError(
+                f"Split {split_id} has no usable events after filtering "
+                f"(train={len(train_ids)}, test={len(test_ids)})"
+            )
+
         train_df = dataset.loc[train_ids].sort_index()
         test_df = dataset.loc[test_ids].sort_index()
 
@@ -139,45 +176,145 @@ def train_on_splits(
         X_train, y_train, w_train = pre.transform(train_df)
         X_test, y_test, w_test = pre.transform(test_df)
 
-        y_train_bin = _binary_target(
-            train_df[target_col].to_numpy(), positive_label
-        )
-        y_test_bin = _binary_target(
-            test_df[target_col].to_numpy(), positive_label
-        )
+        if target_mode == "multiclass":
+            if model_kind != "lgbm":
+                raise ValueError("multiclass target requires model.kind == 'lgbm'")
+            y_train_mc = _multiclass_target(
+                train_df[target_col].to_numpy(), target_classes
+            )
+            y_test_mc = _multiclass_target(
+                test_df[target_col].to_numpy(), target_classes
+            )
+            if len(np.unique(y_train_mc)) < 2:
+                raise ValueError(
+                    f"Split {split_id} has single-class training labels"
+                )
 
-        if len(np.unique(y_train_bin)) < 2:
-            raise ValueError(
-                f"Split {split_id} has single-class training labels"
+            labels_idx = list(range(len(target_classes)))
+            model = lgb.LGBMClassifier(
+                objective="multiclass",
+                num_class=len(target_classes),
+                n_estimators=model_params.get("n_estimators", 500),
+                learning_rate=model_params.get("learning_rate", 0.05),
+                num_leaves=model_params.get("num_leaves", 31),
+                max_depth=model_params.get("max_depth", 6),
+                min_child_samples=model_params.get("min_child_samples", 100),
+                subsample=model_params.get("subsample", 0.8),
+                subsample_freq=model_params.get("subsample_freq", 5),
+                colsample_bytree=model_params.get("colsample_bytree", 0.8),
+                reg_alpha=model_params.get("reg_alpha", 0.1),
+                reg_lambda=model_params.get("reg_lambda", 0.1),
+                random_state=seed,
+                verbose=-1,
+                force_col_wise=True,
+            )
+            model.fit(
+                X_train,
+                y_train_mc,
+                sample_weight=w_train if weight_enabled else None,
+            )
+            proba_test = model.predict_proba(X_test)
+            proba_train = model.predict_proba(X_train)
+            y_pred_mc = np.argmax(proba_test, axis=1).astype(int)
+
+            metrics = compute_multiclass_metrics(
+                y_test_mc,
+                proba_test,
+                labels=labels_idx,
+                sample_weight=w_test if weight_enabled else None,
             )
 
-        model = LogisticRegression(
-            C=model_params.get("C", 1.0),
-            penalty=model_params.get("penalty", "l2"),
-            solver=model_params.get("solver", "lbfgs"),
-            max_iter=model_params.get("max_iter", 200),
-            class_weight=model_params.get("class_weight"),
-            random_state=seed,
-        )
+            # Optional comparability metric: AUC(target vs rest) if target label exists
+            auc_target = None
+            if 1 in target_classes:
+                target_idx = target_classes.index(1)
+                y_bin = (y_test_mc == target_idx).astype(int)
+                if len(np.unique(y_bin)) >= 2:
+                    auc_target = roc_auc_score(
+                        y_bin,
+                        proba_test[:, target_idx],
+                        sample_weight=w_test if weight_enabled else None,
+                    )
+            metrics["roc_auc_target_vs_rest"] = float(auc_target) if auc_target is not None else None
 
-        model.fit(
-            X_train,
-            y_train_bin,
-            sample_weight=w_train if weight_enabled else None,
-        )
+            cm = confusion_matrix(
+                y_test_mc, y_pred_mc, labels=labels_idx
+            )
+            cm_payload = {
+                "labels_idx": labels_idx,
+                "labels": [int(x) for x in target_classes],
+                "matrix": cm.astype(int).tolist(),
+            }
+        else:
+            y_train_bin = _binary_target(
+                train_df[target_col].to_numpy(), positive_label
+            )
+            y_test_bin = _binary_target(
+                test_df[target_col].to_numpy(), positive_label
+            )
 
-        y_prob = model.predict_proba(X_test)[:, 1]
-        y_prob_train = model.predict_proba(X_train)[:, 1]
-        y_pred = (y_prob >= threshold).astype(int)
-        metrics = compute_metrics(
-            y_test_bin,
-            y_prob,
-            threshold=threshold,
-            sample_weight=w_test if weight_enabled else None,
-        )
-        tn, fp, fn, tp = confusion_matrix(
-            y_test_bin, y_pred, labels=[0, 1]
-        ).ravel()
+            if len(np.unique(y_train_bin)) < 2:
+                raise ValueError(
+                    f"Split {split_id} has single-class training labels"
+                )
+
+            # PHASE 5: Support both LogisticRegression and LightGBM
+            if model_kind == "logreg":
+                model = LogisticRegression(
+                    C=model_params.get("C", 1.0),
+                    penalty=model_params.get("penalty", "l2"),
+                    solver=model_params.get("solver", "lbfgs"),
+                    max_iter=model_params.get("max_iter", 200),
+                    class_weight=model_params.get("class_weight"),
+                    random_state=seed,
+                )
+                model.fit(
+                    X_train,
+                    y_train_bin,
+                    sample_weight=w_train if weight_enabled else None,
+                )
+            elif model_kind == "lgbm":
+                model = lgb.LGBMClassifier(
+                    objective="binary",
+                    n_estimators=model_params.get("n_estimators", 500),
+                    learning_rate=model_params.get("learning_rate", 0.05),
+                    num_leaves=model_params.get("num_leaves", 31),
+                    max_depth=model_params.get("max_depth", 6),
+                    min_child_samples=model_params.get("min_child_samples", 100),
+                    subsample=model_params.get("subsample", 0.8),
+                    subsample_freq=model_params.get("subsample_freq", 5),
+                    colsample_bytree=model_params.get("colsample_bytree", 0.8),
+                    reg_alpha=model_params.get("reg_alpha", 0.1),
+                    reg_lambda=model_params.get("reg_lambda", 0.1),
+                    random_state=seed,
+                    verbose=-1,
+                    force_col_wise=True,
+                )
+                model.fit(
+                    X_train,
+                    y_train_bin,
+                    sample_weight=w_train if weight_enabled else None,
+                )
+
+            y_prob = model.predict_proba(X_test)[:, 1]
+            y_prob_train = model.predict_proba(X_train)[:, 1]
+            y_pred = (y_prob >= threshold).astype(int)
+            metrics = compute_metrics(
+                y_test_bin,
+                y_prob,
+                threshold=threshold,
+                sample_weight=w_test if weight_enabled else None,
+            )
+            tn, fp, fn, tp = confusion_matrix(
+                y_test_bin, y_pred, labels=[0, 1]
+            ).ravel()
+            cm_payload = {
+                "tn": int(tn),
+                "fp": int(fp),
+                "fn": int(fn),
+                "tp": int(tp),
+                "threshold": float(threshold),
+            }
 
         split_dir = training_dir / f"{prefix}_{split_id}"
         split_dir.mkdir(parents=True, exist_ok=True)
@@ -187,19 +324,17 @@ def train_on_splits(
             "cv_kind": cv_kind,
             "n_train": int(len(train_df)),
             "n_test": int(len(test_df)),
-            "pos_rate_train": float(y_train_bin.mean()),
-            "pos_rate_test": float(y_test_bin.mean()),
-            "base_rate_train": float(y_train_bin.mean()),
-            "base_rate_test": float(y_test_bin.mean()),
-            "confusion_matrix": {
-                "tn": int(tn),
-                "fp": int(fp),
-                "fn": int(fn),
-                "tp": int(tp),
-                "threshold": float(threshold),
-            },
+            "n_dropped_train": int(dropped_train),
+            "n_dropped_test": int(dropped_test),
+            "target_mode": target_mode,
+            "confusion_matrix": cm_payload,
             "metrics": metrics,
         }
+        if target_mode == "binary":
+            metrics_payload["pos_rate_train"] = float(y_train_bin.mean())
+            metrics_payload["pos_rate_test"] = float(y_test_bin.mean())
+            metrics_payload["base_rate_train"] = float(y_train_bin.mean())
+            metrics_payload["base_rate_test"] = float(y_test_bin.mean())
         with open(split_dir / "metrics.json", "w") as f:
             json.dump(metrics_payload, f, indent=2)
 
@@ -207,28 +342,60 @@ def train_on_splits(
             weights = (
                 w_test if weight_enabled else np.ones(len(test_df), dtype=float)
             )
-            preds_df = pd.DataFrame(
-                {
-                    "event_id": test_df["event_id"].to_numpy(),
-                    "y_true": y_test_bin,
-                    "y_prob": y_prob,
-                    "y_pred": y_pred,
-                    "weight": weights,
-                }
-            )
+            if target_mode == "multiclass":
+                # Provide explicit per-class probs + EV-style score for backtest decisions.
+                classes = list(target_classes)
+                p_target = None
+                p_stop = None
+                p_vertical = None
+                if 1 in classes:
+                    p_target = proba_test[:, classes.index(1)]
+                if -1 in classes:
+                    p_stop = proba_test[:, classes.index(-1)]
+                if 0 in classes:
+                    p_vertical = proba_test[:, classes.index(0)]
+                score_ev = (
+                    (p_target if p_target is not None else 0.0)
+                    - (p_stop if p_stop is not None else 0.0)
+                )
+                y_pred_orig = np.asarray([classes[i] for i in y_pred_mc], dtype=int)
+                y_true_orig = test_df[target_col].to_numpy().astype(int)
+
+                preds_df = pd.DataFrame(
+                    {
+                        "event_id": test_df["event_id"].to_numpy(),
+                        "y_true": y_true_orig,
+                        "y_pred": y_pred_orig,
+                        "p_target": p_target,
+                        "p_stop": p_stop,
+                        "p_vertical": p_vertical,
+                        "score_ev": score_ev,
+                        "weight": weights,
+                    }
+                )
+            else:
+                preds_df = pd.DataFrame(
+                    {
+                        "event_id": test_df["event_id"].to_numpy(),
+                        "y_true": y_test_bin,
+                        "y_prob": y_prob,
+                        "y_pred": y_pred,
+                        "weight": weights,
+                    }
+                )
             preds_df.to_parquet(split_dir / "preds.parquet")
 
         if meta_enabled:
             primary_train_preds = pd.DataFrame(
                 {
                     "event_id": train_df["event_id"].to_numpy(),
-                    "y_prob": y_prob_train,
+                    "y_prob": y_prob_train if target_mode == "binary" else proba_train[:, list(target_classes).index(1)] if 1 in target_classes else proba_train[:, 0],
                 }
             )
             primary_test_preds = pd.DataFrame(
                 {
                     "event_id": test_df["event_id"].to_numpy(),
-                    "y_prob": y_prob,
+                    "y_prob": y_prob if target_mode == "binary" else proba_test[:, list(target_classes).index(1)] if 1 in target_classes else proba_test[:, 0],
                 }
             )
 
@@ -293,14 +460,37 @@ def train_on_splits(
                         json.dump(meta_payload, f, indent=2)
                     meta_split_metrics.append(meta_payload)
                 else:
-                    meta_model = LogisticRegression(
-                        C=meta_model_params.get("C", 1.0),
-                        penalty=meta_model_params.get("penalty", "l2"),
-                        solver=meta_model_params.get("solver", "lbfgs"),
-                        max_iter=meta_model_params.get("max_iter", 200),
-                        class_weight=meta_model_params.get("class_weight"),
-                        random_state=seed,
-                    )
+                    # PHASE 5: Support both LogisticRegression and LightGBM for meta-model
+                    meta_model_kind = meta_model_cfg.get("kind", "logreg")
+                    if meta_model_kind == "logreg":
+                        meta_model = LogisticRegression(
+                            C=meta_model_params.get("C", 1.0),
+                            penalty=meta_model_params.get("penalty", "l2"),
+                            solver=meta_model_params.get("solver", "lbfgs"),
+                            max_iter=meta_model_params.get("max_iter", 200),
+                            class_weight=meta_model_params.get("class_weight"),
+                            random_state=seed,
+                        )
+                    elif meta_model_kind == "lgbm":
+                        meta_model = lgb.LGBMClassifier(
+                            objective="binary",
+                            n_estimators=meta_model_params.get("n_estimators", 300),
+                            learning_rate=meta_model_params.get("learning_rate", 0.05),
+                            num_leaves=meta_model_params.get("num_leaves", 15),
+                            max_depth=meta_model_params.get("max_depth", 4),
+                            min_child_samples=meta_model_params.get("min_child_samples", 50),
+                            subsample=meta_model_params.get("subsample", 0.8),
+                            subsample_freq=meta_model_params.get("subsample_freq", 5),
+                            colsample_bytree=meta_model_params.get("colsample_bytree", 0.8),
+                            reg_alpha=meta_model_params.get("reg_alpha", 0.1),
+                            reg_lambda=meta_model_params.get("reg_lambda", 0.1),
+                            random_state=seed,
+                            verbose=-1,
+                            force_col_wise=True,
+                        )
+                    else:
+                        raise ValueError(f"Unsupported meta model kind: {meta_model_kind}")
+
                     meta_model.fit(
                         X_meta_train,
                         y_meta_train,

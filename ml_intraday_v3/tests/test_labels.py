@@ -13,7 +13,7 @@ import pandas as pd
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from labels import apply_triplebarrier
+from labels import apply_triplebarrier, generate_events
 from labels.schema import write_label_schema
 from core.instrument import load_instrument_from_execution_spec
 from cli import build_labels_command
@@ -194,6 +194,109 @@ def test_touch_ordering_stop_first_vs_target_first_differs_when_both_hit_same_ba
 
     assert labeled_stop.loc[0, "y"] == -1
     assert labeled_target.loc[0, "y"] == 1
+
+
+def test_triple_barrier_short_side_hits_target_when_price_drops():
+    timestamps = pd.date_range("2025-01-01 09:30:00", periods=3, freq="1min")
+    bars_df = _make_bars(
+        timestamps,
+        [
+            [100.0, 100.5, 99.5, 100.0],
+            [100.0, 100.2, 98.8, 99.0],  # should hit short target (<= 99.0)
+            [99.0, 99.2, 98.9, 99.1],
+        ],
+    )
+
+    events_df = pd.DataFrame(
+        {
+            "event_id": [0],
+            "t0": [timestamps[0]],
+            "t1": [timestamps[2]],
+            "bar_size": ["1m"],
+            "side": [-1],
+            "sigma": [1.0],
+            "pt_mult": [1.0],
+            "sl_mult": [1.0],
+            "horizon_bars": [2],
+        }
+    )
+
+    labeled = apply_triplebarrier(
+        bars_df=bars_df,
+        events_df=events_df,
+        bar_size="1m",
+        labeling_config=_minimal_labeling_config(),
+        execution_spec=_minimal_execution_spec(),
+        instrument_spec=INSTRUMENT_SPEC,
+    )
+
+    assert labeled.loc[0, "y"] == 1
+    assert labeled.loc[0, "t_touch"] == timestamps[1]
+    assert np.isclose(labeled.loc[0, "exit_price"], 99.0)
+    assert np.isclose(labeled.loc[0, "ret_gross"], 1.0)
+
+
+def test_generate_events_cusum_filters_bars():
+    idx = pd.date_range("2025-01-01 09:30:00", periods=8, freq="1min", tz="UTC")
+    close = np.array([100.0, 100.2, 100.4, 100.6, 100.2, 99.8, 100.0, 100.2])
+    bars_df = pd.DataFrame(
+        {
+            "open": close,
+            "high": close + 0.5,
+            "low": close - 0.5,
+            "close": close,
+            "is_synthetic": False,
+        },
+        index=idx,
+    )
+
+    labeling_cfg = _minimal_labeling_config(horizon_bars=2)
+    labeling_cfg["primary_labeling"]["event_policy"] = "cusum"
+    labeling_cfg["primary_labeling"]["cusum"] = {"threshold_atr_mult": 0.5}
+
+    events = generate_events(
+        bars_df=bars_df,
+        bar_size="1m",
+        labeling_config=labeling_cfg,
+        execution_spec=_minimal_execution_spec(),
+    )
+
+    assert events["t0"].tolist() == [idx[3], idx[5]]
+
+
+def test_generate_events_trend_scanning_sets_side_and_horizon():
+    idx = pd.date_range("2025-01-01 09:30:00", periods=12, freq="1min", tz="UTC")
+    close = np.linspace(100.0, 102.2, num=len(idx))
+    bars_df = pd.DataFrame(
+        {
+            "open": close,
+            "high": close + 0.2,
+            "low": close - 0.2,
+            "close": close,
+            "is_synthetic": False,
+        },
+        index=idx,
+    )
+
+    labeling_cfg = _minimal_labeling_config(horizon_bars=3)
+    labeling_cfg["primary_labeling"]["event_policy"] = "trend_scanning"
+    labeling_cfg["primary_labeling"]["trend_scanning"] = {
+        "tstat_threshold": 0.5,
+        "use_cusum_prefilter": False,
+        "cusum_threshold_atr_mult": 1.0,
+    }
+    labeling_cfg["primary_labeling"]["triple_barrier"]["volatility_params"] = {"atr_period": 1}
+
+    events = generate_events(
+        bars_df=bars_df,
+        bar_size="1m",
+        labeling_config=labeling_cfg,
+        execution_spec={**_minimal_execution_spec(), "holding_constraints": {"max_holding_bars": {"1m": 3, "5m": 3}}},
+    )
+
+    assert not events.empty
+    assert set(events["horizon_bars"].unique().tolist()) == {3}
+    assert set(events["side"].unique().tolist()) == {1}
 
 
 def test_build_labels_writes_artifacts_and_updates_manifest(tmp_path):

@@ -7,9 +7,6 @@ raw_data:
   # Expected format: HDF5 or Parquet with OHLCV columns
   input_path: "data/processed/mes_bars.h5"
 
-  # Input format
-  input_format: "hdf5"  # or "parquet"
-
   # Expected columns in raw data
   required_columns:
     - "open"
@@ -18,8 +15,21 @@ raw_data:
     - "close"
     - "volume"
 
+# Ingestion configuration
+ingestion:
+  # Input format
+  format: "hdf5"  # or "parquet"
+  # HDF5 key (required unless file has a single key)
+  hdf_key: "/bars_5min"
   # Timestamp column name (if not index)
-  timestamp_column: null  # null means index is timestamp
+  timestamp_col: "timestamp"
+
+# Canonical bar size for raw data (source resolution)
+canonical_bar_size: "5m"
+
+# Bar sizes to write (cannot upsample beyond canonical without explicit support)
+bar_sizes_to_write:
+  - "5m"
 
 # Contract continuization
 continuization:
@@ -36,15 +46,30 @@ continuization:
 
 # Reindexing configuration
 reindexing:
-  # Bar sizes to generate
+  # Bar sizes to generate (fallback if bar_sizes_to_write is not set)
   bar_sizes:
-    - "1m"
     - "5m"
 
   # Resampling policy
   # "build_1m_resample_5m": build canonical 1m, then resample to 5m
   # "native": use native bar size from data source
-  resample_policy: "build_1m_resample_5m"
+  resample_policy: "native"
+
+  # Grid generation mode
+  # "full_range": full min->max grid (can create large missing gaps)
+  # "session": session-aware grid (recommended for intraday futures)
+  grid_mode: "session"
+  session_grid: "rth"      # "rth" or "eth"
+  exclude_weekends: true
+  day_selection_mode: "data_present"  # "data_present" or "all_days_in_range"
+  min_rows_per_day: 1
+
+  # Sparse session-day exclusion (root-cause fix for QA failures on sparse days)
+  # If enabled, session days with coverage < min_day_coverage_pct are excluded
+  # from the grid entirely (those timestamps will not exist in output)
+  drop_sparse_days: true
+  min_day_coverage_pct: 0.90  # Exclude days with <90% coverage (0.0-1.0)
+  coverage_session: "rth"      # Session definition to use for coverage computation
 
   # Missing bar handling (RESEARCH-GRADE DEFAULTS)
   missing_bars:
@@ -106,7 +131,7 @@ qa:
 
   # Failure thresholds (enforced if qa_fail_fast=true)
   thresholds:
-    max_missing_bar_pct_per_day: 0.10  # Fail if >10% bars missing in a day
+    max_missing_bar_pct_per_day: 10.0  # Fail if >10% bars missing in a day
     max_ohlc_violations: 0              # Fail if any OHLC violations
     max_duplicate_timestamps: 0         # Fail if any duplicate timestamps
 

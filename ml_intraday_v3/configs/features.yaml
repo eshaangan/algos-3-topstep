@@ -23,10 +23,20 @@ returns:
     1m: [3, 6]
     5m: [2, 4]
 
+  # PHASE 3: Multi-horizon returns (match 12-24 bar label horizons)
+  # Critical for predicting multi-bar outcomes
+  enable_multi_horizon: true
+  multi_horizon_bars: [6, 12, 24]  # Match label horizons
+
 # Volatility features
 volatility:
   # True range and ATR
   atr_period: 14  # Standard ATR lookback
+
+  # PHASE 3: Volatility regime indicators
+  # Detect high/low vol regimes for adaptive barrier sizing
+  enable_regime_features: true
+  # Features: vol_20, vol_regime, parkinson_vol, vol_forecast
 
 # Trend features (EMA-based)
 trend:
@@ -34,6 +44,17 @@ trend:
   ema_slow_period: 34   # Slow EMA
   # Derived: ema_spread = ema_fast - ema_slow
   # Derived: ema_ratio = ema_fast / (ema_slow + eps)
+
+  # PHASE 3: Advanced trend and mean reversion features
+  enable_advanced_features: true
+  # Features: sma_20, sma_50, trend_strength, autocorr_5, bb_position
+
+# Microstructure features (order flow proxies)
+microstructure:
+  # PHASE 3: Volume and order flow indicators
+  # Proxy for buying/selling pressure and institutional activity
+  enabled: true
+  # Features: volume_imbalance, price_vs_vwap, relative_volume, large_move
 
 # Candle structure features
 structure:

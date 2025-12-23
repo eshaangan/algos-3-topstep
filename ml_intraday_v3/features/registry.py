@@ -105,6 +105,22 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             )
         )
 
+    # PHASE 3: Multi-horizon returns (match label horizons)
+    if returns_config.get("enable_multi_horizon", True):
+        multi_horizon = returns_config.get("multi_horizon_bars", [6, 12, 24])
+        for k in multi_horizon:
+            registry.append(
+                FeatureSpec(
+                    name=f"log_return_{k}",
+                    lookback_bars=k,
+                    uses_rolling_stats=False,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"Log return over {k} bars (multi-horizon)",
+                )
+            )
+
     # -------------------------------------------------------------------------
     # 2. VOLATILITY
     # -------------------------------------------------------------------------
@@ -132,6 +148,47 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             description=f"Average True Range over {atr_period} bars (EMA of true_range)",
         )
     )
+
+    # PHASE 3: Volatility regime indicators
+    if config.get("volatility", {}).get("enable_regime_features", True):
+        registry.extend([
+            FeatureSpec(
+                name="vol_20",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Rolling volatility (std of returns over 20 bars)",
+            ),
+            FeatureSpec(
+                name="vol_regime",
+                lookback_bars=100,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Volatility regime: vol_20 / median(vol_20, 100 bars)",
+            ),
+            FeatureSpec(
+                name="parkinson_vol",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Parkinson volatility estimator (uses high-low range)",
+            ),
+            FeatureSpec(
+                name="vol_forecast",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="EWMA volatility forecast (alpha=0.06)",
+            ),
+        ])
 
     # -------------------------------------------------------------------------
     # 3. TREND
@@ -186,6 +243,97 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             description=f"ema_{ema_fast} / (ema_{ema_slow} + eps)",
         )
     )
+
+    # PHASE 3: Advanced trend and mean reversion features
+    if config.get("trend", {}).get("enable_advanced_features", True):
+        registry.extend([
+            FeatureSpec(
+                name="sma_20",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Simple moving average of close, 20 bars",
+            ),
+            FeatureSpec(
+                name="sma_50",
+                lookback_bars=50,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Simple moving average of close, 50 bars",
+            ),
+            FeatureSpec(
+                name="trend_strength",
+                lookback_bars=50,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Normalized distance from SMA50: (close - sma50) / sma50",
+            ),
+            FeatureSpec(
+                name="autocorr_5",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Autocorrelation lag-5 on 20-bar window (mean reversion indicator)",
+            ),
+            FeatureSpec(
+                name="bb_position",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=False,  # Already normalized 0-1
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Position within Bollinger Bands (0=lower, 1=upper)",
+            ),
+        ])
+
+    # PHASE 3: Microstructure features (order flow proxies)
+    if config.get("microstructure", {}).get("enabled", True):
+        registry.extend([
+            FeatureSpec(
+                name="volume_imbalance",
+                lookback_bars=0,
+                uses_rolling_stats=False,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Volume-weighted directional imbalance: (close-open)/(high-low)",
+            ),
+            FeatureSpec(
+                name="price_vs_vwap",
+                lookback_bars=50,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Price relative to 50-bar VWAP: (close - vwap) / vwap",
+            ),
+            FeatureSpec(
+                name="relative_volume",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Current volume relative to 20-bar average",
+            ),
+            FeatureSpec(
+                name="large_move",
+                lookback_bars=20,
+                uses_rolling_stats=True,
+                requires_scaling=False,  # Binary indicator
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Binary: 1 if |return| > 2× vol_20, else 0",
+            ),
+        ])
 
     # -------------------------------------------------------------------------
     # 4. STRUCTURE (Candle features)

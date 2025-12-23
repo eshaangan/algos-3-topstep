@@ -47,6 +47,44 @@ def _decide_ohlc_touch(
     return ""
 
 
+def _decide_ohlc_touch_side(
+    open_p: float,
+    high_p: float,
+    low_p: float,
+    target_level: float,
+    stop_level: float,
+    side: int,
+) -> str:
+    """
+    Deterministic within-bar path: open -> high -> low -> close.
+
+    `target_level` is the profit-taking barrier for the given `side`.
+    `stop_level` is the stop-loss barrier for the given `side`.
+    """
+    if side >= 0:
+        # Long: target above, stop below
+        if open_p >= target_level:
+            return "target"
+        if open_p <= stop_level:
+            return "stop"
+        if high_p >= target_level:
+            return "target"
+        if low_p <= stop_level:
+            return "stop"
+        return ""
+
+    # Short: target below, stop above
+    if open_p <= target_level:
+        return "target"
+    if open_p >= stop_level:
+        return "stop"
+    if high_p >= stop_level:
+        return "stop"
+    if low_p <= target_level:
+        return "target"
+    return ""
+
+
 def _compute_cost_points(
     execution_spec: dict, bar_size: str, instrument_spec: InstrumentSpec
 ) -> Tuple[float, float]:
@@ -161,14 +199,31 @@ def apply_triplebarrier(
         if t1_idx[i] >= n or t1_idx[i] < 0:
             continue
 
+        side_val = 1
+        if "side" in events.columns and pd.notna(events.loc[i, "side"]):
+            try:
+                side_val = int(events.loc[i, "side"])
+            except Exception:
+                side_val = 1
+        if side_val == 0:
+            side_val = 1
+        side_val = 1 if side_val > 0 else -1
+
         start_idx = barrier_start_idx[i]
         end_idx = t1_idx[i]
         if start_idx > end_idx:
             start_idx = end_idx + 1
 
         p0 = float(entry_prices[i])
-        upper = p0 + float(events.loc[i, "pt_mult"]) * sigma[i] + cost_buffer
-        lower = p0 - float(events.loc[i, "sl_mult"]) * sigma[i] + cost_buffer
+        pt_points = float(events.loc[i, "pt_mult"]) * sigma[i] + cost_buffer
+        sl_points = float(events.loc[i, "sl_mult"]) * sigma[i] + cost_buffer
+
+        if side_val > 0:
+            target_level = p0 + pt_points
+            stop_level = p0 - sl_points
+        else:
+            target_level = p0 - pt_points
+            stop_level = p0 + sl_points
 
         touch = ""
         touch_idx = -1
@@ -179,26 +234,35 @@ def apply_triplebarrier(
             if np.isnan(high) or np.isnan(low):
                 continue
 
-            hit_upper = high >= upper
-            hit_lower = low <= lower
+            if side_val > 0:
+                hit_target = high >= target_level
+                hit_stop = low <= stop_level
+            else:
+                hit_target = low <= target_level
+                hit_stop = high >= stop_level
 
-            if not hit_upper and not hit_lower:
+            if not hit_target and not hit_stop:
                 continue
 
-            if hit_upper and hit_lower:
+            if hit_target and hit_stop:
                 if touch_ordering == "stop_first":
                     touch = "stop"
                 elif touch_ordering == "target_first":
                     touch = "target"
                 elif touch_ordering == "ohlc_path":
-                    touch = _decide_ohlc_touch(
-                        open_arr[j], high, low, upper, lower
+                    touch = _decide_ohlc_touch_side(
+                        open_arr[j],
+                        high,
+                        low,
+                        target_level,
+                        stop_level,
+                        side_val,
                     )
                 else:
                     raise ValueError(
                         f"Unsupported touch_ordering: {touch_ordering}"
                     )
-            elif hit_upper:
+            elif hit_target:
                 touch = "target"
             else:
                 touch = "stop"
@@ -210,11 +274,11 @@ def apply_triplebarrier(
         if touch_idx >= 0:
             if touch == "target":
                 exit_reason[i] = "target"
-                exit_price[i] = upper
+                exit_price[i] = target_level
                 y[i] = label_encoding.get("target_first", 1)
             else:
                 exit_reason[i] = "stop"
-                exit_price[i] = lower
+                exit_price[i] = stop_level
                 y[i] = label_encoding.get("stop_first", -1)
             t_touch[i] = index[touch_idx].to_numpy()
         else:
@@ -223,7 +287,7 @@ def apply_triplebarrier(
             y[i] = label_encoding.get("vertical", 0)
             t_touch[i] = index[end_idx].to_numpy()
 
-        ret_gross[i] = exit_price[i] - p0
+        ret_gross[i] = side_val * (exit_price[i] - p0)
         if account_for_costs:
             ret_net[i] = ret_gross[i] - total_cost_points
         else:

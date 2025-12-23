@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 def _shift_by_bars(
-    bars_index: pd.Index, timestamp: pd.Timestamp, embargo_bars: int
-) -> pd.Timestamp | None:
+    bars_index: pd.Index, timestamp: np.datetime64, embargo_bars: int
+) -> np.datetime64 | None:
     """
     Shift timestamp forward by embargo_bars on bars_index (anchored to next bar).
 
@@ -24,7 +24,7 @@ def _shift_by_bars(
     if end_pos >= len(bars_index):
         return None
     embargo_end_pos = min(end_pos + int(embargo_bars), len(bars_index) - 1)
-    return bars_index[embargo_end_pos]
+    return bars_index[embargo_end_pos].to_datetime64()
 
 
 def build_purged_kfold_splits(
@@ -49,8 +49,8 @@ def build_purged_kfold_splits(
         raise ValueError("n_splits must be >= 2")
 
     df = events_df.copy()
-    df["t0"] = pd.to_datetime(df["t0"])
-    df["t1"] = pd.to_datetime(df["t1"])
+    df["t0"] = pd.to_datetime(df["t0"], utc=True)
+    df["t1"] = pd.to_datetime(df["t1"], utc=True)
     df = df.sort_values("t0").reset_index(drop=True)
 
     n_events = len(df)
@@ -60,8 +60,12 @@ def build_purged_kfold_splits(
     fold_ends = fold_starts + fold_sizes
 
     all_ids = df["event_id"].to_numpy()
-    t0 = df["t0"].to_numpy()
-    t1 = df["t1"].to_numpy()
+    t0 = df["t0"].dt.tz_convert("UTC").dt.tz_localize(None).to_numpy(dtype="datetime64[ns]")
+    t1 = df["t1"].dt.tz_convert("UTC").dt.tz_localize(None).to_numpy(dtype="datetime64[ns]")
+
+    if isinstance(bars_index, pd.DatetimeIndex) and bars_index.tz is not None:
+        bars_index = bars_index.tz_convert("UTC").tz_localize(None)
+    bars_index = pd.DatetimeIndex(bars_index)
 
     splits = []
     for i in range(n_splits):
@@ -71,12 +75,10 @@ def build_purged_kfold_splits(
         test_t0 = t0[start:end]
         test_t1 = t1[start:end]
 
-        test_start = pd.Timestamp(test_t0.min())
-        test_end = pd.Timestamp(test_t1.max())
+        test_start = test_t0.min()
+        test_end = test_t1.max()
 
-        overlap_mask = (t0 <= test_end.to_datetime64()) & (
-            t1 >= test_start.to_datetime64()
-        )
+        overlap_mask = (t0 <= test_end) & (t1 >= test_start)
 
         test_mask = np.zeros(n_events, dtype=bool)
         test_mask[start:end] = True
@@ -89,9 +91,7 @@ def build_purged_kfold_splits(
         if embargo_bars > 0:
             embargo_end = _shift_by_bars(bars_index, test_end, embargo_bars)
             if embargo_end is not None:
-                embargo_mask = (t0 > test_end.to_datetime64()) & (
-                    t0 <= embargo_end.to_datetime64()
-                )
+                embargo_mask = (t0 > test_end) & (t0 <= embargo_end)
                 n_embargoed = int((train_mask & embargo_mask).sum())
                 train_mask = train_mask & (~embargo_mask)
 
@@ -104,8 +104,8 @@ def build_purged_kfold_splits(
                 "test_event_ids": test_ids,
                 "train_event_ids": train_ids,
                 "test_interval": {
-                    "start": test_start.isoformat(),
-                    "end": test_end.isoformat(),
+                    "start": pd.Timestamp(test_start).isoformat(),
+                    "end": pd.Timestamp(test_end).isoformat(),
                 },
                 "purge": {"n_purged": n_purged, "n_embargoed": n_embargoed},
                 "params": {"n_splits": n_splits, "embargo_bars": embargo_bars},

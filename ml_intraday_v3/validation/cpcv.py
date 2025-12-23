@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 def _shift_by_bars(
-    bars_index: pd.Index, timestamp: pd.Timestamp, embargo_bars: int
-) -> pd.Timestamp | None:
+    bars_index: pd.Index, timestamp: np.datetime64, embargo_bars: int
+) -> np.datetime64 | None:
     """
     Shift timestamp forward by embargo_bars on bars_index (anchored to next bar).
 
@@ -25,7 +25,7 @@ def _shift_by_bars(
     if end_pos >= len(bars_index):
         return None
     embargo_end_pos = min(end_pos + int(embargo_bars), len(bars_index) - 1)
-    return bars_index[embargo_end_pos]
+    return bars_index[embargo_end_pos].to_datetime64()
 
 
 def build_cpcv_paths(
@@ -57,13 +57,17 @@ def build_cpcv_paths(
         raise ValueError(f"Unsupported selection: {selection}")
 
     df = events_df.copy()
-    df["t0"] = pd.to_datetime(df["t0"])
-    df["t1"] = pd.to_datetime(df["t1"])
+    df["t0"] = pd.to_datetime(df["t0"], utc=True)
+    df["t1"] = pd.to_datetime(df["t1"], utc=True)
     df = df.sort_values("t0").reset_index(drop=True)
 
     all_ids = df["event_id"].to_numpy()
-    t0 = df["t0"].to_numpy()
-    t1 = df["t1"].to_numpy()
+    t0 = df["t0"].dt.tz_convert("UTC").dt.tz_localize(None).to_numpy(dtype="datetime64[ns]")
+    t1 = df["t1"].dt.tz_convert("UTC").dt.tz_localize(None).to_numpy(dtype="datetime64[ns]")
+
+    if isinstance(bars_index, pd.DatetimeIndex) and bars_index.tz is not None:
+        bars_index = bars_index.tz_convert("UTC").tz_localize(None)
+    bars_index = pd.DatetimeIndex(bars_index)
 
     combos = list(combinations(range(K), test_groups))
     if max_paths is not None:
@@ -82,12 +86,10 @@ def build_cpcv_paths(
         if not test_pos:
             continue
 
-        test_start = pd.Timestamp(t0[min(test_pos)])
-        test_end = pd.Timestamp(t1[max(test_pos)])
+        test_start = t0[min(test_pos)]
+        test_end = t1[max(test_pos)]
 
-        overlap_mask = (t0 <= test_end.to_datetime64()) & (
-            t1 >= test_start.to_datetime64()
-        )
+        overlap_mask = (t0 <= test_end) & (t1 >= test_start)
 
         test_mask = np.zeros(len(df), dtype=bool)
         test_mask[test_pos] = True
@@ -100,9 +102,7 @@ def build_cpcv_paths(
         if embargo_bars > 0:
             embargo_end = _shift_by_bars(bars_index, test_end, embargo_bars)
             if embargo_end is not None:
-                embargo_mask = (t0 > test_end.to_datetime64()) & (
-                    t0 <= embargo_end.to_datetime64()
-                )
+                embargo_mask = (t0 > test_end) & (t0 <= embargo_end)
                 n_embargoed = int((train_mask & embargo_mask).sum())
                 train_mask = train_mask & (~embargo_mask)
 
@@ -115,8 +115,8 @@ def build_cpcv_paths(
                 "test_event_ids": test_ids,
                 "train_event_ids": train_ids,
                 "test_interval": {
-                    "start": test_start.isoformat(),
-                    "end": test_end.isoformat(),
+                    "start": pd.Timestamp(test_start).isoformat(),
+                    "end": pd.Timestamp(test_end).isoformat(),
                 },
                 "purge": {"n_purged": n_purged, "n_embargoed": n_embargoed},
                 "params": {

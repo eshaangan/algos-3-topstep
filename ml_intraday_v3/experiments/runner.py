@@ -306,20 +306,27 @@ def run_experiments(run_dir: Path | str, grid_config_path: Path | str) -> dict:
         model_c = variant.get("model_C")
 
         training_cfg = deepcopy(base_training_cfg)
-        base_c = (
-            training_cfg.get("model", {})
-            .get("params", {})
-            .get("C", 1.0)
-        )
+        model_cfg = training_cfg.get("model", {}) or {}
+        model_kind = model_cfg.get("kind", "logreg")
+
         retrain_needed = False
-        if model_c is not None and float(model_c) != float(base_c):
-            training_cfg.setdefault("model", {}).setdefault("params", {})[
-                "C"
-            ] = float(model_c)
-            retrain_needed = True
+        if model_kind == "logreg":
+            base_c = (
+                model_cfg.get("params", {})
+                .get("C", 1.0)
+            )
+            if model_c is not None and float(model_c) != float(base_c):
+                training_cfg.setdefault("model", {}).setdefault("params", {})[
+                    "C"
+                ] = float(model_c)
+                retrain_needed = True
 
         for bar_size in bar_sizes:
-            if retrain_needed:
+            existing_training_dir = _resolve_training_dir(
+                run_dir, bar_size, cv_kind, None
+            )
+            need_train = retrain_needed or (not existing_training_dir.exists())
+            if need_train:
                 training_dir = (
                     exp_dir
                     / "training"
@@ -335,13 +342,7 @@ def run_experiments(run_dir: Path | str, grid_config_path: Path | str) -> dict:
                     training_dir_override=training_dir,
                 )
             else:
-                training_dir = _resolve_training_dir(
-                    run_dir, bar_size, cv_kind, None
-                )
-                if not training_dir.exists():
-                    raise FileNotFoundError(
-                        f"Training dir not found: {training_dir}"
-                    )
+                training_dir = existing_training_dir
 
             backtest_cfg = deepcopy(base_backtest_cfg)
             if primary_threshold is not None:

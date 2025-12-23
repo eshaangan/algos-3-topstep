@@ -73,6 +73,25 @@ holding_constraints:
   # Whether to force exit at max_holding_bars
   force_exit_at_max: true
 
+# Decision thresholds for trading signals
+decision:
+  # Use meta-labeling model (set to false to bypass meta-model entirely)
+  use_meta: true
+
+  # Primary model probability threshold (0.0-1.0)
+  # Lower values = more trades, higher values = fewer but higher quality trades
+  # Baseline: 0.5 (standard), Emergency triage: 0.30
+  primary_threshold: 0.30
+
+  # Meta-model probability threshold (0.0-1.0)
+  # Only applies if use_meta is true
+  # Baseline: 0.5 (standard), Emergency triage: 0.30
+  meta_threshold: 0.30
+
+  # Require meta-model approval for trades (only if use_meta is true)
+  # If false, meta-model is used as a bonus filter but not required
+  require_meta_for_trade: true
+
 # Execution alignment contract version
 # Increment this if any execution assumptions change
 spec_version: "1.0.0"

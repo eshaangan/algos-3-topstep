@@ -1,7 +1,8 @@
 # Experiment grid configuration - offline evaluation only
 # Version: 1.0
 
-cv_kind: "purged_kfold"
+# Use CPCV when running selection diagnostics (PBO).
+cv_kind: "cpcv"
 
 training_config: "ml_intraday_v3/configs/training.yaml"
 backtest_config: "ml_intraday_v3/configs/backtest.yaml"
@@ -9,13 +10,17 @@ execution_spec: "ml_intraday_v3/configs/execution_spec.yaml"
 risk_config: "ml_intraday_v3/configs/risk.yaml"
 
 grid:
-  primary_threshold: [0.50, 0.55]
-  meta_threshold: [0.50]
-  model_C: [1.0]
+  # Threshold sweep for selection + overfitting diagnostics.
+  # Keep small by default; expand as you iterate.
+  primary_threshold: [0.05, 0.10, 0.15]
+  meta_threshold: [0.30]
 
 diagnostics:
+  # Prefer a risk-adjusted metric for selection; PBO/DSR assumes you're selecting
+  # among many candidates.
   selection_metric: "total_pnl_usd"
   compute_pbo: true
   compute_dsr: true
-  n_trials: 3
+  # Set to the effective number of configs you've tried overall (be conservative).
+  n_trials: 10
   target_sharpe: 0.0

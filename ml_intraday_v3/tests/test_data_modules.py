@@ -90,6 +90,42 @@ def complete_1m_grid():
     return df
 
 
+class TestIngestHdf:
+    """Test HDF ingestion index handling."""
+
+    def test_ingest_hdf_sets_datetime_index(self, tmp_path):
+        """HDF ingest should set a UTC DatetimeIndex from a timestamp column."""
+        df = pd.DataFrame(
+            {
+                "timestamp": [
+                    "2025-01-01 09:30:00",
+                    "2025-01-01 09:35:00",
+                    "2025-01-01 09:40:00",
+                ],
+                "open": [100.0, 100.1, 100.2],
+                "high": [100.5, 100.6, 100.7],
+                "low": [99.5, 99.6, 99.7],
+                "close": [100.0, 100.1, 100.2],
+                "volume": [1000, 1100, 1200],
+            }
+        )
+
+        data_file = tmp_path / "bars.h5"
+        df.to_hdf(data_file, key="/bars_5min", mode="w")
+
+        out = load_raw_data(
+            input_path=data_file,
+            input_format="hdf5",
+            timestamp_column="timestamp",
+            required_columns=["open", "high", "low", "close", "volume"],
+            hdf_key="/bars_5min",
+        )
+
+        assert isinstance(out.index, pd.DatetimeIndex)
+        assert str(out.index.tz) == "UTC"
+        assert "timestamp" not in out.columns
+
+
 class TestReindexGrid:
     """Test reindex_to_grid function."""
 
@@ -173,6 +209,228 @@ class TestReindexGrid:
         # Metadata should reflect NaN mode
         assert metadata["missing_fill_mode"] == "nan"
         assert metadata["forward_filled_bars"] == 0
+
+    def test_session_grid_reindex_does_not_create_massive_missing(self):
+        """Session grid should not create large missing gaps for RTH-only data."""
+        tz = "America/Chicago"
+        day1 = pd.Timestamp("2025-01-02", tz=tz)
+        day2 = pd.Timestamp("2025-01-03", tz=tz)
+        start1 = day1 + pd.Timedelta(hours=8, minutes=30)
+        end1 = day1 + pd.Timedelta(hours=15)
+        start2 = day2 + pd.Timedelta(hours=8, minutes=30)
+        end2 = day2 + pd.Timedelta(hours=15)
+
+        idx1 = pd.date_range(start=start1, end=end1, freq="1min", tz=tz, inclusive="left")
+        idx2 = pd.date_range(start=start2, end=end2, freq="1min", tz=tz, inclusive="left")
+        index = idx1.append(idx2).tz_convert("UTC")
+
+        df = pd.DataFrame(
+            {
+                "open": 100.0,
+                "high": 100.5,
+                "low": 99.5,
+                "close": 100.0,
+                "volume": 5000,
+            },
+            index=index,
+        )
+
+        sessions = [
+            {"name": "rth", "start_time": "08:30", "end_time": "15:00"},
+            {"name": "eth", "start_time": "17:00", "end_time": "16:00"},
+        ]
+
+        _, metadata = reindex_to_grid(
+            df,
+            bar_size="1m",
+            missing_fill_mode="nan",
+            forward_fill_max_consecutive=0,
+            add_synthetic_flag=True,
+            grid_mode="session",
+            session_grid="rth",
+            session_timezone=tz,
+            sessions=sessions,
+            exclude_weekends=True,
+            day_selection_mode="data_present",
+            min_rows_per_day=1,
+        )
+
+        assert metadata["synthetic_pct"] <= 0.1
+
+    def test_session_grid_data_present_skips_missing_days(self):
+        """Data-present day selection should skip dates with no raw data."""
+        tz = "America/Chicago"
+        day1 = pd.Timestamp("2019-12-24", tz=tz)
+        day3 = pd.Timestamp("2019-12-26", tz=tz)
+
+        def rth_index(day):
+            start = day + pd.Timedelta(hours=8, minutes=30)
+            end = day + pd.Timedelta(hours=15)
+            return pd.date_range(start=start, end=end, freq="1min", tz=tz, inclusive="left")
+
+        idx = rth_index(day1).append(rth_index(day3)).tz_convert("UTC")
+        df = pd.DataFrame(
+            {
+                "open": 100.0,
+                "high": 100.5,
+                "low": 99.5,
+                "close": 100.0,
+                "volume": 5000,
+            },
+            index=idx,
+        )
+
+        sessions = [
+            {"name": "rth", "start_time": "08:30", "end_time": "15:00"},
+            {"name": "eth", "start_time": "17:00", "end_time": "16:00"},
+        ]
+
+        df_reindexed, metadata = reindex_to_grid(
+            df,
+            bar_size="1m",
+            missing_fill_mode="nan",
+            add_synthetic_flag=True,
+            grid_mode="session",
+            session_grid="rth",
+            session_timezone=tz,
+            sessions=sessions,
+            exclude_weekends=True,
+            day_selection_mode="data_present",
+            min_rows_per_day=1,
+        )
+
+        chi_dates = df_reindexed.index.tz_convert(tz).date
+        assert pd.Timestamp("2019-12-25").date() not in set(chi_dates)
+        assert pd.Timestamp("2019-12-24").date() in set(chi_dates)
+        assert pd.Timestamp("2019-12-26").date() in set(chi_dates)
+
+        assert "2019-12-25" not in metadata.get("missing_pct_per_day", {})
+
+    def test_drop_sparse_days_excludes_days_below_coverage_threshold(self):
+        """Sparse day exclusion should exclude days with coverage < min_day_coverage_pct."""
+        tz = "America/Chicago"
+
+        # Create two session days:
+        # Day A (2025-01-02): Good coverage (nearly full RTH session)
+        # Day B (2025-01-03): Sparse coverage (only a few bars)
+
+        day_a = pd.Timestamp("2025-01-02", tz=tz)
+        day_b = pd.Timestamp("2025-01-03", tz=tz)
+
+        def rth_index(day):
+            start = day + pd.Timedelta(hours=8, minutes=30)
+            end = day + pd.Timedelta(hours=15)
+            return pd.date_range(start=start, end=end, freq="5min", tz=tz, inclusive="left")
+
+        # Day A: Full RTH session (08:30 - 15:00 = 6.5 hours = 78 bars @ 5min)
+        idx_a = rth_index(day_a)
+
+        # Day B: Only 8 bars (sparse - should be excluded with 90% threshold)
+        start_b = day_b + pd.Timedelta(hours=8, minutes=30)
+        idx_b = pd.date_range(start=start_b, periods=8, freq="5min", tz=tz)
+
+        # Combine indexes
+        idx = idx_a.append(idx_b).tz_convert("UTC")
+
+        df = pd.DataFrame(
+            {
+                "open": 100.0,
+                "high": 100.5,
+                "low": 99.5,
+                "close": 100.0,
+                "volume": 5000,
+            },
+            index=idx,
+        )
+
+        sessions = [
+            {"name": "rth", "start_time": "08:30", "end_time": "15:00"},
+        ]
+
+        df_reindexed, metadata = reindex_to_grid(
+            df,
+            bar_size="5m",
+            missing_fill_mode="nan",
+            add_synthetic_flag=True,
+            grid_mode="session",
+            session_grid="rth",
+            session_timezone=tz,
+            sessions=sessions,
+            exclude_weekends=True,
+            day_selection_mode="data_present",
+            min_rows_per_day=1,
+            drop_sparse_days=True,
+            min_day_coverage_pct=0.90,
+            coverage_session="rth",
+        )
+
+        # Verify Day A is included
+        chi_dates = df_reindexed.index.tz_convert(tz).date
+        assert day_a.date() in set(chi_dates), "Day A (good coverage) should be included"
+
+        # Verify Day B is excluded
+        assert day_b.date() not in set(chi_dates), "Day B (sparse coverage) should be excluded"
+
+        # Verify metadata reports excluded days
+        excluded = metadata.get("excluded_sparse_days", [])
+        assert len(excluded) > 0, "Metadata should report excluded days"
+
+        # Find Day B in excluded list
+        day_b_excluded = [e for e in excluded if e["date"] == str(day_b.date())]
+        assert len(day_b_excluded) == 1, "Day B should be in excluded list"
+
+        # Verify coverage stats for Day B
+        day_b_stats = day_b_excluded[0]
+        assert day_b_stats["observed"] == 8
+        assert day_b_stats["expected"] == 78
+        assert day_b_stats["coverage"] < 0.90
+
+    def test_drop_sparse_days_deterministic(self):
+        """Sparse day exclusion should be deterministic with same inputs."""
+        tz = "America/Chicago"
+
+        day_a = pd.Timestamp("2025-01-02", tz=tz)
+        day_b = pd.Timestamp("2025-01-03", tz=tz)
+
+        def rth_index(day):
+            start = day + pd.Timedelta(hours=8, minutes=30)
+            end = day + pd.Timedelta(hours=15)
+            return pd.date_range(start=start, end=end, freq="5min", tz=tz, inclusive="left")
+
+        idx_a = rth_index(day_a)
+        start_b = day_b + pd.Timedelta(hours=8, minutes=30)
+        idx_b = pd.date_range(start=start_b, periods=8, freq="5min", tz=tz)
+        idx = idx_a.append(idx_b).tz_convert("UTC")
+
+        df = pd.DataFrame(
+            {
+                "open": 100.0,
+                "high": 100.5,
+                "low": 99.5,
+                "close": 100.0,
+                "volume": 5000,
+            },
+            index=idx,
+        )
+
+        sessions = [{"name": "rth", "start_time": "08:30", "end_time": "15:00"}]
+
+        # Run twice with same params
+        df_1, meta_1 = reindex_to_grid(
+            df, bar_size="5m", grid_mode="session", session_grid="rth",
+            session_timezone=tz, sessions=sessions, drop_sparse_days=True,
+            min_day_coverage_pct=0.90, coverage_session="rth",
+        )
+
+        df_2, meta_2 = reindex_to_grid(
+            df, bar_size="5m", grid_mode="session", session_grid="rth",
+            session_timezone=tz, sessions=sessions, drop_sparse_days=True,
+            min_day_coverage_pct=0.90, coverage_session="rth",
+        )
+
+        # Verify outputs are identical
+        pd.testing.assert_index_equal(df_1.index, df_2.index)
+        assert meta_1["excluded_sparse_days"] == meta_2["excluded_sparse_days"]
 
 
 class TestResample1mTo5m:
@@ -548,10 +806,15 @@ class TestEndToEndBuildData:
         config = {
             "raw_data": {
                 "input_path": str(data_file),
-                "input_format": "hdf5",
-                "timestamp_column": None,
                 "required_columns": ["open", "high", "low", "close", "volume"],
             },
+            "ingestion": {
+                "format": "hdf5",
+                "hdf_key": "data",
+                "timestamp_col": None,
+            },
+            "canonical_bar_size": "1m",
+            "bar_sizes_to_write": ["1m", "5m"],
             "continuization": {
                 "mode": "already_continuous",
                 "roll_schedule_path": None,
@@ -664,6 +927,144 @@ class TestEndToEndBuildData:
         assert set(manifest["bar_sizes"]) == {"1m", "5m"}
         assert "1m" in manifest["per_bar_size_artifacts"]
         assert "5m" in manifest["per_bar_size_artifacts"]
+
+    def test_canonical_5m_rejects_upsample_to_1m(self, tmp_path):
+        """Canonical 5m inputs should reject 1m outputs."""
+        import yaml
+        from cli import build_data_command
+        import argparse
+
+        config = {
+            "raw_data": {
+                "input_path": str(tmp_path / "dummy.h5"),
+                "required_columns": ["open", "high", "low", "close", "volume"],
+            },
+            "ingestion": {
+                "format": "hdf5",
+                "hdf_key": "/bars_5min",
+                "timestamp_col": "timestamp",
+            },
+            "canonical_bar_size": "5m",
+            "bar_sizes_to_write": ["1m", "5m"],
+        }
+
+        config_dir = tmp_path / "configs"
+        config_dir.mkdir()
+        config_path = config_dir / "data.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config, f)
+
+        args = argparse.Namespace(
+            config=str(config_path),
+            out=str(tmp_path / "runs" / "test_run"),
+            run_id="test_run",
+            seed=42,
+        )
+
+        with pytest.raises(ValueError, match="Upsampling"):
+            build_data_command(args)
+
+    def test_build_data_5m_writes_expected_artifacts(self, tmp_path):
+        """Canonical 5m inputs should write 5m artifacts only."""
+        import yaml
+        from cli import build_data_command
+        import argparse
+
+        timestamps = pd.date_range(
+            "2025-01-02 09:30:00", periods=12, freq="5min", tz="UTC"
+        )
+        df = pd.DataFrame(
+            {
+                "timestamp": timestamps,
+                "open": 100.0,
+                "high": 100.5,
+                "low": 99.5,
+                "close": 100.0,
+                "volume": 5000,
+            }
+        )
+
+        data_file = tmp_path / "bars_5m.h5"
+        df.to_hdf(data_file, key="/bars_5min", mode="w")
+
+        config = {
+            "raw_data": {
+                "input_path": str(data_file),
+                "required_columns": ["open", "high", "low", "close", "volume"],
+            },
+            "ingestion": {
+                "format": "hdf5",
+                "hdf_key": "/bars_5min",
+                "timestamp_col": "timestamp",
+            },
+            "canonical_bar_size": "5m",
+            "bar_sizes_to_write": ["5m"],
+            "continuization": {
+                "mode": "already_continuous",
+                "roll_schedule_path": None,
+                "roll_day_policy": "exclude",
+            },
+            "reindexing": {
+                "bar_sizes": ["5m"],
+                "resample_policy": "native",
+                "grid_mode": "full_range",
+                "missing_bars": {
+                    "missing_fill_mode": "nan",
+                    "forward_fill_max_consecutive": 0,
+                    "add_synthetic_flag": True,
+                },
+                "session_labeling": {
+                    "timezone": "America/Chicago",
+                    "sessions": [
+                        {"name": "rth", "start_time": "08:30", "end_time": "15:00"},
+                    ],
+                },
+            },
+            "qa": {
+                "qa_fail_fast": True,
+                "checks": [
+                    "monotonic_index",
+                    "no_duplicates",
+                    "missing_bar_pct",
+                    "ohlc_validity",
+                    "volume_sanity",
+                ],
+                "thresholds": {
+                    "max_missing_bar_pct_per_day": 10.0,
+                    "max_ohlc_violations": 0,
+                    "max_duplicate_timestamps": 0,
+                },
+            },
+        }
+
+        config_dir = tmp_path / "configs"
+        config_dir.mkdir()
+        config_path = config_dir / "data.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config, f)
+
+        args = argparse.Namespace(
+            config=str(config_path),
+            out=str(tmp_path / "runs" / "test_run"),
+            run_id="test_run",
+            seed=42,
+        )
+
+        build_data_command(args)
+
+        run_dir = tmp_path / "runs" / "test_run"
+        bar_dir = run_dir / "bar_size=5m"
+
+        assert (bar_dir / "bars.parquet").exists()
+        assert (bar_dir / "qa_report.json").exists()
+        assert (bar_dir / "roll_schedule.csv").exists()
+        assert (bar_dir / "data_metadata.json").exists()
+
+        df_bars = pd.read_parquet(bar_dir / "bars.parquet")
+        assert len(df_bars) > 0
+        assert "open" in df_bars.columns
+        assert "close" in df_bars.columns
+        assert "is_synthetic" in df_bars.columns
 
 
 if __name__ == "__main__":

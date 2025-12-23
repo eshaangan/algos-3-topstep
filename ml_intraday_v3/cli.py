@@ -32,7 +32,7 @@ from data import (
     SessionConfig,
     QAViolationError,
 )
-from run_manifest import write_multibar_run_manifest, hash_content, load_run_manifest
+from run_manifest import write_multibar_run_manifest, hash_content
 from features import (
     build_features,
     get_feature_registry,
@@ -131,8 +131,23 @@ def build_data_command(args):
     logger.info(f"Output directory: {run_dir}")
 
     # Get bar sizes from config
-    bar_sizes = config.get("reindexing", {}).get("bar_sizes", ["1m", "5m"])
+    canonical_bar_size = config.get("canonical_bar_size", "1m")
+    bar_sizes = config.get(
+        "bar_sizes_to_write",
+        config.get("reindexing", {}).get("bar_sizes", ["1m", "5m"]),
+    )
+    logger.info(f"Canonical bar size: {canonical_bar_size}")
     logger.info(f"Bar sizes to process: {bar_sizes}")
+
+    if canonical_bar_size not in {"1m", "5m"}:
+        raise ValueError(f"Unsupported canonical_bar_size: {canonical_bar_size}")
+    if canonical_bar_size == "5m":
+        invalid_sizes = [bs for bs in bar_sizes if bs != "5m"]
+        if invalid_sizes:
+            raise ValueError(
+                "Canonical bar size is 5m. Upsampling to 1m is not supported "
+                f"by default. Remove {invalid_sizes} from bar_sizes_to_write."
+            )
 
     # ------------------------------------------------------------------------
     # 1. Load raw data
@@ -142,13 +157,24 @@ def build_data_command(args):
     logger.info("-" * 80)
 
     raw_data_config = config.get("raw_data", {})
-    input_path = Path(raw_data_config.get("input_path", ""))
+    ingestion_config = config.get("ingestion", {})
+    input_path = Path(
+        ingestion_config.get("input_path", raw_data_config.get("input_path", ""))
+    )
 
     df_raw = load_raw_data(
         input_path=input_path,
-        input_format=raw_data_config.get("input_format", "hdf5"),
-        timestamp_column=raw_data_config.get("timestamp_column"),
+        input_format=ingestion_config.get(
+            "format", raw_data_config.get("input_format", "hdf5")
+        ),
+        timestamp_column=ingestion_config.get(
+            "timestamp_col",
+            ingestion_config.get(
+                "timestamp_column", raw_data_config.get("timestamp_column")
+            ),
+        ),
         required_columns=raw_data_config.get("required_columns"),
+        hdf_key=ingestion_config.get("hdf_key"),
     )
 
     # ------------------------------------------------------------------------
@@ -214,8 +240,23 @@ def build_data_command(args):
         resample_policy = reindex_config.get(
             "resample_policy", "build_1m_resample_5m"
         )
+        session_config = reindex_config.get("session_labeling", {})
+        session_defs = session_config.get("sessions", [])
+        grid_mode = reindex_config.get("grid_mode", "full_range")
+        session_grid = reindex_config.get("session_grid", "rth")
+        exclude_weekends = bool(reindex_config.get("exclude_weekends", True))
+        day_selection_mode = reindex_config.get(
+            "day_selection_mode", "all_days_in_range"
+        )
+        min_rows_per_day = int(reindex_config.get("min_rows_per_day", 1))
+        session_tz = session_config.get("timezone", "America/Chicago")
 
         if bar_size == "1m":
+            if canonical_bar_size != "1m":
+                raise ValueError(
+                    "Cannot build 1m bars from canonical 5m input. "
+                    "Upsampling is not supported by default."
+                )
             # Reindex to 1m grid
             df_bars, reindex_metadata = reindex_to_grid(
                 df_continuous,
@@ -229,12 +270,24 @@ def build_data_command(args):
                 add_synthetic_flag=reindex_config.get("missing_bars", {}).get(
                     "add_synthetic_flag", True
                 ),
+                grid_mode=grid_mode,
+                session_grid=session_grid,
+                session_timezone=session_tz,
+                sessions=session_defs,
+                exclude_weekends=exclude_weekends,
+                day_selection_mode=day_selection_mode,
+                min_rows_per_day=min_rows_per_day,
+                drop_sparse_days=reindex_config.get("drop_sparse_days", False),
+                min_day_coverage_pct=reindex_config.get("min_day_coverage_pct", 0.90),
+                coverage_session=reindex_config.get("coverage_session"),
             )
 
             # Store 1m data for potential 5m resampling
             df_1m = df_bars.copy()
 
         elif bar_size == "5m":
+            if canonical_bar_size == "5m":
+                resample_policy = "native"
             if resample_policy == "build_1m_resample_5m":
                 # Resample from 1m
                 logger.info("Resampling from 1m to 5m")
@@ -272,6 +325,16 @@ def build_data_command(args):
                     add_synthetic_flag=reindex_config.get("missing_bars", {}).get(
                         "add_synthetic_flag", True
                     ),
+                    grid_mode=grid_mode,
+                    session_grid=session_grid,
+                    session_timezone=session_tz,
+                    sessions=session_defs,
+                    exclude_weekends=exclude_weekends,
+                    day_selection_mode=day_selection_mode,
+                    min_rows_per_day=min_rows_per_day,
+                    drop_sparse_days=reindex_config.get("drop_sparse_days", False),
+                    min_day_coverage_pct=reindex_config.get("min_day_coverage_pct", 0.90),
+                    coverage_session=reindex_config.get("coverage_session"),
                 )
 
         else:
@@ -486,7 +549,8 @@ def build_features_command(args):
     # Load existing run manifest (if exists)
     manifest_path = run_dir / "run_manifest.json"
     if manifest_path.exists():
-        manifest = load_run_manifest(manifest_path)
+        with open(manifest_path, "r") as f:
+            manifest = json.load(f)
         bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
         logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
     else:
@@ -581,7 +645,8 @@ def build_features_command(args):
 
     if manifest_path.exists():
         # Load and update existing manifest
-        manifest = load_run_manifest(manifest_path)
+        with open(manifest_path, "r") as f:
+            manifest = json.load(f)
 
         # Add feature artifacts per bar size
         if "per_bar_artifacts" not in manifest:
@@ -1629,6 +1694,20 @@ def build_backtest_command(args):
             cv_data = json.load(f)
         with open(label_schema_path, "r") as f:
             label_schema = json.load(f)
+        try:
+            event_policy = (
+                (label_schema.get("config_snapshot", {}) or {})
+                .get("primary_labeling", {})
+                .get("event_policy")
+            )
+        except Exception:
+            event_policy = None
+        if event_policy == "trend_scanning":
+            logger.warning(
+                "label_schema.primary_labeling.event_policy=trend_scanning uses forward returns to set `side`; "
+                "if backtest PnL uses events['side'], results will be lookahead-biased. "
+                "Use event_policy='cusum' for unbiased evaluation unless `side` comes from a t0-available signal/model."
+            )
         label_cost_mode = label_schema.get("cost_mode")
         if label_cost_mode not in ["net_in_events", "gross_in_events"]:
             raise ValueError("label_schema.cost_mode missing or invalid")

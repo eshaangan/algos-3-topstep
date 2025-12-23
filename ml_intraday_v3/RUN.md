@@ -338,7 +338,22 @@ reindexing:
 
 **Best practice**: Use NaN-by-default and handle missing data explicitly in downstream stages (feature engineering, modeling) rather than hiding it with synthetic prices.
 
-#### 2. QA Fail-Fast (Halt on Data Quality Violations)
+#### 2. Session-Aware Grid (Avoid Massive Missing Gaps)
+
+**Default behavior**: Reindexing uses a **session-aware grid** (RTH by default).
+
+**Why**: Full-range grids over multi-year data produce huge missing gaps for intraday futures and make QA meaningless. Session grids ensure missing-bar stats reflect expected trading minutes.
+
+**Config location**: `ml_intraday_v3/configs/data.yaml`
+
+```yaml
+reindexing:
+  grid_mode: "session"    # or "full_range"
+  session_grid: "rth"     # "rth" or "eth"
+  exclude_weekends: true
+```
+
+#### 3. QA Fail-Fast (Halt on Data Quality Violations)
 
 **Default behavior**: QA checks **halt the pipeline** on any violation (fail-fast mode).
 

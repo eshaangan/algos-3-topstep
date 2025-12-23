@@ -1,14 +1,21 @@
-# Training configuration - primary model baseline
+# Training configuration - primary model
 # Version: 1.0
+# PHASE 5: Upgraded to LightGBM for non-linear pattern capture
 
 model:
-  kind: "logreg"
+  kind: "lgbm"  # Changed from "logreg" - Phase 5 upgrade
   params:
-    C: 1.0
-    penalty: "l2"
-    solver: "lbfgs"
-    max_iter: 200
-    class_weight: null
+    # LightGBM parameters - optimized for financial time series
+    n_estimators: 500
+    learning_rate: 0.05
+    num_leaves: 31
+    max_depth: 6
+    min_child_samples: 100  # Prevent overfitting to small leaf nodes
+    subsample: 0.8  # Bagging fraction (row sampling)
+    subsample_freq: 5
+    colsample_bytree: 0.8  # Feature fraction (column sampling)
+    reg_alpha: 0.1  # L1 regularization
+    reg_lambda: 0.1  # L2 regularization
 
 features:
   use_columns: "all"  # or explicit list
@@ -18,7 +25,10 @@ features:
 
 target:
   column: "y"
-  positive_label: 1
+  # Multiclass: stop / vertical / target
+  mode: "multiclass"
+  classes: [-1, 0, 1]
+  positive_label: 1  # only used in binary mode
 
 sample_weight:
   column: "w_final"
@@ -32,12 +42,10 @@ eval:
   metrics:
     - "accuracy"
     - "balanced_accuracy"
-    - "roc_auc"
     - "log_loss"
-    - "brier"
-    - "precision"
-    - "recall"
-    - "f1"
+    - "f1_macro"
+    - "f1_weighted"
+    - "roc_auc_target_vs_rest"
   threshold: 0.5
 
 output:
@@ -47,8 +55,9 @@ output:
 seed: 42
 
 meta:
-  enabled: true
-  threshold_primary: 0.55
+  # PHASE 5 FIX: Disable meta-model (was adding noise; ROC-AUC ~ 0.50).
+  enabled: false
+  threshold_primary: 0.30  # PHASE 1: Relaxed from 0.55 to increase signal generation
   target:
     kind: "y_positive"  # y_positive | ret_net_positive | y_and_ret_net
   features:
@@ -56,13 +65,19 @@ meta:
     include_primary_logit: true
     include_original_features: true
   model:
-    kind: "logreg"
+    kind: "lgbm"  # PHASE 5: Upgraded from "logreg"
     params:
-      C: 1.0
-      penalty: "l2"
-      solver: "lbfgs"
-      max_iter: 200
-      class_weight: null
+      # LightGBM parameters - lighter for meta-model (smaller dataset)
+      n_estimators: 300
+      learning_rate: 0.05
+      num_leaves: 15  # Shallower trees for meta-model
+      max_depth: 4
+      min_child_samples: 50  # Lower threshold for smaller meta datasets
+      subsample: 0.8
+      subsample_freq: 5
+      colsample_bytree: 0.8
+      reg_alpha: 0.1
+      reg_lambda: 0.1
   output:
     write_meta_predictions: true
     write_meta_model: true

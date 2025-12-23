@@ -56,7 +56,20 @@ class RiskManager:
         self.consecutive_losses = 0
         self.last_trade_exit_ts = None
 
+    @staticmethod
+    def _normalize_ts(ts: pd.Timestamp | None) -> pd.Timestamp | None:
+        if ts is None:
+            return None
+        if not isinstance(ts, pd.Timestamp):
+            ts = pd.Timestamp(ts)
+        if ts.tzinfo is None:
+            return ts.tz_localize("UTC")
+        return ts.tz_convert("UTC")
+
     def _maybe_reset_day(self, timestamp: pd.Timestamp):
+        timestamp = self._normalize_ts(timestamp)
+        if timestamp is None:
+            return
         day = _session_day(timestamp, self.reset_time, self.reset_tz)
         if self.current_day != day:
             if self.hwm_update_policy == "end_of_day":
@@ -68,6 +81,9 @@ class RiskManager:
             self.consecutive_losses = 0
 
     def can_trade(self, entry_ts: pd.Timestamp) -> tuple[bool, str]:
+        entry_ts = self._normalize_ts(entry_ts)
+        if entry_ts is None:
+            return False, "invalid_timestamp"
         self._maybe_reset_day(entry_ts)
         if self.halted_today:
             return False, "halted"
@@ -76,7 +92,8 @@ class RiskManager:
         if self.consecutive_losses >= self.max_consecutive_losses:
             return False, "consecutive_losses"
         if self.last_trade_exit_ts is not None:
-            delta = (entry_ts - self.last_trade_exit_ts).total_seconds()
+            last_exit = self._normalize_ts(self.last_trade_exit_ts)
+            delta = (entry_ts - last_exit).total_seconds()
             if delta < self.min_seconds_between_trades:
                 return False, "min_time"
         if self.daily_enabled and self.daily_pnl <= -self.max_daily_loss:
@@ -93,6 +110,9 @@ class RiskManager:
         """
         Check for daily loss or drawdown breach using unrealized equity.
         """
+        timestamp = self._normalize_ts(timestamp)
+        if timestamp is None:
+            return False, ""
         self._maybe_reset_day(timestamp)
 
         if self.daily_enabled:
@@ -118,6 +138,10 @@ class RiskManager:
         return False, ""
 
     def record_trade(self, entry_ts: pd.Timestamp, exit_ts: pd.Timestamp, pnl_usd: float):
+        entry_ts = self._normalize_ts(entry_ts)
+        exit_ts = self._normalize_ts(exit_ts)
+        if entry_ts is None or exit_ts is None:
+            return
         self._maybe_reset_day(exit_ts)
         self.equity += pnl_usd
         self.daily_pnl += pnl_usd

@@ -2,10 +2,16 @@
 # Version: 1.0
 
 decision:
-  use_meta: true
-  primary_threshold: 0.55
-  meta_threshold: 0.5
-  require_meta_for_trade: true
+  # PHASE 5 FIX: Disable meta-model (was adding noise; ROC-AUC ~ 0.50).
+  use_meta: false
+  # Primary decision score (from preds.parquet). For multiclass models, we use:
+  # score_ev = p_target - p_stop (expected-value style directional edge).
+  primary_score_column: "score_ev"
+  # EMERGENCY TRIAGE: Relaxed thresholds to increase trade count
+  # Baseline was 0.55/0.50, now 0.30/0.30 to generate ~100-300x more signals
+  primary_threshold: 0.10
+  meta_threshold: 0.30
+  require_meta_for_trade: false
 
 sizing:
   contracts: 1

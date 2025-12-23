@@ -52,6 +52,11 @@ def build_features(
 
     # Get epsilon from config
     eps = config.get("computation", {}).get("eps", 1e-8)
+    if isinstance(eps, str):
+        try:
+            eps = float(eps)
+        except ValueError as exc:
+            raise ValueError(f"Invalid eps value in config: {eps}") from exc
 
     # Get registry for this bar size
     full_registry = get_feature_registry(config)
@@ -93,6 +98,13 @@ def build_features(
         for k in lookback_5m:
             features[f"log_return_{k}"] = log_close.diff(k)
 
+    # PHASE 3: Multi-horizon returns (match 12-24 bar label horizons)
+    # These are critical for predicting multi-bar outcomes
+    if config.get("returns", {}).get("enable_multi_horizon", True):
+        multi_horizon = config.get("returns", {}).get("multi_horizon_bars", [6, 12, 24])
+        for k in multi_horizon:
+            features[f"log_return_{k}"] = log_close.diff(k)
+
     # -------------------------------------------------------------------------
     # 2. VOLATILITY
     # -------------------------------------------------------------------------
@@ -110,6 +122,28 @@ def build_features(
     features[f"atr_{atr_period}"] = (
         features["true_range"].ewm(span=atr_period, adjust=False).mean()
     )
+
+    # PHASE 3: Volatility regime indicators
+    if config.get("volatility", {}).get("enable_regime_features", True):
+        logger.debug("Computing volatility regime features")
+
+        # Rolling volatility (20-bar window)
+        returns_1 = features["log_return_1"]
+        features["vol_20"] = returns_1.rolling(20).std()
+
+        # Volatility regime (current vol vs 100-bar median)
+        features["vol_regime"] = features["vol_20"] / (
+            features["vol_20"].rolling(100).median() + eps
+        )
+
+        # Parkinson volatility (uses high-low range, more efficient estimator)
+        hl_log_ratio = np.log(df["high"] / (df["low"] + eps))
+        features["parkinson_vol"] = np.sqrt(
+            (1 / (4 * np.log(2))) * (hl_log_ratio ** 2).rolling(20).mean()
+        )
+
+        # EWMA volatility forecast (decay factor 0.94 as per research)
+        features["vol_forecast"] = returns_1.ewm(alpha=0.06).std()
 
     # -------------------------------------------------------------------------
     # 3. TREND
@@ -130,8 +164,65 @@ def build_features(
     features["ema_spread"] = ema_fast - ema_slow
     features["ema_ratio"] = ema_fast / (ema_slow + eps)
 
+    # PHASE 3: Advanced trend and mean reversion features
+    if config.get("trend", {}).get("enable_advanced_features", True):
+        logger.debug("Computing advanced trend features")
+
+        # SMAs for trend strength
+        sma_20 = df["close"].rolling(20).mean()
+        sma_50 = df["close"].rolling(50).mean()
+
+        features["sma_20"] = sma_20
+        features["sma_50"] = sma_50
+
+        # Trend strength (distance from long-term SMA, normalized)
+        features["trend_strength"] = (df["close"] - sma_50) / (sma_50 + eps)
+
+        # Autocorrelation (lag-5 on 20-bar window) - detects mean reversion
+        def autocorr_lag5(x):
+            if len(x) < 6:
+                return np.nan
+            return x.autocorr(lag=5) if len(x.dropna()) > 6 else np.nan
+
+        features["autocorr_5"] = df["close"].rolling(20).apply(autocorr_lag5, raw=False)
+
+        # Price position relative to Bollinger Bands
+        bb_std = df["close"].rolling(20).std()
+        bb_upper = sma_20 + 2 * bb_std
+        bb_lower = sma_20 - 2 * bb_std
+        features["bb_position"] = (df["close"] - bb_lower) / (bb_upper - bb_lower + eps)
+
     # -------------------------------------------------------------------------
-    # 4. STRUCTURE (Candle features)
+    # 4. VOLUME & MICROSTRUCTURE (Order flow proxies)
+    # -------------------------------------------------------------------------
+    if config.get("microstructure", {}).get("enabled", True) and "volume" in df.columns:
+        logger.debug("Computing microstructure features")
+
+        # Volume imbalance (buying vs selling pressure proxy)
+        # Assumes: close > open = buying, close < open = selling
+        features["volume_imbalance"] = (df["close"] - df["open"]) / (
+            df["high"] - df["low"] + eps
+        )
+
+        # Volume-weighted price position (VWAP proxy)
+        typical_price = (df["high"] + df["low"] + df["close"]) / 3
+        cum_vol_price = (df["volume"] * typical_price).rolling(50).sum()
+        cum_vol = df["volume"].rolling(50).sum()
+        vwap = cum_vol_price / (cum_vol + eps)
+        features["price_vs_vwap"] = (df["close"] - vwap) / (vwap + eps)
+
+        # Relative volume (current vs 20-bar average)
+        avg_volume = df["volume"].rolling(20).mean()
+        features["relative_volume"] = df["volume"] / (avg_volume + eps)
+
+        # Large move detection (exceeds 2× typical volatility)
+        if "vol_20" in features:
+            features["large_move"] = (
+                features["log_return_1"].abs() > 2 * features["vol_20"]
+            ).astype(int)
+
+    # -------------------------------------------------------------------------
+    # 5. STRUCTURE (Candle features)
     # -------------------------------------------------------------------------
     if config.get("structure", {}).get("enabled", True):
         logger.debug("Computing candle structure features")
