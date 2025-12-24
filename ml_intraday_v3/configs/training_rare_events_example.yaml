@@ -1,0 +1,98 @@
+# Training Configuration - Rare Events Example
+# Add this section to your training.yaml to enable rare events corrections
+
+# Model configuration
+model:
+  type: "relogit"  # Use "relogit" or "logistic_regression"
+
+  # Standard logistic regression parameters
+  C: 1.0
+  max_iter: 200
+  solver: "lbfgs"
+  random_state: 42
+
+  # RelogitClassifier-specific parameters (only if type="relogit")
+  relogit_params:
+    # Prior probability of positive class (profitable trade)
+    # Set to null to auto-estimate from training data
+    # Or provide known value (e.g., 0.05 for 5% win rate)
+    tau: null
+
+    # Use sample weighting during training
+    use_sample_weights: true
+
+    # Method for computing sample weights
+    # Options: "king_zeng", "inverse_freq", "balanced"
+    weight_method: "king_zeng"
+
+    # Method for correcting predicted probabilities
+    # Options: "king_zeng", "simple"
+    correction_method: "king_zeng"
+
+# Rare events configuration (for standard LR + post-hoc correction)
+rare_events:
+  # Enable rare events corrections
+  enabled: true
+
+  # Correction method
+  # Options: "king_zeng", "simple"
+  correction_method: "king_zeng"
+
+  # Prior probability estimation
+  estimate_prior: true
+  prior_tau: null  # null = auto-estimate from training data
+  prior_method: "train"  # Options: "train", "val", "pooled"
+
+  # Sample weighting (applied during training)
+  use_sample_weights: true
+  weight_method: "king_zeng"  # Options: "king_zeng", "inverse_freq", "balanced"
+
+  # Intercept correction (for case-control or artificially balanced data)
+  apply_intercept_correction: false
+  population_tau: null  # Required if apply_intercept_correction=true
+
+  # Validation and reporting
+  compute_calibration_metrics: true
+  plot_calibration_curves: true
+
+# Example configurations for different scenarios:
+
+# Scenario 1: Highly imbalanced (5% profitable trades)
+scenario_highly_imbalanced:
+  model:
+    type: "relogit"
+    relogit_params:
+      tau: 0.05  # Known from historical data
+      use_sample_weights: true
+      weight_method: "king_zeng"
+      correction_method: "king_zeng"
+
+# Scenario 2: Moderately imbalanced (30% profitable trades)
+scenario_moderately_imbalanced:
+  model:
+    type: "relogit"
+    relogit_params:
+      tau: null  # Auto-estimate
+      use_sample_weights: true
+      weight_method: "king_zeng"
+      correction_method: "king_zeng"
+
+# Scenario 3: Balanced training data, but population is imbalanced
+scenario_balanced_training:
+  model:
+    type: "logistic_regression"
+  rare_events:
+    enabled: true
+    apply_intercept_correction: true
+    population_tau: 0.05  # True population rate
+    use_sample_weights: false  # Data is already balanced
+
+# Scenario 4: Unknown prior, conservative approach
+scenario_unknown_prior:
+  model:
+    type: "relogit"
+    relogit_params:
+      tau: null  # Estimate from data
+      use_sample_weights: true
+      weight_method: "inverse_freq"  # Standard inverse frequency
+      correction_method: "simple"  # Simple rescaling
