@@ -14,6 +14,7 @@ from sklearn.metrics import confusion_matrix, roc_auc_score
 import lightgbm as lgb
 
 from run_manifest import hash_content
+from .rare_events import RelogitClassifier
 
 from .dataset import build_event_dataset, build_meta_dataset
 from .preprocess import FoldPreprocessor
@@ -127,6 +128,10 @@ def train_on_splits(
     threshold = cfg.get("eval", {}).get("threshold", 0.5)
     write_predictions = bool(cfg.get("output", {}).get("write_predictions", True))
     write_model = bool(cfg.get("output", {}).get("write_model", True))
+
+    # Check if rare events corrections are enabled (only applies to logreg)
+    rare_events_cfg = cfg.get("rare_events", {})
+    rare_events_enabled = bool(rare_events_cfg.get("enabled", False))
 
     meta_cfg = cfg.get("meta", {})
     meta_enabled = bool(meta_cfg.get("enabled", False))
@@ -260,14 +265,30 @@ def train_on_splits(
 
             # PHASE 5: Support both LogisticRegression and LightGBM
             if model_kind == "logreg":
-                model = LogisticRegression(
-                    C=model_params.get("C", 1.0),
-                    penalty=model_params.get("penalty", "l2"),
-                    solver=model_params.get("solver", "lbfgs"),
-                    max_iter=model_params.get("max_iter", 200),
-                    class_weight=model_params.get("class_weight"),
-                    random_state=seed,
-                )
+                if rare_events_enabled:
+                    # Use RelogitClassifier with King & Zeng corrections
+                    model = RelogitClassifier(
+                        tau=rare_events_cfg.get("tau"),  # None = auto-estimate
+                        use_sample_weights=rare_events_cfg.get("use_sample_weights", True),
+                        weight_method=rare_events_cfg.get("weight_method", "king_zeng"),
+                        correction_method=rare_events_cfg.get("correction_method", "king_zeng"),
+                        C=model_params.get("C", 1.0),
+                        penalty=model_params.get("penalty", "l2"),
+                        solver=model_params.get("solver", "lbfgs"),
+                        max_iter=model_params.get("max_iter", 200),
+                        random_state=seed,
+                    )
+                else:
+                    # Standard LogisticRegression
+                    model = LogisticRegression(
+                        C=model_params.get("C", 1.0),
+                        penalty=model_params.get("penalty", "l2"),
+                        solver=model_params.get("solver", "lbfgs"),
+                        max_iter=model_params.get("max_iter", 200),
+                        class_weight=model_params.get("class_weight"),
+                        random_state=seed,
+                    )
+
                 model.fit(
                     X_train,
                     y_train_bin,
@@ -298,6 +319,13 @@ def train_on_splits(
 
             y_prob = model.predict_proba(X_test)[:, 1]
             y_prob_train = model.predict_proba(X_train)[:, 1]
+
+            # Store uncorrected probabilities if using rare events corrections
+            y_prob_uncorrected = None
+            if model_kind == "logreg" and rare_events_enabled and hasattr(model, 'lr_model_'):
+                # Get uncorrected probabilities from the underlying LogisticRegression model
+                y_prob_uncorrected = model.lr_model_.predict_proba(X_test)[:, 1]
+
             y_pred = (y_prob >= threshold).astype(int)
             metrics = compute_metrics(
                 y_test_bin,
@@ -374,15 +402,17 @@ def train_on_splits(
                     }
                 )
             else:
-                preds_df = pd.DataFrame(
-                    {
-                        "event_id": test_df["event_id"].to_numpy(),
-                        "y_true": y_test_bin,
-                        "y_prob": y_prob,
-                        "y_pred": y_pred,
-                        "weight": weights,
-                    }
-                )
+                preds_data = {
+                    "event_id": test_df["event_id"].to_numpy(),
+                    "y_true": y_test_bin,
+                    "p_target": y_prob,  # Renamed from y_prob for consistency with multiclass
+                    "y_pred": y_pred,
+                    "weight": weights,
+                }
+                # Add uncorrected probabilities if rare events corrections were applied
+                if y_prob_uncorrected is not None:
+                    preds_data["p_target_uncorrected"] = y_prob_uncorrected
+                preds_df = pd.DataFrame(preds_data)
             preds_df.to_parquet(split_dir / "preds.parquet")
 
         if meta_enabled:

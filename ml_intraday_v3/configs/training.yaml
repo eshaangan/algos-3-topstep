@@ -17,6 +17,43 @@ model:
     reg_alpha: 0.1  # L1 regularization
     reg_lambda: 0.1  # L2 regularization
 
+# Hyperparameter Search with Trial Tracking (for PBO analysis)
+hyperparam_search:
+  enabled: false  # Set to true to run grid search with TrialTracker
+
+  model:
+    kind: "lgbm"  # Model type for grid search
+
+    # Parameter grid - all combinations will be tested
+    # WARNING: Grid size = product of all list lengths
+    # Example below: 3 x 3 x 3 = 27 trials
+    param_grid:
+      # Number of boosting iterations
+      n_estimators: [300, 500, 1000]
+
+      # Learning rate (eta)
+      learning_rate: [0.01, 0.05, 0.1]
+
+      # Tree complexity
+      max_depth: [4, 6, 8]
+
+      # Optional: Add more parameters to search
+      # num_leaves: [15, 31, 63]
+      # min_child_samples: [50, 100, 200]
+      # subsample: [0.7, 0.8, 0.9]
+      # colsample_bytree: [0.7, 0.8, 0.9]
+      # reg_alpha: [0.0, 0.1, 0.5]
+      # reg_lambda: [0.0, 0.1, 0.5]
+
+  # Fixed parameters (not searched over)
+  fixed_params:
+    min_child_samples: 100
+    subsample: 0.8
+    subsample_freq: 5
+    colsample_bytree: 0.8
+    reg_alpha: 0.1
+    reg_lambda: 0.1
+
 features:
   use_columns: "all"  # or explicit list
   drop_meta_columns:
@@ -53,6 +90,26 @@ output:
   write_model: true
 
 seed: 42
+
+# Rare events corrections (King & Zeng 2001) - only applies when model.kind == "logreg"
+rare_events:
+  enabled: true
+
+  # Prior probability of positive class (profitable trade)
+  # Set to null to auto-estimate from training data
+  # Or provide known value (e.g., 0.35 for 35% win rate)
+  tau: null  # Auto-estimate from data
+
+  # Use sample weighting during training (King & Zeng method)
+  use_sample_weights: true
+
+  # Method for computing sample weights
+  # Options: "king_zeng", "inverse_freq", "balanced"
+  weight_method: "king_zeng"
+
+  # Method for correcting predicted probabilities
+  # Options: "king_zeng", "simple"
+  correction_method: "king_zeng"
 
 meta:
   # PHASE 5 FIX: Disable meta-model (was adding noise; ROC-AUC ~ 0.50).

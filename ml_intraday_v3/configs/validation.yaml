@@ -41,13 +41,18 @@ cpcv:
   test_groups: 2
 
   # Maximum number of paths to evaluate (cap for computational feasibility)
-  # C(6,2) = 15, so we'll limit to 10 for baseline
-  max_paths: 10
+  # C(6,2) = 15, so we'll limit to 15 for full coverage
+  max_paths: 15
 
   # Path selection method if max_paths < total_combinations
-  # "random": randomly sample paths
-  # "balanced": select paths with balanced test coverage
-  path_selection: "lexicographic"
+  # Options:
+  # - "lexicographic": first N paths in natural order (simple, deterministic)
+  # - "balanced": greedy selection for equal test fold coverage (recommended)
+  # - "random": random sample with seed (for sensitivity analysis)
+  path_selection: "balanced"
+
+  # Random seed for path selection (used if path_selection = "random")
+  random_state: 42
 
   # Apply purging and embargo within each path
   apply_purging: true
@@ -56,18 +61,91 @@ cpcv:
   # Inherit embargo_bars from purged_cv
   use_purged_cv_embargo: true
 
+  # Validation gates for automated quality checks
+  # These thresholds determine if CPCV results are acceptable for deployment
+  validation_gates:
+    # Median Sharpe ratio across all OOS paths must exceed this threshold
+    # Interpretation: typical OOS performance meets minimum skill bar
+    median_sharpe:
+      threshold: 0.8
+      enabled: true
+      description: "Median OOS Sharpe ratio across CPCV paths"
+
+    # 25th percentile (Q1) Sharpe ratio across OOS paths
+    # Interpretation: worst-case scenario still shows positive performance
+    # This guards against deployment if lower quartile performance is poor
+    p25_sharpe:
+      threshold: 0.2
+      enabled: true
+      description: "25th percentile OOS Sharpe (worst quartile still acceptable)"
+
+    # Median ROC-AUC for primary model (classification quality)
+    median_roc_auc:
+      threshold: 0.55
+      enabled: true
+      description: "Median OOS ROC-AUC across CPCV paths"
+
+    # IS/OOS Sharpe ratio (overfitting indicator)
+    # Ratio > 1.5 suggests significant IS overfitting
+    is_oos_sharpe_ratio:
+      threshold: 1.5
+      enabled: true
+      description: "Median IS Sharpe / Median OOS Sharpe (< 1.5 preferred)"
+
+    # Probability of Backtest Overfitting (PBO)
+    # PBO > 0.5 means more likely overfitted than genuine
+    pbo:
+      threshold: 0.5
+      enabled: true
+      description: "PBO computed from CPCV IS vs OOS (< 0.5 preferred)"
+
+    # Deflated Sharpe Ratio (DSR)
+    # DSR < 0.5 means weak evidence (likely luck, not skill)
+    dsr:
+      threshold: 0.5
+      enabled: true
+      description: "DSR selection-bias-adjusted Sharpe (> 0.5 preferred)"
+
+  # Action on gate failure
+  # Options: "warn", "fail" (halt execution), "log" (continue silently)
+  gate_failure_action: "warn"
+
 # Backtest overfitting diagnostics
 overfitting_diagnostics:
-  # Probability of Backtest Overfitting (PBO)
+  # Probability of Backtest Overfitting (PBO) - Enhanced Implementation
   pbo:
     enabled: true
+
+    # Track ALL trials/configurations, not just winners
+    # This is CRITICAL for unbiased PBO computation (López de Prado)
+    track_all_trials: true
 
     # Compute PBO from CPCV results
     # PBO = probability that IS performance > OOS performance across paths
     use_cpcv_results: true
 
-    # Number of bootstrap samples for PBO confidence interval (optional)
+    # Primary metric for PBO computation
+    # Options: "roc_auc", "sharpe_ratio", "mean_return", etc.
+    metric: "roc_auc"
+
+    # Whether higher metric values are better
+    # True for ROC-AUC, accuracy, Sharpe; False for loss, error rate
+    higher_is_better: true
+
+    # Number of bootstrap samples for PBO confidence interval
     n_bootstrap: 1000
+
+    # Confidence level for bootstrap CI
+    confidence_level: 0.95
+
+    # Random seed for reproducible bootstrap
+    random_state: 42
+
+    # PBO warning threshold (if exceeded, flag as high overfitting risk)
+    warning_threshold: 0.5
+
+    # Minimum number of trials required to compute PBO
+    min_trials: 2
 
   # Deflated Sharpe Ratio (DSR)
   dsr:
@@ -173,8 +251,14 @@ output:
   # Metrics by CPCV path
   cpcv_metrics_path: "runs/{run_id}/bar_size={bar_size}/cpcv_path_metrics.csv"
 
+  # Trials tracking (all configurations tested)
+  trials_path: "runs/{run_id}/trials/trials.json"
+
   # PBO report
   pbo_report_path: "runs/{run_id}/bar_size={bar_size}/pbo_report.md"
+
+  # PBO visualization
+  pbo_plot_path: "runs/{run_id}/bar_size={bar_size}/pbo_distribution.png"
 
   # DSR report
   dsr_report_path: "runs/{run_id}/bar_size={bar_size}/dsr_report.md"

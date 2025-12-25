@@ -169,12 +169,72 @@
       "threshold_interpretation": "PBO > 0.5 indicates likely overfitting"
     },
     "dsr": {
-      "description": "Deflated Sharpe Ratio",
-      "formula": "sharpe * sqrt(1 - skew^2/n + kurtosis/n - (2*skew^2 + kurtosis - 3)/(2*n))",
+      "description": "Deflated Sharpe Ratio - Selection-bias-adjusted Sharpe accounting for multiple testing and non-normality",
+      "formula": "DSR = Φ((SR - SR*) / σ_SR)",
+      "components": {
+        "SR": {
+          "description": "Observed Sharpe ratio",
+          "formula": "μ / σ"
+        },
+        "SR*": {
+          "description": "Expected maximum Sharpe from N trials (selection bias adjustment)",
+          "formula": "SR_0 + σ_SR × Z_{1-1/N}",
+          "parameters": {
+            "SR_0": "Target/benchmark Sharpe (default: 0.0)",
+            "Z_{1-1/N}": "Normal quantile at 1 - 1/N probability",
+            "N": "Number of configurations tested (from TrialTracker)"
+          }
+        },
+        "σ_SR": {
+          "description": "Standard error of Sharpe ratio (accounts for non-normality)",
+          "formula": "sqrt((1 - γ×SR + (κ-1)/4 × SR²) / (n-1))",
+          "parameters": {
+            "γ": "Skewness of returns = mean(z³)",
+            "κ": "Kurtosis of returns = mean(z⁴)",
+            "z": "Standardized returns = (r - μ) / σ",
+            "n": "Number of observations"
+          }
+        },
+        "Φ": {
+          "description": "Standard normal cumulative distribution function"
+        }
+      },
+      "parameters": {
+        "n_trials": {
+          "description": "Number of configurations tested (CRITICAL for selection bias)",
+          "source": "TrialTracker (for accurate count)",
+          "default": 10,
+          "note": "Conservative estimate if unknown"
+        },
+        "target_sharpe": {
+          "description": "Benchmark Sharpe ratio",
+          "default": 0.0,
+          "note": "0.0 tests against no skill; positive values test higher bar"
+        },
+        "annualization_factor": {
+          "description": "Factor to annualize Sharpe ratio",
+          "per_trade": "sqrt(252 × trades_per_day)",
+          "time_based": "sqrt(252 × bars_per_day / avg_holding_bars)",
+          "default": null,
+          "note": "If null, assumes returns already appropriately scaled"
+        }
+      },
       "required": true,
-      "decimals": 3,
-      "threshold": 0.0,
-      "threshold_interpretation": "DSR < 0 indicates statistically insignificant Sharpe"
+      "decimals": 4,
+      "threshold": 0.5,
+      "threshold_interpretation": {
+        "> 0.95": "Strong evidence of skill (p < 0.05 equivalent)",
+        "0.50 - 0.95": "Moderate evidence (more likely skill than luck)",
+        "< 0.50": "Weak evidence (likely overfitting or luck)"
+      },
+      "reference": "Bailey, D.H., & López de Prado, M. (2014). 'The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality.' Journal of Portfolio Management, 40(5), 94-107.",
+      "advantages": [
+        "Accounts for selection bias from testing multiple configurations",
+        "Adjusts for non-normal return distributions (skewness, kurtosis)",
+        "Provides probabilistic interpretation (similar to p-value)",
+        "More conservative than raw Sharpe ratio"
+      ],
+      "implementation": "ml_intraday_v3/experiments/diagnostics.py::compute_dsr()"
     },
     "is_oos_sharpe_ratio": {
       "description": "Ratio of in-sample to out-of-sample Sharpe",

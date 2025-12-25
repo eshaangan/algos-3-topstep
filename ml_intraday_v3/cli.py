@@ -1270,12 +1270,15 @@ def build_cv_command(args):
     cpcv_test_groups = int(cpcv_cfg.get("test_groups", 2))
     cpcv_max_paths = cpcv_cfg.get("max_paths", None)
     selection = cpcv_cfg.get("path_selection", "lexicographic")
-    if selection != "lexicographic" and cpcv_enabled:
+    random_state = cpcv_cfg.get("random_state", None)
+
+    # Validate selection strategy
+    valid_selections = ["lexicographic", "balanced", "random"]
+    if selection not in valid_selections and cpcv_enabled:
         raise ValueError(
             f"Unsupported cpcv.path_selection: {selection} "
-            "(only 'lexicographic' is supported)"
+            f"(must be one of {valid_selections})"
         )
-    selection = "lexicographic"
 
     per_bar_cv_artifacts = {}
 
@@ -1335,6 +1338,10 @@ def build_cv_command(args):
                 )
                 n_groups_used = n_splits
 
+            logger.info(f"Path selection strategy: {selection}")
+            if random_state is not None:
+                logger.info(f"Random state: {random_state}")
+
             cpcv_paths = build_cpcv_paths(
                 base_folds=purged_splits,
                 events_df=events_df,
@@ -1344,6 +1351,7 @@ def build_cv_command(args):
                 embargo_bars=embargo_bars,
                 max_paths=cpcv_max_paths,
                 selection=selection,
+                random_state=random_state,
             )
 
         cv_splits = {

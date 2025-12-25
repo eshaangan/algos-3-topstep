@@ -140,5 +140,53 @@ output:
   bars_path: "runs/{run_id}/bar_size={bar_size}/bars.parquet"
   metadata_path: "runs/{run_id}/bar_size={bar_size}/data_metadata.json"
 
+# Feature scaling and regime-aware normalization
+feature_scaling:
+  # Scaling method:
+  # - "standard": Standard scaling (mean=0, std=1) across all data
+  # - "robust": Robust scaling using median and IQR (less sensitive to outliers)
+  # - "regime_aware": Regime-specific scaling to prevent distribution shift
+  method: "regime_aware"
+
+  # Regime detection configuration (only used if method="regime_aware")
+  regime_detection:
+    enabled: true
+
+    # Volatility regime detection
+    volatility:
+      window: 20  # Rolling window for volatility computation (bars)
+      n_regimes: 3  # Number of regimes: 3 = low/medium/high
+      method: "quantile"  # Classification method
+
+    # Trend regime detection
+    trend:
+      window: 50  # Rolling window for trend computation (bars)
+      n_regimes: 3  # Number of regimes: 3 = down/sideways/up
+      method: "slope"  # "slope" or "ma_diff"
+
+    # Combined regime (volatility × trend)
+    use_combined: true  # If true, use vol×trend combined regime for scaling
+
+    # Minimum samples per regime for reliable statistics
+    min_samples_per_regime: 10
+
+    # Fallback to global statistics if regime has insufficient samples
+    fallback_to_global: true
+
+  # Probability calibration (for model outputs)
+  calibration:
+    enabled: true
+
+    # Calibration method:
+    # - "isotonic": Isotonic regression (non-parametric, flexible)
+    # - "platt": Platt scaling (logistic regression, parametric)
+    method: "isotonic"
+
+    # Number of bins for calibration evaluation
+    n_bins: 10
+
+    # Validation: compute calibration metrics (ECE, MCE, Brier score)
+    compute_metrics: true
+
 # Data version
 data_spec_version: "1.0.0"
