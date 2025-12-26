@@ -294,6 +294,192 @@ def plot_calibration_curve(
     return fig
 
 
+class MulticlassIsotonicCalibrator:
+    """
+    Multiclass isotonic calibration using one-vs-rest approach.
+
+    For each class k, fits an isotonic regressor that maps
+    predicted P(class=k) to calibrated P(class=k|features).
+
+    After calibration, probabilities are renormalized to sum to 1.
+
+    Attributes
+    ----------
+    calibrators_ : dict
+        Mapping from class label to fitted IsotonicRegression
+    classes_ : list
+        List of class labels in order
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> np.random.seed(42)
+    >>> # 3-class problem: -1 (stop), 0 (vertical), 1 (target)
+    >>> y_true = np.random.choice([-1, 0, 1], size=1000, p=[0.2, 0.6, 0.2])
+    >>> proba_uncal = np.random.dirichlet([2, 3, 2], size=1000)
+    >>>
+    >>> calibrator = MulticlassIsotonicCalibrator(classes=[-1, 0, 1])
+    >>> calibrator.fit(proba_uncal, y_true)
+    >>> proba_cal = calibrator.transform(proba_uncal)
+    >>> print(f"Calibrated probs sum to 1: {np.allclose(proba_cal.sum(axis=1), 1)}")
+    """
+
+    def __init__(self, classes: list):
+        """
+        Initialize multiclass calibrator.
+
+        Parameters
+        ----------
+        classes : list
+            List of class labels in the same order as probability columns.
+            E.g., [-1, 0, 1] for stop/vertical/target.
+        """
+        self.classes_ = list(classes)
+        self.calibrators_ = {}
+        self._fitted = False
+
+    def fit(self, y_proba: np.ndarray, y_true: np.ndarray) -> "MulticlassIsotonicCalibrator":
+        """
+        Fit isotonic calibrators for each class.
+
+        Parameters
+        ----------
+        y_proba : np.ndarray, shape (n_samples, n_classes)
+            Uncalibrated probability estimates from model
+        y_true : np.ndarray, shape (n_samples,)
+            True class labels (must be values from self.classes_)
+
+        Returns
+        -------
+        self
+        """
+        n_samples, n_classes = y_proba.shape
+        if n_classes != len(self.classes_):
+            raise ValueError(
+                f"y_proba has {n_classes} columns but expected {len(self.classes_)} classes"
+            )
+
+        y_true = np.asarray(y_true)
+
+        for i, cls in enumerate(self.classes_):
+            # One-vs-rest: binary indicator for this class
+            y_binary = (y_true == cls).astype(int)
+            p_cls = y_proba[:, i]
+
+            # Fit isotonic regression
+            iso = IsotonicRegression(out_of_bounds='clip')
+            iso.fit(p_cls, y_binary)
+            self.calibrators_[cls] = iso
+
+            logger.info(
+                f"Fitted isotonic calibrator for class {cls}: "
+                f"p_uncal range [{p_cls.min():.3f}, {p_cls.max():.3f}], "
+                f"actual rate {y_binary.mean():.3f}"
+            )
+
+        self._fitted = True
+        return self
+
+    def transform(self, y_proba: np.ndarray, normalize: bool = True) -> np.ndarray:
+        """
+        Apply calibration to probability estimates.
+
+        Parameters
+        ----------
+        y_proba : np.ndarray, shape (n_samples, n_classes)
+            Uncalibrated probability estimates
+        normalize : bool
+            If True (default), renormalize calibrated probabilities to sum to 1
+
+        Returns
+        -------
+        y_proba_cal : np.ndarray, shape (n_samples, n_classes)
+            Calibrated probability estimates
+        """
+        if not self._fitted:
+            raise RuntimeError("Calibrator not fitted. Call fit() first.")
+
+        n_samples, n_classes = y_proba.shape
+        if n_classes != len(self.classes_):
+            raise ValueError(
+                f"y_proba has {n_classes} columns but expected {len(self.classes_)} classes"
+            )
+
+        y_proba_cal = np.zeros_like(y_proba)
+
+        for i, cls in enumerate(self.classes_):
+            p_cls = y_proba[:, i]
+            y_proba_cal[:, i] = self.calibrators_[cls].predict(p_cls)
+
+        # Renormalize so probabilities sum to 1
+        if normalize:
+            row_sums = y_proba_cal.sum(axis=1, keepdims=True)
+            # Avoid division by zero
+            row_sums = np.where(row_sums > 0, row_sums, 1.0)
+            y_proba_cal = y_proba_cal / row_sums
+
+        return y_proba_cal
+
+    def fit_transform(self, y_proba: np.ndarray, y_true: np.ndarray, normalize: bool = True) -> np.ndarray:
+        """Fit and transform in one call."""
+        self.fit(y_proba, y_true)
+        return self.transform(y_proba, normalize=normalize)
+
+    def get_calibration_report(self, y_proba: np.ndarray, y_true: np.ndarray, n_bins: int = 10) -> dict:
+        """
+        Generate calibration metrics before and after calibration.
+
+        Returns dict with per-class ECE, Brier scores, and improvements.
+        """
+        if not self._fitted:
+            raise RuntimeError("Calibrator not fitted. Call fit() first.")
+
+        y_proba_cal = self.transform(y_proba)
+        y_true = np.asarray(y_true)
+
+        report = {"classes": {}, "summary": {}}
+
+        total_ece_before = 0.0
+        total_ece_after = 0.0
+        total_brier_before = 0.0
+        total_brier_after = 0.0
+
+        for i, cls in enumerate(self.classes_):
+            y_binary = (y_true == cls).astype(int)
+
+            metrics_before = evaluate_calibration(y_proba[:, i], y_binary, n_bins=n_bins)
+            metrics_after = evaluate_calibration(y_proba_cal[:, i], y_binary, n_bins=n_bins)
+
+            report["classes"][cls] = {
+                "ece_before": metrics_before["ece"],
+                "ece_after": metrics_after["ece"],
+                "ece_improvement": metrics_before["ece"] - metrics_after["ece"],
+                "brier_before": metrics_before["brier_score"],
+                "brier_after": metrics_after["brier_score"],
+                "brier_improvement": metrics_before["brier_score"] - metrics_after["brier_score"],
+                "actual_rate": float(y_binary.mean()),
+                "predicted_rate_before": float(y_proba[:, i].mean()),
+                "predicted_rate_after": float(y_proba_cal[:, i].mean()),
+            }
+
+            total_ece_before += metrics_before["ece"]
+            total_ece_after += metrics_after["ece"]
+            total_brier_before += metrics_before["brier_score"]
+            total_brier_after += metrics_after["brier_score"]
+
+        n_classes = len(self.classes_)
+        report["summary"] = {
+            "mean_ece_before": total_ece_before / n_classes,
+            "mean_ece_after": total_ece_after / n_classes,
+            "mean_ece_improvement": (total_ece_before - total_ece_after) / n_classes,
+            "mean_brier_before": total_brier_before / n_classes,
+            "mean_brier_after": total_brier_after / n_classes,
+            "mean_brier_improvement": (total_brier_before - total_brier_after) / n_classes,
+        }
+
+        return report
+
+
 def compare_calibration(
     y_prob_before: np.ndarray,
     y_prob_after: np.ndarray,

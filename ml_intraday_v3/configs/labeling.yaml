@@ -79,7 +79,7 @@ primary_labeling:
 # Meta-labeling (secondary model for position sizing/filtering)
 meta_labeling:
   # Enable meta-labeling
-  enabled: false  # Disabled in initial baseline
+  enabled: true  # ENABLED to address high PBO scores via secondary filtering
 
   # Meta event policy: "on_primary_signals" or "every_bar"
   # "on_primary_signals": generate meta events only when primary model signals

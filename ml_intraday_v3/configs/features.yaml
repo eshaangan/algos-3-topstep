@@ -17,16 +17,16 @@ returns:
   single_bar: true
 
   # Multi-bar log returns (bar-size specific)
-  # For 1m: compute log returns over [3, 6] bars
+  # For 1m: compute log returns over [3] bars (6 is in multi_horizon_bars)
   # For 5m: compute log returns over [2, 4] bars
   lookback_bars:
-    1m: [3, 6]
+    1m: [3]
     5m: [2, 4]
 
   # PHASE 3: Multi-horizon returns (match 12-24 bar label horizons)
   # Critical for predicting multi-bar outcomes
   enable_multi_horizon: true
-  multi_horizon_bars: [6, 12, 24]  # Match label horizons
+  multi_horizon_bars: [6, 12, 24]  # Match label horizons (6 also used for 1m)
 
 # Volatility features
 volatility:
@@ -37,17 +37,21 @@ volatility:
   # Detect high/low vol regimes for adaptive barrier sizing
   enable_regime_features: true
   # Features: vol_20, vol_regime, parkinson_vol, vol_forecast
+  # OPTIMIZED: Reduced regime lookback from 100 to 50 bars to increase usable events
+  vol_regime_lookback: 50  # Lookback for vol_regime median calculation (reduced from 100)
 
 # Trend features (EMA-based)
 trend:
   ema_fast_period: 13   # Fast EMA
-  ema_slow_period: 34   # Slow EMA
+  ema_slow_period: 21   # Slow EMA (reduced from 34 to minimize NaN values)
   # Derived: ema_spread = ema_fast - ema_slow
   # Derived: ema_ratio = ema_fast / (ema_slow + eps)
 
   # PHASE 3: Advanced trend and mean reversion features
   enable_advanced_features: true
-  # Features: sma_20, sma_50, trend_strength, autocorr_5, bb_position
+  # Features: sma_20, sma_30, trend_strength, autocorr_5, bb_position
+  # OPTIMIZED: Reduced SMA from 50 to 30 bars for intraday data
+  sma_long_period: 30  # Long SMA (reduced from 50 to increase usable events)
 
 # Microstructure features (order flow proxies)
 microstructure:

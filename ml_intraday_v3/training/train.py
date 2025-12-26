@@ -20,6 +20,7 @@ from .dataset import build_event_dataset, build_meta_dataset
 from .preprocess import FoldPreprocessor
 from .metrics import compute_metrics, compute_multiclass_metrics
 from .schema import write_training_schema
+from ml_intraday_v3.features.calibration import MulticlassIsotonicCalibrator
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,15 @@ def train_on_splits(
         meta_cfg.get("output", {}).get("write_meta_model", True)
     )
 
+    # Calibration configuration
+    calib_cfg = cfg.get("calibration", {})
+    calib_enabled = bool(calib_cfg.get("enabled", False))
+    calib_method = calib_cfg.get("method", "isotonic")
+    calib_fraction = float(calib_cfg.get("calibration_fraction", 0.20))
+    calib_recalc_score = bool(calib_cfg.get("recalibrate_score_ev", True))
+    calib_save = bool(calib_cfg.get("save_calibrator", True))
+    calib_seed = int(calib_cfg.get("calibration_seed", 42))
+
     split_metrics = []
     meta_split_metrics = []
 
@@ -181,6 +191,11 @@ def train_on_splits(
         X_train, y_train, w_train = pre.transform(train_df)
         X_test, y_test, w_test = pre.transform(test_df)
 
+        # Initialize calibrator as None (will be set if calibration is enabled for multiclass)
+        calibrator = None
+        calib_report = None
+        proba_test_raw = None
+
         if target_mode == "multiclass":
             if model_kind != "lgbm":
                 raise ValueError("multiclass target requires model.kind == 'lgbm'")
@@ -196,6 +211,40 @@ def train_on_splits(
                 )
 
             labels_idx = list(range(len(target_classes)))
+
+            # Calibration: split training data for calibration fitting
+            calibrator = None
+            if calib_enabled and target_mode == "multiclass":
+                n_train = len(X_train)
+                n_calib = int(n_train * calib_fraction)
+                n_model = n_train - n_calib
+
+                # Deterministic shuffle for reproducibility
+                rng = np.random.RandomState(calib_seed + split_id)
+                perm = rng.permutation(n_train)
+
+                model_idx = perm[:n_model]
+                calib_idx = perm[n_model:]
+
+                X_model = X_train[model_idx]
+                y_model = y_train_mc[model_idx]
+                w_model = w_train[model_idx] if weight_enabled else None
+
+                X_calib = X_train[calib_idx]
+                y_calib = y_train_mc[calib_idx]
+
+                # Get original class labels for calibration
+                y_calib_orig = np.asarray([target_classes[i] for i in y_calib])
+
+                logger.info(
+                    f"Split {split_id}: Using {n_model} samples for training, "
+                    f"{n_calib} for calibration"
+                )
+            else:
+                X_model = X_train
+                y_model = y_train_mc
+                w_model = w_train if weight_enabled else None
+
             model = lgb.LGBMClassifier(
                 objective="multiclass",
                 num_class=len(target_classes),
@@ -214,12 +263,35 @@ def train_on_splits(
                 force_col_wise=True,
             )
             model.fit(
-                X_train,
-                y_train_mc,
-                sample_weight=w_train if weight_enabled else None,
+                X_model,
+                y_model,
+                sample_weight=w_model,
             )
-            proba_test = model.predict_proba(X_test)
+
+            # Get raw (uncalibrated) predictions
+            proba_test_raw = model.predict_proba(X_test)
             proba_train = model.predict_proba(X_train)
+
+            # Fit and apply isotonic calibration
+            if calib_enabled:
+                proba_calib = model.predict_proba(X_calib)
+
+                calibrator = MulticlassIsotonicCalibrator(classes=target_classes)
+                calibrator.fit(proba_calib, y_calib_orig)
+
+                # Apply calibration to test predictions
+                proba_test = calibrator.transform(proba_test_raw)
+
+                # Generate calibration report
+                calib_report = calibrator.get_calibration_report(proba_calib, y_calib_orig)
+                logger.info(
+                    f"Split {split_id} calibration: "
+                    f"ECE improved from {calib_report['summary']['mean_ece_before']:.4f} "
+                    f"to {calib_report['summary']['mean_ece_after']:.4f}"
+                )
+            else:
+                proba_test = proba_test_raw
+
             y_pred_mc = np.argmax(proba_test, axis=1).astype(int)
 
             metrics = compute_multiclass_metrics(
@@ -389,18 +461,31 @@ def train_on_splits(
                 y_pred_orig = np.asarray([classes[i] for i in y_pred_mc], dtype=int)
                 y_true_orig = test_df[target_col].to_numpy().astype(int)
 
-                preds_df = pd.DataFrame(
-                    {
-                        "event_id": test_df["event_id"].to_numpy(),
-                        "y_true": y_true_orig,
-                        "y_pred": y_pred_orig,
-                        "p_target": p_target,
-                        "p_stop": p_stop,
-                        "p_vertical": p_vertical,
-                        "score_ev": score_ev,
-                        "weight": weights,
-                    }
-                )
+                preds_data = {
+                    "event_id": test_df["event_id"].to_numpy(),
+                    "y_true": y_true_orig,
+                    "y_pred": y_pred_orig,
+                    "p_target": p_target,
+                    "p_stop": p_stop,
+                    "p_vertical": p_vertical,
+                    "score_ev": score_ev,
+                    "weight": weights,
+                }
+
+                # Add raw (uncalibrated) probabilities if calibration was applied
+                if calib_enabled and calibrator is not None:
+                    preds_data["p_target_raw"] = proba_test_raw[:, classes.index(1)] if 1 in classes else None
+                    preds_data["p_stop_raw"] = proba_test_raw[:, classes.index(-1)] if -1 in classes else None
+                    preds_data["p_vertical_raw"] = proba_test_raw[:, classes.index(0)] if 0 in classes else None
+                    # Also save raw score_ev for comparison
+                    p_target_raw = preds_data.get("p_target_raw")
+                    p_stop_raw = preds_data.get("p_stop_raw")
+                    preds_data["score_ev_raw"] = (
+                        (p_target_raw if p_target_raw is not None else 0.0)
+                        - (p_stop_raw if p_stop_raw is not None else 0.0)
+                    )
+
+                preds_df = pd.DataFrame(preds_data)
             else:
                 preds_data = {
                     "event_id": test_df["event_id"].to_numpy(),
@@ -596,6 +681,25 @@ def train_on_splits(
                 pickle.dump(bundle, f)
             with open(split_dir / "model.pkl", "wb") as f:
                 pickle.dump(model, f)
+
+        # Save calibrator if calibration was applied
+        if calib_enabled and calib_save and calibrator is not None:
+            with open(split_dir / "calibrator.pkl", "wb") as f:
+                pickle.dump(calibrator, f)
+            # Also save calibration report
+            if calib_report is not None:
+                with open(split_dir / "calibration_report.json", "w") as f:
+                    # Convert numpy types to native Python types for JSON
+                    def convert_to_json_serializable(obj):
+                        if isinstance(obj, (np.integer, np.floating)):
+                            return float(obj)
+                        elif isinstance(obj, dict):
+                            return {k: convert_to_json_serializable(v) for k, v in obj.items()}
+                        elif isinstance(obj, list):
+                            return [convert_to_json_serializable(i) for i in obj]
+                        return obj
+                    json.dump(convert_to_json_serializable(calib_report), f, indent=2)
+            logger.info(f"Saved calibrator to {split_dir / 'calibrator.pkl'}")
 
         split_metrics.append(metrics_payload)
 

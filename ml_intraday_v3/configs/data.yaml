@@ -4,8 +4,8 @@
 # Raw data sources
 raw_data:
   # Path to raw data files (relative to project root)
-  # Expected format: HDF5 or Parquet with OHLCV columns
-  input_path: "data/processed/mes_bars.h5"
+  # Expected format: HDF5, Parquet, or CSV with OHLCV columns
+  input_path: "data/raw/GLBX-20251220-LWFB9HCEL5/glbx-mdp3-20100606-20251219.ohlcv-1m.csv"
 
   # Expected columns in raw data
   required_columns:
@@ -15,21 +15,43 @@ raw_data:
     - "close"
     - "volume"
 
+# Data filtering and cleaning
+filtering:
+  # Enable filtering
+  enabled: true
+
+  # Symbol filtering (for raw CSV data with symbol column)
+  symbol_filter:
+    enabled: true
+    mode: "exclude_patterns"  # "exclude_patterns" or "include_patterns"
+    exclude_patterns:
+      - ".*-.*"  # Exclude spread contracts (symbols containing "-")
+
+  # Price validation (ES/MES futures typically 100-10000)
+  price_validation:
+    enabled: true
+    min_price: 100.0    # Floor for ES/MES prices
+    max_price: 10000.0  # Ceiling for ES/MES prices
+    violation_action: "drop_bar"  # "drop_bar", "warn", or "raise"
+
+  # Logging
+  log_filtered_stats: true
+
 # Ingestion configuration
 ingestion:
   # Input format
-  format: "hdf5"  # or "parquet"
+  format: "csv"  # "hdf5", "parquet", or "csv"
   # HDF5 key (required unless file has a single key)
   hdf_key: "/bars_5min"
-  # Timestamp column name (if not index)
-  timestamp_col: "timestamp"
+  # Timestamp column name (if not index, or null for auto-detection)
+  timestamp_col: "ts_event"
 
 # Canonical bar size for raw data (source resolution)
-canonical_bar_size: "5m"
+canonical_bar_size: "1m"
 
 # Bar sizes to write (cannot upsample beyond canonical without explicit support)
 bar_sizes_to_write:
-  - "5m"
+  - "1m"
 
 # Contract continuization
 continuization:
@@ -48,7 +70,7 @@ continuization:
 reindexing:
   # Bar sizes to generate (fallback if bar_sizes_to_write is not set)
   bar_sizes:
-    - "5m"
+    - "1m"
 
   # Resampling policy
   # "build_1m_resample_5m": build canonical 1m, then resample to 5m

@@ -35,6 +35,7 @@ def run_backtest(
         primary_preds=primary_preds_df,
         meta_preds=meta_preds_df,
         config=backtest_cfg,
+        bars_df=bars_df,
     )
 
     decisions_df = decisions_df.sort_values("t0").reset_index(drop=True)
@@ -153,7 +154,9 @@ def run_backtest(
                         raise ValueError(
                             "label_schema.cost_mode=net_in_events but ret_net missing"
                         )
-                    gross_points = float(row["ret_net"]) + cost_points
+                    # ret_net from events is computed for LONG position
+                    # For SHORT, flip the sign: side=-1 gives negative of long return
+                    gross_points = side * (float(row["ret_net"]) + cost_points)
                     pnl_points = gross_points
                     trade_cost_mode = "event_ret_net"
                 else:

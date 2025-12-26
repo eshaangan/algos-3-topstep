@@ -131,9 +131,10 @@ def build_features(
         returns_1 = features["log_return_1"]
         features["vol_20"] = returns_1.rolling(20).std()
 
-        # Volatility regime (current vol vs 100-bar median)
+        # Volatility regime (current vol vs median, configurable lookback)
+        vol_regime_lookback = config.get("volatility", {}).get("vol_regime_lookback", 50)
         features["vol_regime"] = features["vol_20"] / (
-            features["vol_20"].rolling(100).median() + eps
+            features["vol_20"].rolling(vol_regime_lookback).median() + eps
         )
 
         # Parkinson volatility (uses high-low range, more efficient estimator)
@@ -169,14 +170,15 @@ def build_features(
         logger.debug("Computing advanced trend features")
 
         # SMAs for trend strength
+        sma_long_period = config.get("trend", {}).get("sma_long_period", 30)
         sma_20 = df["close"].rolling(20).mean()
-        sma_50 = df["close"].rolling(50).mean()
+        sma_long = df["close"].rolling(sma_long_period).mean()
 
         features["sma_20"] = sma_20
-        features["sma_50"] = sma_50
+        features[f"sma_{sma_long_period}"] = sma_long
 
         # Trend strength (distance from long-term SMA, normalized)
-        features["trend_strength"] = (df["close"] - sma_50) / (sma_50 + eps)
+        features["trend_strength"] = (df["close"] - sma_long) / (sma_long + eps)
 
         # Autocorrelation (lag-5 on 20-bar window) - detects mean reversion
         def autocorr_lag5(x):

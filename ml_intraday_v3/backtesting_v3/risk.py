@@ -2,7 +2,10 @@
 Risk gate enforcement for offline backtest.
 """
 
+import logging
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def _session_day(timestamp: pd.Timestamp, reset_time: str, tz: str) -> pd.Timestamp:
@@ -143,8 +146,26 @@ class RiskManager:
         if entry_ts is None or exit_ts is None:
             return
         self._maybe_reset_day(exit_ts)
-        self.equity += pnl_usd
-        self.daily_pnl += pnl_usd
+
+        # Enforce equity floor at zero (prevent liquidation beyond capital)
+        new_equity = self.equity + pnl_usd
+
+        if new_equity < 0:
+            # Cap loss at available equity
+            actual_pnl = -self.equity
+            self.equity = 0.0
+            logger.warning(
+                f"Equity floor enforced at {exit_ts}: "
+                f"requested PnL ${pnl_usd:.2f} capped to ${actual_pnl:.2f}. "
+                f"ACCOUNT LIQUIDATED."
+            )
+            self.halted_today = True  # Stop trading when liquidated
+            # Still record the capped PnL for daily tracking
+            self.daily_pnl += actual_pnl
+        else:
+            self.equity = new_equity
+            self.daily_pnl += pnl_usd
+
         self.trades_today += 1
         self.last_trade_exit_ts = exit_ts
 
@@ -155,6 +176,11 @@ class RiskManager:
 
         if self.hwm_update_policy == "real_time":
             self.hwm = max(self.hwm, self.equity)
+
+        # Halt trading if liquidated
+        if self.equity <= 0:
+            logger.error(f"Account liquidated at {exit_ts}. Trading halted.")
+            self.halted_today = True
 
         if self.daily_enabled and self.daily_pnl <= -self.max_daily_loss:
             self.halted_today = True

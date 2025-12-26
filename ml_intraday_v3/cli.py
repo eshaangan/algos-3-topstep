@@ -175,6 +175,8 @@ def build_data_command(args):
         ),
         required_columns=raw_data_config.get("required_columns"),
         hdf_key=ingestion_config.get("hdf_key"),
+        filter_cfg=config.get("filtering"),
+        symbol_column="symbol",
     )
 
     # ------------------------------------------------------------------------
@@ -1719,6 +1721,10 @@ def build_backtest_command(args):
         label_cost_mode = label_schema.get("cost_mode")
         if label_cost_mode not in ["net_in_events", "gross_in_events"]:
             raise ValueError("label_schema.cost_mode missing or invalid")
+        if label_cost_mode == "net_in_events" and "ret_net" not in events_df.columns:
+            raise ValueError(
+                "label_schema.cost_mode=net_in_events but events.parquet is missing ret_net"
+            )
         pnl_mode = (
             "use_events_ret_net"
             if label_cost_mode == "net_in_events"
@@ -1765,6 +1771,18 @@ def build_backtest_command(args):
             test_ids = split.get("test_event_ids", [])
             test_events = events_df[events_df["event_id"].isin(test_ids)].copy()
             test_events = test_events.sort_values("t0")
+            if label_cost_mode == "net_in_events":
+                missing_ret_net = (
+                    test_events["ret_net"].isna().sum()
+                    if "ret_net" in test_events.columns
+                    else len(test_events)
+                )
+                if missing_ret_net > 0:
+                    logger.warning(
+                        "Dropping %d test events with missing ret_net (cost_mode=net_in_events)",
+                        int(missing_ret_net),
+                    )
+                    test_events = test_events.dropna(subset=["ret_net"])
 
             split_out_dir = backtest_dir / f"{prefix}_{split_id}"
             split_out_dir.mkdir(parents=True, exist_ok=True)

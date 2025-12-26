@@ -151,6 +151,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
 
     # PHASE 3: Volatility regime indicators
     if config.get("volatility", {}).get("enable_regime_features", True):
+        vol_regime_lookback = config.get("volatility", {}).get("vol_regime_lookback", 50)
         registry.extend([
             FeatureSpec(
                 name="vol_20",
@@ -163,12 +164,12 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             ),
             FeatureSpec(
                 name="vol_regime",
-                lookback_bars=100,
+                lookback_bars=vol_regime_lookback,
                 uses_rolling_stats=True,
                 requires_scaling=True,
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
-                description="Volatility regime: vol_20 / median(vol_20, 100 bars)",
+                description=f"Volatility regime: vol_20 / median(vol_20, {vol_regime_lookback} bars)",
             ),
             FeatureSpec(
                 name="parkinson_vol",
@@ -246,6 +247,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
 
     # PHASE 3: Advanced trend and mean reversion features
     if config.get("trend", {}).get("enable_advanced_features", True):
+        sma_long_period = config.get("trend", {}).get("sma_long_period", 30)
         registry.extend([
             FeatureSpec(
                 name="sma_20",
@@ -257,22 +259,22 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 description="Simple moving average of close, 20 bars",
             ),
             FeatureSpec(
-                name="sma_50",
-                lookback_bars=50,
+                name=f"sma_{sma_long_period}",
+                lookback_bars=sma_long_period,
                 uses_rolling_stats=True,
                 requires_scaling=True,
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
-                description="Simple moving average of close, 50 bars",
+                description=f"Simple moving average of close, {sma_long_period} bars",
             ),
             FeatureSpec(
                 name="trend_strength",
-                lookback_bars=50,
+                lookback_bars=sma_long_period,
                 uses_rolling_stats=True,
                 requires_scaling=True,
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
-                description="Normalized distance from SMA50: (close - sma50) / sma50",
+                description=f"Normalized distance from SMA{sma_long_period}: (close - sma{sma_long_period}) / sma{sma_long_period}",
             ),
             FeatureSpec(
                 name="autocorr_5",
