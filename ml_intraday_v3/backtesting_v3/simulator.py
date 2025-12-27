@@ -30,6 +30,24 @@ def run_backtest(
     """
     Run offline backtest over events with decisions, fills, and risk gates.
     """
+    # Filter out events with NaN ret_net (vertical exits without stop/target hit)
+    # These are incomplete events that can't be properly backtested
+    cost_mode = (label_schema or {}).get("cost_mode")
+    if cost_mode == "net_in_events" and "ret_net" in events_df.columns:
+        n_before = len(events_df)
+        events_df = events_df[events_df["ret_net"].notna()].copy()
+        n_filtered = n_before - len(events_df)
+        if n_filtered > 0:
+            # Also filter predictions to match
+            valid_ids = set(events_df["event_id"])
+            primary_preds_df = primary_preds_df[
+                primary_preds_df["event_id"].isin(valid_ids)
+            ].copy()
+            if meta_preds_df is not None:
+                meta_preds_df = meta_preds_df[
+                    meta_preds_df["event_id"].isin(valid_ids)
+                ].copy()
+
     decisions_df = decide_trades(
         events_df=events_df,
         primary_preds=primary_preds_df,

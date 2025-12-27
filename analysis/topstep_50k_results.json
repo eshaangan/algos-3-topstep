@@ -1,0 +1,51 @@
+{
+  "model": "walk-forward-mid2022",
+  "run_dir": "runs/mid2022_20251227_043831_90e86589",
+  "total_trades": 447,
+  "trading_days": 124,
+  "date_range": {
+    "start": "2022-12-16",
+    "end": "2025-08-11"
+  },
+  "trade_stats": {
+    "total_pnl": 26311.08532279379,
+    "avg_trade": 59.12603443324448,
+    "win_rate": 0.6912751677852349,
+    "profit_factor": 3.013644291763497
+  },
+  "daily_stats": {
+    "avg_pnl": 212.18617195801448,
+    "std_pnl": 324.58732145196825,
+    "best_day": 1157.5682702915155,
+    "worst_day": -556.0907571381349
+  },
+  "topstep_50k": {
+    "monte_carlo_pass_rate": 1.0,
+    "sequential_passed": true,
+    "sequential_result": {
+      "passed": true,
+      "fail_reason": null,
+      "days": 17,
+      "final_balance": 53092.115381538024,
+      "max_drawdown": 269.9800000000032
+    },
+    "mc_results": {
+      "n_simulations": 10000,
+      "pass_rate": 1.0,
+      "pass_count": 10000,
+      "fail_count": 0,
+      "fail_reasons": {},
+      "days_to_pass": {
+        "mean": 15.5216,
+        "median": 15.0,
+        "p25": 11.0,
+        "p75": 19.0
+      },
+      "max_drawdown": {
+        "mean": 314.0647381345908,
+        "median": 303.0744877784746,
+        "p95": 801.2070263450732
+      }
+    }
+  }
+}

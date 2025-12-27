@@ -321,6 +321,8 @@ def run_walkforward(run_dir: Path | str, walkforward_config_path: Path | str) ->
             int(schedule.get("test_window_days", 5)),
             int(schedule.get("step_days", 5)),
             timezone="America/Chicago",
+            max_date=schedule.get("max_date"),
+            expanding=bool(schedule.get("expanding", True)),
         )
 
         min_train_events = int(schedule.get("min_train_events", 0))

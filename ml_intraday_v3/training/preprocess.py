@@ -60,4 +60,18 @@ class FoldPreprocessor:
             "medians": None if self.medians_ is None else self.medians_.tolist(),
             "means": None if self.means_ is None else self.means_.tolist(),
             "stds": None if self.stds_ is None else self.stds_.tolist(),
+            "feature_columns": self.feature_columns,
         }
+
+    @classmethod
+    def from_state(cls, state_dict, config=None):
+        """Restore preprocessor from saved state."""
+        if config is None:
+            config = {}
+        obj = cls(state_dict.get("feature_columns", []), config)
+        obj.impute = state_dict.get("impute", "median")
+        obj.scaler = state_dict.get("scaler", "standard")
+        obj.medians_ = np.array(state_dict["medians"]) if state_dict.get("medians") else None
+        obj.means_ = np.array(state_dict["means"]) if state_dict.get("means") else None
+        obj.stds_ = np.array(state_dict["stds"]) if state_dict.get("stds") else None
+        return obj

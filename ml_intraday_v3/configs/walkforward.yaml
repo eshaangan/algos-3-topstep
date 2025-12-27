@@ -1,20 +1,48 @@
 # Walk-forward evaluation configuration
-# Version: 1.0
+# Version: 1.2
+#
+# Walk-forward validation trains ONLY on past data and tests on future data.
+# This is the gold standard for evaluating trading strategies.
+#
+# Current setup (Jul 2022 - Sep 2025):
+# - Expanding window: starts with 6 months of training, adds 3 months each step
+# - Quarterly test windows: tests on 3 months of data each time
+# - Holdout: Oct 2025 onwards reserved for final model testing
 
 schedule:
-  train_window_days: 60
-  test_window_days: 5
-  step_days: 5
-  # Minimum labeled events required to train a window; too high will cause all windows to skip.
-  min_train_events: 500
+  # Expanding window approach with monthly test windows
+  # NOTE: These are TRADING DAYS, not calendar days!
+  # ~21 trading days = 1 month, ~63 = 3 months, ~126 = 6 months
+  #
+  # Config: 63-day initial train (~3 months), 21-day test (~1 month)
+  # Expected: ~10-12 windows covering Jul 2022 - Sep 2025
+  train_window_days: 63   # Initial training (~3 months of trading days)
+  test_window_days: 21    # ~1 month test window
+  step_days: 21           # Monthly step (non-overlapping)
+
+  # Minimum labeled events required to train
+  min_train_events: 200
+
+  # Use expanding window (train data grows over time) vs rolling (fixed size)
+  expanding: true
+
+  # Holdout configuration - stop walk-forward before this date
+  # Data after this date is reserved for final model testing
+  max_date: "2025-09-30"
 
 retrain_policy:
-  max_model_age_days: 7
+  max_model_age_days: 90  # Retrain every quarter
   retrain_on_drift: false
 
 evaluation:
-  bar_sizes: ["5m"]
+  bar_sizes: ["1m"]  # Use 1m to match your current model
   thresholds:
-    # Keep aligned with `ml_intraday_v3/configs/backtest.yaml` (multiclass EV score uses small thresholds).
+    # Match backtest.yaml settings
     primary_threshold: 0.10
-  use_meta: false
+  use_meta: true  # Enable meta model for trade filtering
+
+# Holdout test configuration (for final model evaluation)
+holdout:
+  enabled: true
+  start_date: "2025-10-01"
+  end_date: null  # null = use all available data
