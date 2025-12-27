@@ -92,6 +92,14 @@ output:
 
 seed: 42
 
+# Date filtering - train only on recent data
+# NOTE: Disabled because filtering is now done at data.yaml level (more efficient)
+# This addresses regime shift concerns (2020 COVID era patterns don't apply to current markets)
+date_filter:
+  enabled: false  # Disabled - filtering done at data ingestion
+  min_date: "2022-01-01"  # Only use data from 2022 onwards
+  max_date: null  # null = use all data up to present
+
 # Probability Calibration (Isotonic Regression)
 # Fixes miscalibrated probability estimates from the model
 # IMPORTANT: Enabled by default for multiclass to fix systematic overconfidence

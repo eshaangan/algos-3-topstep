@@ -55,6 +55,33 @@ def build_event_dataset(
     events_df["t0"] = pd.to_datetime(events_df["t0"])
     events_df = events_df.sort_values("event_id").reset_index(drop=True)
 
+    # Apply date filter if configured
+    cfg = training_config or {}
+    date_filter_cfg = cfg.get("date_filter", {})
+    if date_filter_cfg.get("enabled", False):
+        min_date = date_filter_cfg.get("min_date")
+        max_date = date_filter_cfg.get("max_date")
+
+        before_count = len(events_df)
+        if min_date is not None:
+            min_dt = pd.to_datetime(min_date, utc=True)
+            # Handle timezone-aware comparison
+            if events_df["t0"].dt.tz is None:
+                events_df["t0"] = events_df["t0"].dt.tz_localize("UTC")
+            events_df = events_df[events_df["t0"] >= min_dt]
+        if max_date is not None:
+            max_dt = pd.to_datetime(max_date, utc=True)
+            if events_df["t0"].dt.tz is None:
+                events_df["t0"] = events_df["t0"].dt.tz_localize("UTC")
+            events_df = events_df[events_df["t0"] <= max_dt]
+
+        events_df = events_df.reset_index(drop=True)
+        after_count = len(events_df)
+        logger.info(
+            f"Date filter applied: {before_count:,} -> {after_count:,} events "
+            f"(min_date={min_date}, max_date={max_date})"
+        )
+
     if events_df["y"].isna().any():
         before = len(events_df)
         events_df = events_df[events_df["y"].notna()].reset_index(drop=True)

@@ -30,6 +30,9 @@ from ml_intraday_v3.validation.cpcv import (
 )
 
 
+TRADES_PATH = Path(__file__).parent.parent / "runs" / "run_20251224_123456" / "bar_size=1m" / "backtest" / "trades.parquet"
+
+
 @pytest.fixture
 def sample_events_df():
     """
@@ -71,6 +74,53 @@ def sample_data():
     )
 
     return X, y
+
+
+@pytest.fixture
+def actual_trades_dataset():
+    """
+    Load a small slice of real trades from the sample run to drive CPCV tests.
+    """
+    if not TRADES_PATH.exists():
+        pytest.skip("Sample trades parquet not available")
+
+    trades = pd.read_parquet(TRADES_PATH)
+    trades = trades.head(200).copy()  # keep fast and deterministic
+    trades = trades.dropna(subset=["entry_time", "exit_time", "pnl"])
+    trades = trades.reset_index(drop=True)
+    trades["event_id"] = trades.index
+
+    entry_time = pd.to_datetime(trades["entry_time"])
+    exit_time = pd.to_datetime(trades["exit_time"])
+
+    events_df = pd.DataFrame(
+        {
+            "t0": entry_time,
+            "t1": exit_time,
+        },
+        index=trades["event_id"],
+    )
+
+    # Use basic trade attributes as features; direction is mapped to +/-1
+    direction = trades["direction"].map({"long": 1, "short": -1}).fillna(0).astype(float)
+    hold_minutes = (exit_time - entry_time).dt.total_seconds() / 60.0
+    signed_move = (trades["exit_price"] - trades["entry_price"]) * direction
+
+    X = pd.DataFrame(
+        {
+            "event_id": trades["event_id"],
+            "direction": direction,
+            "hold_minutes": hold_minutes,
+            "signed_move": signed_move,
+            "entry_price": trades["entry_price"].astype(float),
+            "exit_price": trades["exit_price"].astype(float),
+        }
+    )
+
+    # Label: profitable trade or not
+    y = pd.Series((trades["pnl"] > 0).astype(int), index=trades["event_id"], name="y")
+
+    return events_df, X, y
 
 
 def test_build_cpcv_paths_lexicographic(sample_events_df):
@@ -238,50 +288,36 @@ def test_evaluate_cpcv_paths(sample_events_df, sample_data):
         assert metric_values.max() <= 1.0
 
 
-def test_evaluate_cpcv_paths_with_sharpe(sample_events_df):
+def test_evaluate_cpcv_paths_with_sharpe(actual_trades_dataset):
     """
     Test CPCV evaluation with Sharpe ratio metric (requires trades).
     """
-    np.random.seed(42)
-    n_samples = 1000
-
-    # Create sample features and labels
-    X = pd.DataFrame({
-        'feature_0': np.random.randn(n_samples),
-        'feature_1': np.random.randn(n_samples)
-    })
-    y = pd.Series((X['feature_0'] > 0).astype(int))
-
-    # Create sample trades DataFrame with PnL
-    # Simulate trades at each event
-    trades_df = pd.DataFrame({
-        'event_idx': range(n_samples),
-        'pnl': np.random.normal(10, 50, n_samples)  # Mean $10, std $50
-    })
+    events_df, X, y = actual_trades_dataset
 
     paths = build_cpcv_paths(
-        events_df=sample_events_df,
+        events_df=events_df,
         n_groups=4,
         test_groups=1,
         max_paths=2,
         selection="lexicographic",
-        pct_embargo=0.01
+        pct_embargo=0.01,
     )
 
     model_factory = lambda: LogisticRegression(max_iter=1000, random_state=42)
 
-    # Note: sharpe computation needs trades, so we'll test with roc_auc
     perf_df = evaluate_cpcv_paths(
         paths=paths,
         model_factory=model_factory,
         X=X,
         y=y,
-        events_df=sample_events_df,
-        metrics=['roc_auc'],
-        sample_weight=None
+        events_df=events_df,
+        metrics=["roc_auc", "win_rate"],
+        sample_weight=None,
     )
 
-    assert 'roc_auc' in perf_df['metric_name'].values
+    assert "roc_auc" in perf_df["metric_name"].values
+    assert "win_rate" in perf_df["metric_name"].values
+    assert perf_df["n_samples"].gt(0).all()
 
 
 def test_analyze_cpcv_distributions(sample_events_df, sample_data):

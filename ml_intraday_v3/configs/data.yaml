@@ -20,6 +20,12 @@ filtering:
   # Enable filtering
   enabled: true
 
+  # Date filtering - only use recent data for trading relevance
+  date_filter:
+    enabled: true
+    min_date: "2022-07-01"  # Start mid-2022 (after Fed rate hike transition period)
+    max_date: null  # null = use all data up to present
+
   # Symbol filtering (for raw CSV data with symbol column)
   symbol_filter:
     enabled: true
