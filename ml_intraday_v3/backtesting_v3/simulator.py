@@ -12,7 +12,7 @@ from .decisions import decide_trades
 from .fills import get_entry_exit, compute_cost_points, apply_forced_flatten
 from .risk import RiskManager
 from .metrics import compute_backtest_metrics
-from core.instrument import InstrumentSpec
+from ml_intraday_v3.core.instrument import InstrumentSpec
 
 
 def run_backtest(
@@ -78,6 +78,10 @@ def run_backtest(
 
     risk_mgr = RiskManager(risk_cfg)
 
+    # Position tracking for concurrent position limit
+    max_concurrent_positions = int(backtest_cfg.get("sizing", {}).get("max_concurrent_positions", 1))
+    open_positions = []  # List of (entry_ts, exit_ts) tuples
+
     trades = []
     equity_rows = []
     equity = risk_mgr.equity
@@ -117,6 +121,15 @@ def run_backtest(
             if not can_trade:
                 reason = risk_reason
             else:
+                # Check concurrent position limit
+                # Clean up positions that have closed before this entry time
+                open_positions = [(e, x) for e, x in open_positions if x > fill.entry_ts]
+
+                if len(open_positions) >= max_concurrent_positions:
+                    can_trade = False
+                    reason = "max_concurrent_positions"
+
+            if can_trade:
                 entry_ts = fill.entry_ts
                 exit_ts = fill.exit_ts
                 entry_px = fill.entry_px
@@ -198,6 +211,9 @@ def run_backtest(
                 risk_mgr.record_trade(entry_ts, exit_ts, pnl_usd)
                 equity = risk_mgr.equity
                 executed = True
+
+                # Add to open positions for concurrent tracking
+                open_positions.append((entry_ts, exit_ts))
 
                 equity_rows.append(
                     {

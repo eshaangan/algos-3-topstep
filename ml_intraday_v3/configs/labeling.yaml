@@ -110,11 +110,41 @@ sample_weights:
     # Clip magnitude weights to prevent outlier domination
     clip_quantile: 0.95
 
-  # Combined weight formula: w = uniqueness^a * magnitude^b
-  # Only uniqueness used in baseline (magnitude disabled)
+  # HMM regime weighting (weights samples by regime similarity)
+  # DISABLED: HMM too noisy for intraday (2.9 bar avg duration, 35% transition rate)
+  hmm_regime:
+    enabled: false
+
+    # HMM parameters
+    n_states: 2              # Number of hidden states (2 = bull/bear)
+    covariance_type: "full"  # Covariance type for Gaussian emissions
+    n_iter: 50               # Max EM iterations (reduced from 100 for speed)
+    min_train_samples: 252   # Min bars before HMM fitting starts (~1 year)
+    refit_every: 126         # Refit HMM every N bars (~6 months, 6x speedup)
+
+    # Target regime selection policy
+    # - "recent": Use regime at most recent bar
+    # - "dominant": Use most frequent regime in recent lookback window
+    # - "high_vol": Always weight towards high-volatility state
+    # - "low_vol": Always weight towards low-volatility state
+    target_regime_policy: "recent"
+
+    # Lookback for "dominant" policy (in bars)
+    dominant_lookback_bars: 100
+
+    # Weighting method
+    # - "probability": w = P(target_regime) - smooth weighting based on HMM confidence
+    # - "binary": w = 1.0 if regime matches, else discount_factor
+    similarity_method: "probability"
+
+    # For binary method only: weight for non-matching regime samples
+    discount_factor: 0.5
+
+  # Combined weight formula: w = uniqueness^a * magnitude^b * regime^c
   weight_formula:
     uniqueness_exponent: 1.0
     magnitude_exponent: 0.0  # Disabled
+    regime_exponent: 1.0     # HMM regime weighting
 
 # Output paths
 output:

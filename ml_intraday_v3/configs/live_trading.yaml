@@ -1,0 +1,216 @@
+# Live Trading Configuration
+# Version: 1.0
+# This config controls live/paper trading behavior
+
+# Trading mode
+trading:
+  # Environment: "paper" or "live"
+  # ALWAYS start with "paper" for testing
+  environment: "paper"
+
+  # Enable trading (emergency kill switch)
+  enabled: true
+
+  # Dry run mode: generate signals but don't execute trades
+  dry_run: false
+
+  # Bar size for live trading
+  bar_size: "5m"
+
+  # Model path (automatically uses latest walk-forward model if not specified)
+  model_bundle_path: null  # null = auto-detect latest from runs/
+
+# Data source configuration
+data:
+  # Provider: "databento" or "topstep"
+  provider: "databento"
+
+  # Symbol to trade
+  symbol: "MES"
+
+  # Databento schema (for real-time bars)
+  schema: "ohlcv-1m"
+
+  # Update frequency (seconds)
+  # How often to check for new bars and generate signals
+  update_frequency_seconds: 60  # Check every minute for 1m bars
+
+  # Historical lookback for feature calculation (bars)
+  # Need enough history to compute features (ATR, EMA, etc.)
+  lookback_bars: 100
+
+# Topstep API configuration
+topstep:
+  # API base URL
+  base_url: "https://api.topstepx.com"
+
+  # Contract ID for MES
+  # Update this for each contract rollover
+  contract_id: "CON.F.US.EP.H26"  # MES March 2026
+
+  # Account ID (from .env)
+  account_id_env_var: "TOPSTEPX_ACCOUNT_ID"
+
+  # API key (from .env)
+  api_key_env_var: "TOPSTEPX_PROJECTX_API_KEY"
+
+  # Session token (from .env)
+  session_token_env_var: "TOPSTEPX_SESSION_TOKEN"
+
+  # Order parameters
+  order:
+    # Order type: "MARKET" or "LIMIT"
+    type: "MARKET"
+
+    # Time in force: "DAY" or "GTC"
+    time_in_force: "DAY"
+
+    # Use brackets (stop-loss and take-profit)
+    use_brackets: true
+
+# Signal generation
+signals:
+  # Minimum probability threshold (from backtest config)
+  # Only trade signals above this threshold
+  primary_threshold: 0.10
+
+  # Use meta model (if available in bundle)
+  use_meta_model: false
+
+  # Meta model threshold
+  meta_threshold: 0.50
+
+  # Require both primary and meta approval
+  require_meta_approval: false
+
+  # Volatility filter
+  volatility_filter:
+    enabled: false
+    min_sigma: 7.0
+
+# Position management
+positions:
+  # Maximum contracts per trade
+  contracts_per_trade: 1
+
+  # Maximum concurrent positions (from risk.yaml but repeated here)
+  max_concurrent: 5
+
+  # Force flatten at session close
+  flatten_at_close: true
+
+  # Session close time (America/Chicago)
+  session_close_time: "16:00"
+
+  # Flatten buffer before close (minutes)
+  # Close all positions this many minutes before session close
+  flatten_buffer_minutes: 5
+
+# Risk management (overrides risk.yaml for live trading)
+risk:
+  # Use risk.yaml settings
+  use_risk_yaml: true
+
+  # Emergency stop: halt all trading if equity drops below this
+  # Expressed as fraction of starting balance
+  equity_floor: 0.80  # Stop if equity < 80% of starting (loss > 20%)
+
+  # Max loss per trade (dollars)
+  max_loss_per_trade: 100  # Halt if single trade loses more than $100
+
+  # Halt on consecutive losses
+  halt_on_consecutive_losses: 5
+
+  # Resume trading after halt (manual intervention required)
+  auto_resume_after_halt: false
+
+# Monitoring and logging
+monitoring:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  log_level: "INFO"
+
+  # Log file path
+  log_file: "logs/live_trading_{timestamp}.log"
+
+  # Trade log path
+  trade_log: "logs/trades_{timestamp}.csv"
+
+  # Equity curve path
+  equity_log: "logs/equity_{timestamp}.csv"
+
+  # Alert on events
+  alerts:
+    # Send alert on trade execution
+    alert_on_trade: true
+
+    # Send alert on risk breach
+    alert_on_risk_breach: true
+
+    # Send alert on error
+    alert_on_error: true
+
+    # Alert method: "log", "email", "slack"
+    # For now, just log (can extend later)
+    method: "log"
+
+# Health checks
+health:
+  # Check connection to API every N seconds
+  api_check_interval_seconds: 300  # 5 minutes
+
+  # Check model health every N bars
+  model_check_interval_bars: 60  # Check every hour for 1m bars
+
+  # Check feature quality (detect NaN, extreme values)
+  check_feature_quality: true
+
+  # Halt trading on health check failure
+  halt_on_health_failure: true
+
+# Reconciliation
+reconciliation:
+  # Sync broker positions every N seconds
+  sync_interval_seconds: 60
+
+  # Reconcile P&L with broker
+  reconcile_pnl: true
+
+  # Halt on reconciliation mismatch
+  halt_on_mismatch: true
+
+  # Tolerance for P&L mismatch (dollars)
+  pnl_mismatch_tolerance: 10.0
+
+# Startup checks
+startup:
+  # Required checks before starting
+  checks:
+    - "api_connection"
+    - "model_loaded"
+    - "risk_config_valid"
+    - "data_connection"
+    - "broker_account_valid"
+
+  # Require manual confirmation before trading
+  require_manual_confirmation: true
+
+  # Display current positions and equity on startup
+  display_account_status: true
+
+# Session configuration
+session:
+  # Trading sessions (America/Chicago)
+  # Only trade during these times
+  sessions:
+    - name: "rth"
+      start_time: "08:30"
+      end_time: "15:00"
+      timezone: "America/Chicago"
+
+  # No entry window before close (minutes)
+  # Don't enter new trades this close to session end
+  no_entry_before_close_minutes: 30
+
+# Version and metadata
+version: "1.0.0"
+last_updated: "2025-12-27"

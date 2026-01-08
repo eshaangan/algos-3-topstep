@@ -16,12 +16,12 @@ import pandas as pd
 import yaml
 from sklearn.linear_model import LogisticRegression
 
-from run_manifest import hash_content
-from training.dataset import build_event_dataset, build_meta_dataset
-from training.preprocess import FoldPreprocessor
-from training.metrics import compute_metrics
-from backtesting_v3 import run_backtest
-from core.instrument import (
+from ml_intraday_v3.run_manifest import hash_content
+from ml_intraday_v3.training.dataset import build_event_dataset, build_meta_dataset
+from ml_intraday_v3.training.preprocess import FoldPreprocessor
+from ml_intraday_v3.training.metrics import compute_metrics
+from ml_intraday_v3.backtesting_v3 import run_backtest
+from ml_intraday_v3.core.instrument import (
     InstrumentSpec,
     load_instrument_from_execution_spec,
     validate_risk_config_no_instrument_economics,

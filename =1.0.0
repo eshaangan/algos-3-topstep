@@ -1,0 +1,60 @@
+WARNING: Ignoring invalid distribution ~yarrow (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~ip (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~yarrow (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~ip (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+Collecting pomegranate
+  Downloading pomegranate-1.1.2-py3-none-any.whl.metadata (566 bytes)
+Requirement already satisfied: numpy>=1.22.2 in ./.venv/lib/python3.11/site-packages (from pomegranate) (2.3.5)
+Requirement already satisfied: scipy>=1.6.2 in ./.venv/lib/python3.11/site-packages (from pomegranate) (1.16.3)
+Requirement already satisfied: scikit-learn>=1.0.2 in ./.venv/lib/python3.11/site-packages (from pomegranate) (1.8.0)
+Requirement already satisfied: torch>=1.9.0 in ./.venv/lib/python3.11/site-packages (from pomegranate) (2.9.1)
+Collecting apricot-select>=0.6.1 (from pomegranate)
+  Downloading apricot-select-0.6.1.tar.gz (28 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: networkx>=2.8.4 in ./.venv/lib/python3.11/site-packages (from pomegranate) (3.6.1)
+Collecting numba>=0.43.0 (from apricot-select>=0.6.1->pomegranate)
+  Downloading numba-0.63.1-cp311-cp311-macosx_11_0_arm64.whl.metadata (2.9 kB)
+Collecting tqdm>=4.24.0 (from apricot-select>=0.6.1->pomegranate)
+  Using cached tqdm-4.67.1-py3-none-any.whl.metadata (57 kB)
+Collecting nose (from apricot-select>=0.6.1->pomegranate)
+  Downloading nose-1.3.7-py3-none-any.whl.metadata (1.7 kB)
+Collecting llvmlite<0.47,>=0.46.0dev0 (from numba>=0.43.0->apricot-select>=0.6.1->pomegranate)
+  Downloading llvmlite-0.46.0-cp311-cp311-macosx_11_0_arm64.whl.metadata (5.0 kB)
+Requirement already satisfied: joblib>=1.3.0 in ./.venv/lib/python3.11/site-packages (from scikit-learn>=1.0.2->pomegranate) (1.5.3)
+Requirement already satisfied: threadpoolctl>=3.2.0 in ./.venv/lib/python3.11/site-packages (from scikit-learn>=1.0.2->pomegranate) (3.6.0)
+Requirement already satisfied: filelock in ./.venv/lib/python3.11/site-packages (from torch>=1.9.0->pomegranate) (3.20.1)
+Requirement already satisfied: typing-extensions>=4.10.0 in ./.venv/lib/python3.11/site-packages (from torch>=1.9.0->pomegranate) (4.15.0)
+Requirement already satisfied: sympy>=1.13.3 in ./.venv/lib/python3.11/site-packages (from torch>=1.9.0->pomegranate) (1.14.0)
+Requirement already satisfied: jinja2 in ./.venv/lib/python3.11/site-packages (from torch>=1.9.0->pomegranate) (3.1.6)
+Requirement already satisfied: fsspec>=0.8.5 in ./.venv/lib/python3.11/site-packages (from torch>=1.9.0->pomegranate) (2025.12.0)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in ./.venv/lib/python3.11/site-packages (from sympy>=1.13.3->torch>=1.9.0->pomegranate) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in ./.venv/lib/python3.11/site-packages (from jinja2->torch>=1.9.0->pomegranate) (3.0.3)
+Downloading pomegranate-1.1.2-py3-none-any.whl (98 kB)
+Downloading numba-0.63.1-cp311-cp311-macosx_11_0_arm64.whl (2.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.7/2.7 MB 27.6 MB/s  0:00:00
+Downloading llvmlite-0.46.0-cp311-cp311-macosx_11_0_arm64.whl (37.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 37.2/37.2 MB 58.0 MB/s  0:00:00
+Using cached tqdm-4.67.1-py3-none-any.whl (78 kB)
+Downloading nose-1.3.7-py3-none-any.whl (154 kB)
+Building wheels for collected packages: apricot-select
+  Building wheel for apricot-select (pyproject.toml): started
+  Building wheel for apricot-select (pyproject.toml): finished with status 'done'
+  Created wheel for apricot-select: filename=apricot_select-0.6.1-py3-none-any.whl size=48800 sha256=256a31204fd34434ca0e4db71b19faa81aac2ab75f78751a9059855a78b48de7
+  Stored in directory: /Users/eshaanganguly/Library/Caches/pip/wheels/ab/bc/fe/cd12c36ddfd92d986d2e8fd49b94286c2dbce74c20da1c2588
+Successfully built apricot-select
+WARNING: Ignoring invalid distribution ~yarrow (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~ip (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+Installing collected packages: nose, tqdm, llvmlite, numba, apricot-select, pomegranate
+
+WARNING: Ignoring invalid distribution ~yarrow (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~ip (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+Successfully installed apricot-select-0.6.1 llvmlite-0.46.0 nose-1.3.7 numba-0.63.1 pomegranate-1.1.2 tqdm-4.67.1
+WARNING: Ignoring invalid distribution ~yarrow (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~ip (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~yarrow (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)
+WARNING: Ignoring invalid distribution ~ip (/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages)

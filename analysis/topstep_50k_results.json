@@ -1,50 +1,53 @@
 {
   "model": "walk-forward-mid2022",
-  "run_dir": "runs/mid2022_20251227_043831_90e86589",
-  "total_trades": 447,
-  "trading_days": 124,
+  "run_dir": "runs/v3_2022_5m",
+  "total_trades": 563,
+  "trading_days": 283,
   "date_range": {
-    "start": "2022-12-16",
-    "end": "2025-08-11"
+    "start": "2022-10-25",
+    "end": "2025-09-30"
   },
   "trade_stats": {
-    "total_pnl": 26311.08532279379,
-    "avg_trade": 59.12603443324448,
-    "win_rate": 0.6912751677852349,
-    "profit_factor": 3.013644291763497
+    "total_pnl": 22248.61742348816,
+    "avg_trade": 39.51797055681733,
+    "win_rate": 0.5879218472468917,
+    "profit_factor": 1.6699169474789812
   },
   "daily_stats": {
-    "avg_pnl": 212.18617195801448,
-    "std_pnl": 324.58732145196825,
-    "best_day": 1157.5682702915155,
-    "worst_day": -556.0907571381349
+    "avg_pnl": 78.617022697838,
+    "std_pnl": 298.83433657899417,
+    "best_day": 954.2643767157581,
+    "worst_day": -1779.99
   },
   "topstep_50k": {
-    "monte_carlo_pass_rate": 1.0,
+    "monte_carlo_pass_rate": 0.7783,
     "sequential_passed": true,
     "sequential_result": {
       "passed": true,
       "fail_reason": null,
-      "days": 17,
-      "final_balance": 53092.115381538024,
-      "max_drawdown": 269.9800000000032
+      "days": 37,
+      "final_balance": 53187.06791484063,
+      "max_drawdown": 632.0135987534668
     },
     "mc_results": {
       "n_simulations": 10000,
-      "pass_rate": 1.0,
-      "pass_count": 10000,
-      "fail_count": 0,
-      "fail_reasons": {},
+      "pass_rate": 0.7783,
+      "pass_count": 7783,
+      "fail_count": 2217,
+      "fail_reasons": {
+        "daily_loss": 2128,
+        "trailing_drawdown": 89
+      },
       "days_to_pass": {
-        "mean": 15.5216,
-        "median": 15.0,
-        "p25": 11.0,
-        "p75": 19.0
+        "mean": 32.819992290890404,
+        "median": 30.0,
+        "p25": 22.0,
+        "p75": 40.0
       },
       "max_drawdown": {
-        "mean": 314.0647381345908,
-        "median": 303.0744877784746,
-        "p95": 801.2070263450732
+        "mean": 861.0367646831419,
+        "median": 827.3650000000052,
+        "p95": 1788.7474998380862
       }
     }
   }

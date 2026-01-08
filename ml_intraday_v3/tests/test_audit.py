@@ -12,7 +12,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from cli import run_audit_command
-from run_manifest import hash_content
+from ml_intraday_v3.run_manifest import hash_content
 
 
 def test_audit_smoke(tmp_path):

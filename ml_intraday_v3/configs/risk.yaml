@@ -55,13 +55,13 @@ trailing_drawdown:
 # Position limits (redundant with execution_spec but enforced here for safety)
 position_limits:
   # Max contracts per position
-  max_contracts_per_position: 2
+  max_contracts_per_position: 1
 
-  # Max concurrent positions
-  max_concurrent_positions: 1
+  # Max concurrent positions (user preference: 5 for MES, Topstep allows 50)
+  max_concurrent_positions: 5
 
   # Max total contracts across all positions
-  max_total_contracts: 2
+  max_total_contracts: 5
 
   # Max notional exposure (in dollars)
   # MES @ 5000 points = $25,000 notional per contract

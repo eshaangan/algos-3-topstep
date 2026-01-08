@@ -10,7 +10,7 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 
-from core.instrument import InstrumentSpec
+from ml_intraday_v3.core.instrument import InstrumentSpec
 
 logger = logging.getLogger(__name__)
 

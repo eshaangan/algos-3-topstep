@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Dict
 
-from run_manifest import hash_content
+from ml_intraday_v3.run_manifest import hash_content
 
 logger = logging.getLogger(__name__)
 

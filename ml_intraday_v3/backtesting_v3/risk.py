@@ -94,7 +94,9 @@ class RiskManager:
             return False, "max_trades"
         if self.consecutive_losses >= self.max_consecutive_losses:
             return False, "consecutive_losses"
-        if self.last_trade_exit_ts is not None:
+        # Only check min_seconds_between_trades if it's explicitly set (> 0)
+        # This allows concurrent positions when min_seconds_between_trades = 0
+        if self.min_seconds_between_trades > 0 and self.last_trade_exit_ts is not None:
             last_exit = self._normalize_ts(self.last_trade_exit_ts)
             delta = (entry_ts - last_exit).total_seconds()
             if delta < self.min_seconds_between_trades:

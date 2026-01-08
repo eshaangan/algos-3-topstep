@@ -14,8 +14,8 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from labels import apply_triplebarrier, generate_events
-from labels.schema import write_label_schema
-from core.instrument import load_instrument_from_execution_spec
+from ml_intraday_v3.labels.schema import write_label_schema
+from ml_intraday_v3.core.instrument import load_instrument_from_execution_spec
 from cli import build_labels_command
 
 

@@ -11,7 +11,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from core.instrument import InstrumentSpec
+from ml_intraday_v3.core.instrument import InstrumentSpec
 
 
 def _load_trades(backtest_dir: Path) -> pd.DataFrame:

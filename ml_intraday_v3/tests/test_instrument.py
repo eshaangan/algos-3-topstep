@@ -7,12 +7,12 @@ import json
 import pandas as pd
 import pytest
 
-from core.instrument import (
+from ml_intraday_v3.core.instrument import (
     load_instrument_from_execution_spec,
     InstrumentSpec,
     validate_risk_config_no_instrument_economics,
 )
-from audit.checks_accounting import check_pnl_identity
+from ml_intraday_v3.audit.checks_accounting import check_pnl_identity
 
 
 def test_instrument_spec_validates_point_value(tmp_path):

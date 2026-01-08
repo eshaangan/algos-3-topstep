@@ -13,7 +13,7 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backtesting_v3.risk import RiskManager
+from ml_intraday_v3.backtesting_v3.risk import RiskManager
 
 
 def create_risk_manager(starting_capital=1000.0, max_daily_loss=500.0, max_drawdown=800.0, hwm_update_policy="end_of_day"):

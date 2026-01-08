@@ -14,7 +14,7 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from data.ingest import filter_data
+from ml_intraday_v3.data.ingest import filter_data
 
 
 class TestSpreadContractFiltering:

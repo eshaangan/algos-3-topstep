@@ -32,7 +32,7 @@ from data import (
     SessionConfig,
     QAViolationError,
 )
-from run_manifest import write_multibar_run_manifest, hash_content
+from ml_intraday_v3.run_manifest import write_multibar_run_manifest, hash_content
 from features import (
     build_features,
     get_feature_registry,
@@ -57,12 +57,12 @@ from validation import (
     build_cpcv_paths,
     write_cv_schema,
 )
-from training import train_on_splits
-from backtesting_v3 import run_backtest, write_backtest_schema
+from ml_intraday_v3.training import train_on_splits
+from ml_intraday_v3.backtesting_v3 import run_backtest, write_backtest_schema
 from experiments import run_experiments
 from audit import run_audit
 from walkforward import run_walkforward
-from core.instrument import (
+from ml_intraday_v3.core.instrument import (
     load_instrument_from_execution_spec,
     validate_risk_config_no_instrument_economics,
 )
@@ -948,6 +948,7 @@ def build_weights_command(args):
     weights_cfg = labeling_config.get("sample_weights", {})
     uniqueness_cfg = weights_cfg.get("uniqueness", {})
     magnitude_cfg = weights_cfg.get("magnitude", {})
+    hmm_regime_cfg = weights_cfg.get("hmm_regime", {})
     formula_cfg = weights_cfg.get("weight_formula", {})
 
     with open(labeling_config_path, "r") as f:
@@ -987,6 +988,18 @@ def build_weights_command(args):
 
     uniq_exp = float(formula_cfg.get("uniqueness_exponent", 1.0))
     mag_exp = float(formula_cfg.get("magnitude_exponent", 0.0))
+    regime_exp = float(formula_cfg.get("regime_exponent", 1.0))
+
+    # HMM regime configuration
+    hmm_enabled = bool(hmm_regime_cfg.get("enabled", False))
+    hmm_n_states = int(hmm_regime_cfg.get("n_states", 2))
+    hmm_covariance_type = hmm_regime_cfg.get("covariance_type", "full")
+    hmm_n_iter = int(hmm_regime_cfg.get("n_iter", 100))
+    hmm_min_train_samples = int(hmm_regime_cfg.get("min_train_samples", 252))
+    hmm_refit_every = int(hmm_regime_cfg.get("refit_every", 21))
+    hmm_target_policy = hmm_regime_cfg.get("target_regime_policy", "recent")
+    hmm_similarity_method = hmm_regime_cfg.get("similarity_method", "probability")
+    hmm_discount_factor = float(hmm_regime_cfg.get("discount_factor", 0.5))
 
     for bar_size in bar_sizes:
         logger.info("")
@@ -1087,7 +1100,128 @@ def build_weights_command(args):
         else:
             w_magnitude = np.ones(len(events_valid), dtype=float)
 
-        w_final = (w_uniqueness ** uniq_exp) * (w_magnitude ** mag_exp)
+        # Compute HMM regime weights
+        logger.info("")
+        logger.info("Computing HMM regime weights")
+        logger.info("-" * 80)
+
+        if hmm_enabled:
+            try:
+                from ml_intraday_v3.weights.hmm_weights import (
+                    compute_hmm_regime_weights,
+                    compute_regime_weights_by_policy,
+                )
+
+                # Check for pre-computed GPU HMM results first (much faster)
+                hmm_gpu_path = bar_dir / "hmm_regimes_gpu.parquet"
+                hmm_cpu_path = bar_dir / "hmm_regimes.parquet"
+
+                regime_probs = None
+                regime_states = None
+
+                if hmm_gpu_path.exists():
+                    logger.info(f"Loading pre-computed GPU HMM regimes from {hmm_gpu_path}")
+                    hmm_df = pd.read_parquet(hmm_gpu_path)
+                    regime_states = hmm_df["hmm_state"]
+
+                    # Extract probability columns
+                    prob_cols = [c for c in hmm_df.columns if c.startswith("prob_")]
+                    regime_probs = hmm_df[prob_cols]
+
+                    logger.info(f"Loaded {len(regime_states)} regime assignments from GPU HMM")
+                    logger.info(f"State distribution: {regime_states.value_counts().to_dict()}")
+
+                elif hmm_cpu_path.exists():
+                    logger.info(f"Loading pre-computed CPU HMM regimes from {hmm_cpu_path}")
+                    hmm_df = pd.read_parquet(hmm_cpu_path)
+                    regime_states = hmm_df["hmm_state"]
+                    prob_cols = [c for c in hmm_df.columns if c.startswith("prob_")]
+                    regime_probs = hmm_df[prob_cols]
+                    logger.info(f"Loaded {len(regime_states)} regime assignments from CPU HMM")
+
+                else:
+                    # No pre-computed HMM - run from scratch (slow)
+                    logger.info("No pre-computed HMM regimes found - computing from scratch...")
+                    logger.warning("This may take a long time. Consider running run_gpu_hmm.py first.")
+
+                    from ml_intraday_v3.features.hmm_regime import HMMRegimeDetector
+
+                    # Compute returns from bars
+                    if "close" in bars_df.columns:
+                        returns = bars_df["close"].pct_change().fillna(0)
+                    else:
+                        logger.warning("No 'close' column found - using zeros for returns")
+                        returns = pd.Series(np.zeros(len(bars_df)), index=bars_df.index)
+
+                    # Check if we have enough data
+                    if len(returns) < hmm_min_train_samples:
+                        logger.warning(
+                            f"Not enough data for HMM ({len(returns)} < {hmm_min_train_samples}). "
+                            "Using uniform regime weights."
+                        )
+                        w_regime = np.ones(len(events_valid), dtype=float)
+                    else:
+                        # Fit HMM and get regime predictions
+                        logger.info(
+                            f"Fitting {hmm_n_states}-state HMM on {len(returns)} returns"
+                        )
+                        hmm = HMMRegimeDetector(
+                            n_states=hmm_n_states,
+                            covariance_type=hmm_covariance_type,
+                            n_iter=hmm_n_iter,
+                            min_samples=hmm_min_train_samples,
+                        )
+
+                        regime_states, regime_probs = hmm.predict_expanding(
+                            returns=returns,
+                            min_train_samples=hmm_min_train_samples,
+                            refit_every=hmm_refit_every,
+                        )
+
+                        # Save HMM artifacts
+                        hmm_regimes_path = bar_dir / "hmm_regimes.parquet"
+                        regime_output = pd.DataFrame({
+                            "hmm_state": regime_states,
+                        })
+                        for col in regime_probs.columns:
+                            regime_output[col] = regime_probs[col]
+                        regime_output.to_parquet(hmm_regimes_path)
+                        logger.info(f"Saved HMM regimes to {hmm_regimes_path}")
+
+                # Compute regime weights if we have regime data
+                if regime_probs is not None and regime_states is not None:
+                    w_regime_series = compute_regime_weights_by_policy(
+                        events_df=events_valid,
+                        regime_probs=regime_probs,
+                        regime_states=regime_states,
+                        policy=hmm_target_policy,
+                        similarity_method=hmm_similarity_method,
+                        discount_factor=hmm_discount_factor,
+                    )
+                    w_regime = w_regime_series.to_numpy()
+
+                    logger.info(
+                        f"HMM regime weights: mean={w_regime.mean():.3f}, "
+                        f"std={w_regime.std():.3f}"
+                    )
+                else:
+                    w_regime = np.ones(len(events_valid), dtype=float)
+
+            except ImportError as e:
+                logger.warning(
+                    f"HMM libraries not available ({e}). Using uniform regime weights."
+                )
+                w_regime = np.ones(len(events_valid), dtype=float)
+            except Exception as e:
+                logger.error(f"Error computing HMM regime weights: {e}")
+                logger.warning("Using uniform regime weights as fallback")
+                w_regime = np.ones(len(events_valid), dtype=float)
+        else:
+            logger.info("HMM regime weights disabled - using 1.0")
+            w_regime = np.ones(len(events_valid), dtype=float)
+
+        # Combine all weights
+        w_final = (w_uniqueness ** uniq_exp) * (w_magnitude ** mag_exp) * (w_regime ** regime_exp)
 
         weights_df = pd.DataFrame(
             {
@@ -1096,6 +1230,7 @@ def build_weights_command(args):
                 "t1": events_valid["t1"].to_numpy(),
                 "w_uniqueness": w_uniqueness,
                 "w_magnitude": w_magnitude,
+                "w_regime": w_regime,
                 "w_final": w_final,
             }
         )
@@ -1107,6 +1242,7 @@ def build_weights_command(args):
                 "t1",
                 "w_uniqueness",
                 "w_magnitude",
+                "w_regime",
                 "w_final",
             ]
         ]
@@ -1130,8 +1266,8 @@ def build_weights_command(args):
             output_path=schema_path,
             columns=list(weights_df.columns),
             config_snapshot=weights_cfg,
-            code_version="1.0.0",
-            notes=f"uniqueness={uniqueness_method}, magnitude_enabled={magnitude_enabled}",
+            code_version="1.1.0",
+            notes=f"uniqueness={uniqueness_method}, magnitude_enabled={magnitude_enabled}, hmm_enabled={hmm_enabled}",
         )
         logger.info(f"Wrote weight schema to {schema_path}")
 

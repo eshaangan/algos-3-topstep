@@ -5,7 +5,7 @@ Entry/exit and cost computation consistent with labeling assumptions.
 from dataclasses import dataclass
 import pandas as pd
 
-from core.instrument import InstrumentSpec
+from ml_intraday_v3.core.instrument import InstrumentSpec
 
 
 @dataclass

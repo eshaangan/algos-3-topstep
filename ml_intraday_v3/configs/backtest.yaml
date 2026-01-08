@@ -44,7 +44,7 @@ decision:
 
 sizing:
   contracts: 1
-  max_concurrent_positions: 1
+  max_concurrent_positions: 5  # Max 5 concurrent MES positions
 
 costs:
   use_execution_spec: true

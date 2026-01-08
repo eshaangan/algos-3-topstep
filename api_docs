@@ -1,239 +1,10 @@
-ProjectX Gateway API Documentation - Extracted Text
+### Example Success Response for Contract Search
 
-1. Getting Started
-------------------
-ProjectX Trading, LLC – through its trading platform ProjectX – offers a complete end‑to‑end solution for prop firms and evaluation providers.  The platform’s features include account customisation, risk rules and monitoring, liquidations, statistics and robust permissioning.  The ProjectX Gateway API utilises a REST API architecture for managing prop‑firm trader operations.
+Source: https://gateway.docs.projectx.com/docs/api-reference/market-data/search-contracts
 
-What you'll need:
-- An understanding of REST APIs.
-- cURL or Postman for making sample requests.
+An example of a successful response from the Contract search API. It includes a list of contracts with their details, and success status.
 
-2. Authenticate (overview)
---------------------------
-This section outlines the process of authenticating API requests using JSON Web Tokens.  All requests sent to the API require a session token obtained during authentication.  Two authentication methods are available: using an API key or authenticating as an authorised application.
-
-• Authenticate (with API key):
-  - We utilise JSON Web Tokens to authenticate all requests sent to the API.  The process involves obtaining a session token, which is required for future requests.
-  - **Step 1:** Ensure you have the following:
-      * An API key obtained from your firm (contact your firm if you don’t have these credentials).
-      * The connection URLs (see the “Connection URLs” page).
-  - **Step 2:** Make a `POST` request to the login endpoint to get a token.
-      * API URL: `https://gateway-api-demo.s2f.projectx.com/api/Auth/loginKey`
-      * API Reference: `/api/Auth/loginKey`
-      * A sample cURL body looks like:
-        ```
-        {
-          "userName": "string",
-          "apiKey": "string"
-        }
-        ```
-  - **Step 3:** Process the API response and ensure the result is `success = true` (error code 0).  Store the session token in a safe place.  The token grants full access to the Gateway API.
-      * Example response:
-        ```
-        {
-          "token": "your_session_token_here",
-          "success": true,
-          "errorCode": 0,
-          "errorMessage": null
-        }
-        ```
-
-• Authenticate (for authorised applications):
-  - JSON Web Tokens are used to authenticate authorised applications.
-  - **Step 1:** Retrieve the admin credentials (username, password, appId and verifyKey) provided for your firm.  You need these credentials to authenticate with the API.  Contact your account manager if you don’t have them.
-  - **Step 2:** Make a `POST` request to the application login endpoint.
-      * API URL: `https://gateway-api-demo.s2f.projectx.com/api/Auth/loginApp`
-      * API Reference: `/api/Auth/loginApp`
-      * Sample request body:
-        ```
-        {
-          "userName": "yourUserName",
-          "password": "yourPassword",
-          "deviceId": "yourDeviceId",
-          "appId": "yourApplicationID",
-          "verifyKey": "yourVerifyKey"
-        }
-        ```
-  - **Step 3:** Process the API response and confirm `success = true` (error code 0).  Store the session token; it grants full access to the Gateway API.
-      * Example response:
-        ```
-        {
-          "token": "your_session_token_here",
-          "success": true,
-          "errorCode": 0,
-          "errorMessage": null
-        }
-        ```
-
-3. Validate Session
--------------------
-Session tokens are valid for 24 hours.  If your token has expired you must re‑validate it to obtain a new token.
-
-**Validate Token**
-- API URL: `https://gateway-api-demo.s2f.projectx.com/api/Auth/validate`
-- API Reference: `/api/Auth/validate`
-- To validate your token, make a `POST` request to the endpoint above.  If the token is still valid, you will receive a confirmation; otherwise, you’ll receive an error and should re‑authenticate.
-
-4. Placing Your First Order
----------------------------
-This documentation outlines the process for placing your first order using the API.  To successfully execute an order, you need an active trading account associated with your user.  Follow these steps to retrieve account details, browse available contracts and place your order.
-
-**Step 1 – Retrieve Accounts**
-- Retrieve a list of active accounts linked to your user to confirm your account status before placing an order.
-- API URL: `https://gateway-api-demo.s2f.projectx.com/api/Account/search`
-- API Reference: `/api/Account/search`
-- Sample request body:
-
-Retrieve Bars
-
-API URL: POST https://api.topstepx.com/api/History/retrieveBars
-
-API Reference: /api/History/retrieveBars
-
-Description
-
-Retrieve bars.
-
-Note: The maximum number of bars that can be retrieved in a single request is 20,000.
-Parameters
-
-Name	Type	Description	Required	Nullable
-contractId	integer	The contract ID.	Required	false
-live	boolean	Whether to retrieve bars using the sim or live data subscription.	Required	false
-startTime	datetime	The start time of the historical data.	Required	false
-endTime	datetime	The end time of the historical data.	Required	false
-unit	integer	The unit of aggregation for the historical data:
-1 = Second
-2 = Minute
-3 = Hour
-4 = Day
-5 = Week
-6 = Month	Required	false
-unitNumber	integer	The number of units to aggregate.	Required	false
-limit	integer	The maximum number of bars to retrieve.	Required	false
-includePartialBar	boolean	Whether to include a partial bar representing the current time unit.	Required	false
-Example Usage
-
-Example Request
-
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/History/retrieveBars' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "contractId": "CON.F.US.RTY.Z24",
-    "live": false,
-    "startTime": "2024-12-01T00:00:00Z",
-    "endTime": "2024-12-31T21:00:00Z",
-    "unit": 3,
-    "unitNumber": 1,
-    "limit": 7,
-    "includePartialBar": false
-  }'
-
-Example Response
-
-Success
-Error
-{
-    "bars": [
-        {
-            "t": "2024-12-20T14:00:00+00:00",
-            "o": 2208.100000000,
-            "h": 2217.000000000,
-            "l": 2206.700000000,
-            "c": 2210.100000000,
-            "v": 87
-        },
-        {
-            "t": "2024-12-20T13:00:00+00:00",
-            "o": 2195.800000000,
-            "h": 2215.000000000,
-            "l": 2192.900000000,
-            "c": 2209.800000000,
-            "v": 536
-        },
-        {
-            "t": "2024-12-20T12:00:00+00:00",
-            "o": 2193.600000000,
-            "h": 2200.300000000,
-            "l": 2192.000000000,
-            "c": 2198.000000000,
-            "v": 180
-        },
-        {
-            "t": "2024-12-20T11:00:00+00:00",
-            "o": 2192.200000000,
-            "h": 2194.800000000,
-            "l": 2189.900000000,
-            "c": 2194.800000000,
-            "v": 174
-        },
-        {
-            "t": "2024-12-20T10:00:00+00:00",
-            "o": 2200.400000000,
-            "h": 2200.400000000,
-            "l": 2191.000000000,
-            "c": 2193.100000000,
-            "v": 150
-        },
-        {
-            "t": "2024-12-20T09:00:00+00:00",
-            "o": 2205.000000000,
-            "h": 2205.800000000,
-            "l": 2198.900000000,
-            "c": 2200.500000000,
-            "v": 56
-        },
-        {
-            "t": "2024-12-20T08:00:00+00:00",
-            "o": 2207.700000000,
-            "h": 2210.100000000,
-            "l": 2198.100000000,
-            "c": 2204.900000000,
-            "v": 144
-        }
-    ],
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
-}
-
-
-Search for Contracts
-
-API URL: POST https://api.topstepx.com/api/Contract/search
-
-API Reference: /api/Contract/search
-
-Description
-
-Search for contracts. Note: The response returns up to 20 contracts at a time.
-
-Parameters
-
-Name	Type	Description	Required	Nullable
-searchText	string	The name of the contract to search for.	Required	false
-live	boolean	Whether to search for contracts using the sim/live data subscription.	Required	false
-Example Usage
-
-Example Request
-
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/Contract/search' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "live": false,
-    "searchText": "NQ"
-  }'
-
-Example Response
-
-Success
-Error
+```json
 {
   "contracts": [
       {
@@ -277,81 +48,249 @@ Error
   "errorCode": 0,
   "errorMessage": null
 }
+```
 
-Search for Contract by Id
+--------------------------------
 
-API URL: POST https://api.topstepx.com/api/Contract/searchById
+### Place Order using cURL
 
-API Reference: /api/Contract/searchById
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-place
 
-Description
+Example of how to place an order using the cURL command-line tool. This demonstrates the POST request to the /api/Order/place endpoint with a JSON payload containing order details.
 
-Search for contracts.
-
-Parameters
-
-Name	Type	Description	Required	Nullable
-contractId	string	The id of the contract to search for.	Required	false
-Example Usage
-
-Example Request
-
-cURL Request
+```curl
 curl -X 'POST' \
-  'https://api.topstepx.com/api/Contract/searchById' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Order/place' \
   -H 'accept: text/plain' \
   -H 'Content-Type: application/json' \
-  -d '{
-    "contractId": "CON.F.US.ENQ.H25"
+  -d '{ \
+    "accountId": 465, \
+    "contractId": "CON.F.US.DA6.M25", \
+    "type": 2, \
+    "side": 1, \
+    "size": 1, \
+    "limitPrice": null, \
+    "stopPrice": null, \
+    "trailPrice": null, \
+    "customTag": null, \
+    "stopLossBracket": { \
+      "ticks": 10, \
+      "type": 1 \
+    }, \
+    "takeProfitBracket": { \
+      "ticks": 20, \
+      "type": 1 \
+    } \
   }'
+```
 
-Example Response
+--------------------------------
 
-Success
-Error
+### Gateway Depth Payload Example
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Example JSON payload for a Gateway Depth message. This message contains information about market depth at a specific price level.
+
+```json
 {
-  "contract": {
-      "id": "CON.F.US.ENQ.H25",
-      "name": "NQH5",
-      "description": "E-mini NASDAQ-100: March 2025",
-      "tickSize": 0.25,
-      "tickValue": 5,
-      "activeContract": false,
-      "symbolId": "F.US.ENQ"
-  },
-  "success": true,
-  "errorCode": 0,
-  "errorMessage": null
-}List Available Contracts
+  "timestamp": "2024-07-21T13:45:00Z",
+  "type": 1, // Ask
+  "price": 2100.00,
+  "volume": 10,
+  "currentVolume": 5
+}
+```
 
-API URL: POST https://api.topstepx.com/api/Contract/available
+--------------------------------
 
-API Reference: /api/Contract/available
+### Example Error Response for Contract Search
 
-Description
+Source: https://gateway.docs.projectx.com/docs/api-reference/market-data/search-contracts
 
-Lists available contracts based on the provided request parameters.
+An example of an error response from the Contract search API, indicating an authentication issue.
 
-Parameters
+```text
+Error: response status is 401
+```
 
-Name	Type	Description	Required	Nullable
-live	boolean	Whether to retrieve live contracts. This parameter is required and cannot be null.	Required	false
-Example Usage
+--------------------------------
 
-Example Request
+### Order Placement Success Response
 
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/Contract/available' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "live": true
-  }'
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-place
 
-Example Response
+Example of a successful response when an order is placed. It includes the order ID, a success flag, and zero error code.
 
-Success
+```json
+{
+    "orderId": 9056,
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+
+--------------------------------
+
+### Gateway Trade Payload Example
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Example JSON payload for a Gateway Trade message. This message represents a completed trade execution.
+
+```json
+{
+  "symbolId": "F.US.EP",
+  "price": 2100.25,
+  "timestamp": "2024-07-21T13:45:00Z",
+  "type": 0, // Buy
+  "volume": 2
+}
+```
+
+--------------------------------
+
+### GatewayUserOrder Payload Example
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Defines a user's order, including order ID, account, contract, symbol, and timestamps. It specifies order status, type, side, size, and pricing details, along with a custom tag.
+
+```json
+{
+  "id": 789,
+  "accountId": 123,
+  "contractId": "CON.F.US.EP.U25",
+  "symbolId": "F.US.EP",
+  "creationTimestamp": "2024-07-21T13:45:00Z",
+  "updateTimestamp": "2024-07-21T13:46:00Z",
+  "status": 1, // Open
+  "type": 1, // Limit
+  "side": 0, // Bid
+  "size": 1,
+  "limitPrice": 2100.50,
+  "stopPrice": null,
+  "fillVolume": 0,
+  "filledPrice": null,
+  "customTag": "strategy-1"
+}
+```
+
+--------------------------------
+
+### Example Response for Search Open Orders
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-search-open
+
+Illustrates a successful response from the searchOpen API endpoint, detailing the structure of the returned order data, including order ID, account ID, contract details, timestamps, status, type, side, size, and prices.
+
+```json
+{
+    "orders": [
+        {
+            "id": 26970,
+            "accountId": 212,
+            "contractId": "CON.F.US.EP.M25",
+            "creationTimestamp": "2025-04-21T19:45:52.105808+00:00",
+            "updateTimestamp": "2025-04-21T19:45:52.105808+00:00",
+            "status": 1,
+            "type": 4,
+            "side": 1,
+            "size": 1,
+            "limitPrice": null,
+            "stopPrice": 5138.000000000,
+            "filledPrice": null
+        }
+    ],
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+
+--------------------------------
+
+### GatewayUserAccount Payload Example
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Represents a user's trading account with details like ID, name, balance, and trading eligibility. It includes fields for trading permissions and visibility.
+
+```json
+{
+  "id": 123,
+  "name": "Main Trading Account",
+  "balance": 10000.50,
+  "canTrade": true,
+  "isVisible": true,
+  "simulated": false
+}
+```
+
+--------------------------------
+
+### Success Response for Searching Open Positions
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/positions/search-open-positions
+
+An example of a successful JSON response when searching for open positions. It contains a list of positions with their details, a success flag, and error code information.
+
+```json
+{
+    "positions": [
+        {
+            "id": 6124,
+            "accountId": 536,
+            "contractId": "CON.F.US.GMET.J25",
+            "creationTimestamp": "2025-04-21T19:52:32.175721+00:00",
+            "type": 1,
+            "size": 2,
+            "averagePrice": 1575.750000000
+        }
+    ],
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+
+```
+
+--------------------------------
+
+### GatewayQuote Payload Example
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Provides real-time market quote data for a financial symbol, including bid/ask prices, last traded price, and daily statistics like open, high, low, and volume. It also includes price change information.
+
+```json
+{
+  "symbol": "F.US.EP",
+  "symbolName": "/ES",
+  "lastPrice": 2100.25,
+  "bestBid": 2100.00,
+  "bestAsk": 2100.50,
+  "change": 25.50,
+  "changePercent": 0.14,
+  "open": 2090.00,
+  "high": 2110.00,
+  "low": 2080.00,
+  "volume": 12000,
+  "lastUpdated": "2024-07-21T13:45:00Z",
+  "timestamp": "2024-07-21T13:45:00Z"
+}
+```
+
+--------------------------------
+
+### Example JSON Response for Financial Contracts
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/market-data/available-contracts
+
+This JSON object represents a list of financial contracts, including their unique identifiers, names, descriptions, and trading parameters like tick size and tick value. It also indicates whether each contract is active.
+
+```json
 {
     "contracts": [
         {
@@ -501,197 +440,902 @@ Success
         {
             "id": "CON.F.US.M6B.U25",
             "name": "M6BU5",
-            "description": "E-Micro GBP/USD: September 2025",
+            "description": "E-Micro CAD/USD: September 2025",
             "tickSize": 0.0001,
-            "tickValue": 0.625,
+            "tickValue": 1,
             "activeContract": true,
             "symbolId": "F.US.M6B"
-        },
+        }
+    ]
+}
+```
+
+--------------------------------
+
+### Modify Order Response Examples
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-modify
+
+These snippets show example responses for modifying an order. The first indicates a successful modification with success status and no errors, while the second illustrates an error scenario, specifically an unauthorized (401) status.
+
+```JSON
+{
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+
+```text
+Error: response status is 401
+```
+
+--------------------------------
+
+### GatewayUserPosition Payload Example
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Details a user's position in a financial contract, including position ID, associated account, contract ID, size, and average price. It also captures the creation timestamp and position type.
+
+```json
+{
+  "id": 456,
+  "accountId": 123,
+  "contractId": "CON.F.US.EP.U25",
+  "creationTimestamp": "2024-07-21T13:45:00Z",
+  "type": 1, // Long
+  "size": 2,
+  "averagePrice": 2100.25
+}
+```
+
+--------------------------------
+
+### GatewayUserTrade Payload Example
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Represents a completed trade executed by a user, containing trade ID, account, contract, and timestamps. It includes trade price, profit/loss, fees, side, size, and void status, linked to an order ID.
+
+```json
+{
+  "id": 101112,
+  "accountId": 123,
+  "contractId": "CON.F.US.EP.U25",
+  "creationTimestamp": "2024-07-21T13:47:00Z",
+  "price": 2100.75,
+  "profitAndLoss": 50.25,
+  "fees": 2.50,
+  "side": 0, // Bid
+  "size": 1,
+  "voided": false,
+  "orderId": 789
+}
+```
+
+--------------------------------
+
+### Place an Order via cURL
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This cURL command demonstrates how to place an order using the Gateway ProjectX API, specifying the account, contract, order type, side, and size.
+
+```bash
+curl -X 'POST' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Order/place' \
+  -H 'accept: text/plain' \
+  -H 'Content-Type: application/json' \
+  -d '{ \
+    "accountId": 1, \
+    "contractId": "CON.F.US.BP6.U25", \
+    "type": 2, \
+    "side": 1, \
+    "size": 1 \
+  }'
+```
+
+--------------------------------
+
+### Request Available Contracts via API (Response)
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This JSON snippet illustrates a successful response from the contract availability API, listing contracts with their IDs, names, descriptions, and trading parameters.
+
+```json
+{
+    "contracts": [
         {
-            "id": "CON.F.US.M6E.U25",
-            "name": "M6EU5",
-            "description": "E-Micro EUR/USD: September 2025",
+            "id": "CON.F.US.BP6.U25",
+            "name": "6BU5",
+            "description": "British Pound (Globex): September 2025",
             "tickSize": 0.0001,
-            "tickValue": 1.25,
-            "activeContract": true,
-            "symbolId": "F.US.M6E"
-        },
-        {
-            "id": "CON.F.US.MBT.N25",
-            "name": "MBTN5",
-            "description": "Micro Bitcoin: July 2025",
-            "tickSize": 5,
-            "tickValue": 0.5,
-            "activeContract": true,
-            "symbolId": "F.US.MBT"
-        },
-        {
-            "id": "CON.F.US.MES.U25",
-            "name": "MESU5",
-            "description": "Micro E-mini S&P 500: September 2025",
-            "tickSize": 0.25,
-            "tickValue": 1.25,
-            "activeContract": true,
-            "symbolId": "F.US.MES"
-        },
-        {
-            "id": "CON.F.US.MNQ.U25",
-            "name": "MNQU5",
-            "description": "Micro E-mini Nasdaq-100: September 2025",
-            "tickSize": 0.25,
-            "tickValue": 0.5,
-            "activeContract": true,
-            "symbolId": "F.US.MNQ"
-        },
-        {
-            "id": "CON.F.US.MX6.U25",
-            "name": "6MU5",
-            "description": "Mexican Peso (Globex): September 2025",
-            "tickSize": 0.00001,
-            "tickValue": 5,
-            "activeContract": true,
-            "symbolId": "F.US.MX6"
-        },
-        {
-            "id": "CON.F.US.NE6.U25",
-            "name": "6NU5",
-            "description": "New Zealand Dollar (Globex): September 2025",
-            "tickSize": 0.00005,
-            "tickValue": 5,
-            "activeContract": true,
-            "symbolId": "F.US.NE6"
-        },
-        {
-            "id": "CON.F.US.NKD.U25",
-            "name": "NKDU5",
-            "description": "Nikkei 225 (Globex): September 2025",
-            "tickSize": 5,
-            "tickValue": 25,
-            "activeContract": true,
-            "symbolId": "F.US.NKD"
-        },
-        {
-            "id": "CON.F.US.RTY.U25",
-            "name": "RTYU5",
-            "description": "E-mini Russell 2000: September 2025",
-            "tickSize": 0.1,
-            "tickValue": 5,
-            "activeContract": true,
-            "symbolId": "F.US.RTY"
-        },
-        {
-            "id": "CON.F.US.SF6.U25",
-            "name": "6SU5",
-            "description": "Swiss Franc (Globex): September 2025",
-            "tickSize": 0.00005,
             "tickValue": 6.25,
             "activeContract": true,
-            "symbolId": "F.US.SF6"
-        },
-        {
-            "id": "CON.F.US.SR3.Z25",
-            "name": "SR3Z5",
-            "description": "3 Month SOFR: December 2025",
-            "tickSize": 0.005,
-            "tickValue": 12.5,
-            "activeContract": true,
-            "symbolId": "F.US.SR3"
+            "symbolId": "F.US.BP6"
         }
     ],
     "success": true,
     "errorCode": 0,
     "errorMessage": null
 }
+```
 
-Search for Orders
+--------------------------------
 
-API URL: POST https://api.topstepx.com/api/Order/search
+### POST /api/Contract/available
 
-API Reference: /api/Order/search
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
 
-Description
+Retrieves a list of available contracts that can be traded. This allows users to browse through tradable contracts.
 
-Search for orders.
+```APIDOC
+## POST /api/Contract/available
 
-Parameters
+### Description
+Retrieves a list of available contracts. This step allows you to browse through the contracts that can be traded.
 
-Name	Type	Description	Required	Nullable
-accountId	integer	The account ID.	Required	false
-startTimestamp	datetime	The start of the timestamp filter.	Required	false
-endTimestamp	datetime	The end of the timestamp filter.	Optional	true
-Example Usage
+### Method
+POST
 
-Example Request
+### Endpoint
+/api/Contract/available
 
-cURL Request
+### Parameters
+#### Request Body
+- **live** (boolean) - Required - Specifies whether to retrieve live contracts.
+
+### Request Example
+```json
+{
+  "live": true
+}
+```
+
+### Response
+#### Success Response (200)
+- **contracts** (array) - A list of contract objects, each containing id, name, description, tickSize, tickValue, activeContract, and symbolId.
+- **success** (boolean) - Indicates if the request was successful.
+- **errorCode** (integer) - The error code if the request failed.
+- **errorMessage** (string) - The error message if the request failed.
+
+#### Response Example
+```json
+{
+    "contracts": [
+        {
+            "id": "CON.F.US.BP6.U25",
+            "name": "6BU5",
+            "description": "British Pound (Globex): September 2025",
+            "tickSize": 0.0001,
+            "tickValue": 6.25,
+            "activeContract": true,
+            "symbolId": "F.US.BP6"
+        }
+    ],
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+```
+
+--------------------------------
+
+### POST /api/Account/search
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+Retrieves a list of active accounts linked to the user. This is the first step to confirm account status before placing an order.
+
+```APIDOC
+## POST /api/Account/search
+
+### Description
+Retrieves a list of active accounts linked to the user. This step is essential for confirming your account status before placing an order.
+
+### Method
+POST
+
+### Endpoint
+/api/Account/search
+
+### Parameters
+#### Request Body
+- **onlyActiveAccounts** (boolean) - Required - Specifies whether to retrieve only active accounts.
+
+### Request Example
+```json
+{
+  "onlyActiveAccounts": true
+}
+```
+
+### Response
+#### Success Response (200)
+- **accounts** (array) - A list of account objects, each containing id, name, canTrade, and isVisible.
+- **success** (boolean) - Indicates if the request was successful.
+- **errorCode** (integer) - The error code if the request failed.
+- **errorMessage** (string) - The error message if the request failed.
+
+#### Response Example
+```json
+{
+    "accounts": [
+        {
+            "id": 1,
+            "name": "TEST_ACCOUNT_1",
+            "canTrade": true,
+            "isVisible": true
+        }
+    ],
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+```
+
+--------------------------------
+
+### Request Available Contracts via API (Request)
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This JSON snippet shows the request body to retrieve a list of available contracts for trading. It uses the 'live' flag to filter for live contracts.
+
+```json
+{
+  "live": true
+}
+```
+
+--------------------------------
+
+### Request Available Contracts via cURL
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This cURL command demonstrates how to request available contracts using the Gateway ProjectX API, specifying the content type and request body.
+
+```bash
 curl -X 'POST' \
-  'https://api.topstepx.com/api/Order/search' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Contract/available' \
   -H 'accept: text/plain' \
   -H 'Content-Type: application/json' \
-  -d '{
-    "accountId": 704,
-    "startTimestamp": "2025-07-18T21:00:01.268009+00:00",
-    "endTimestamp": "2025-07-18T21:00:01.278009+00:00"
+  -d '{ \
+    "live": true \
   }'
+```
 
-Example Response
+--------------------------------
 
-Success
-Error
+### POST /api/Order/place
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+Submits an order request using the account ID and contract ID. Allows users to specify order type, side, and size.
+
+```APIDOC
+## POST /api/Order/place
+
+### Description
+Places an order using the provided account ID and contract ID. You can specify the order type, side, and size.
+
+### Method
+POST
+
+### Endpoint
+/api/Order/place
+
+### Parameters
+#### Request Body
+- **accountId** (integer) - Required - The ID of the account to use for the order.
+- **contractId** (string) - Required - The ID of the contract to trade.
+- **type** (integer) - Required - The type of order (e.g., 2 for Market order).
+- **side** (integer) - Required - The side of the order (e.g., 1 for Ask).
+- **size** (integer) - Required - The size of the order.
+
+### Request Example
+```json
 {
-  "orders": [
+  "accountId": 1, 
+  "contractId": "CON.F.US.BP6.U25", 
+  "type": 2, 
+  "side": 1, 
+  "size": 1
+}
+```
+
+### Response
+#### Success Response (200)
+- **orderId** (integer) - The ID of the placed order.
+- **success** (boolean) - Indicates if the order was placed successfully.
+- **errorCode** (integer) - The error code if the order placement failed.
+- **errorMessage** (string) - The error message if the order placement failed.
+
+#### Response Example
+```json
+{
+    "orderId": 9056,
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+
+### Error Handling
+- **401 Unauthorized**: Indicates an authentication error.
+
+```
+
+--------------------------------
+
+### Place an Order via API (Request)
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This JSON snippet shows the request body for placing an order, including account ID, contract ID, order type, side, and size. Account and contract IDs should be replaced with actual values.
+
+```json
+{
+  "accountId": 1, 
+  "contractId": "CON.F.US.BP6.U25", 
+  "type": 2, 
+  "side": 1, 
+  "size": 1 
+}
+```
+
+--------------------------------
+
+### Retrieve Active Accounts via API (Response)
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This JSON snippet represents a successful response from the account search API, detailing active accounts with their IDs, names, and trading capabilities.
+
+```json
+{
+    "accounts": [
+        {
+            "id": 1,
+            "name": "TEST_ACCOUNT_1",
+            "canTrade": true,
+            "isVisible": true
+        }
+    ],
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+
+--------------------------------
+
+### Retrieve Active Accounts via cURL
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This cURL command demonstrates how to request a list of active accounts using the Gateway ProjectX API, specifying the content type and request body.
+
+```bash
+curl -X 'POST' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Account/search' \
+  -H 'accept: text/plain' \
+  -H 'Content-Type: application/json' \
+  -d '{ \
+    "onlyActiveAccounts": true \
+  }'
+```
+
+--------------------------------
+
+### Retrieve Active Accounts via API (Request)
+
+Source: https://gateway.docs.projectx.com/docs/getting-started/placing-your-first-order
+
+This JSON snippet shows the request body to search for active accounts linked to a user. It requires the 'onlyActiveAccounts' flag to be set to true.
+
+```json
+{
+  "onlyActiveAccounts": true
+}
+```
+
+--------------------------------
+
+### POST /api/Order/place
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-place
+
+Place an order with specified details. This endpoint supports various order types and includes optional parameters for limit price, stop price, trailing price, custom tags, and bracket orders.
+
+```APIDOC
+## POST /api/Order/place
+
+### Description
+Place an order. Supports various order types like Limit, Market, Stop, TrailingStop, JoinBid, JoinAsk. Includes optional parameters for pricing, custom tags, and bracket orders (stop loss, take profit).
+
+### Method
+POST
+
+### Endpoint
+https://gateway-api-demo.s2f.projectx.com/api/Order/place
+
+### Parameters
+#### Request Body
+- **accountId** (integer) - Required - The account ID.
+- **contractId** (string) - Required - The contract ID.
+- **type** (integer) - Required - The order type. Possible values: 1 (Limit), 2 (Market), 4 (Stop), 5 (TrailingStop), 6 (JoinBid), 7 (JoinAsk).
+- **side** (integer) - Required - The side of the order. 0 = Bid (buy), 1 = Ask (sell).
+- **size** (integer) - Required - The size of the order.
+- **limitPrice** (decimal) - Optional - The limit price for the order, if applicable.
+- **stopPrice** (decimal) - Optional - The stop price for the order, if applicable.
+- **trailPrice** (decimal) - Optional - The trail price for the order, if applicable.
+- **customTag** (string) - Optional - An optional custom tag for the order. Must be unique across the account.
+- **stopLossBracket** (object) - Optional - Stop loss bracket configuration.
+  - **ticks** (integer) - Required - Number of ticks for stop loss.
+  - **type** (integer) - Required - Type of stop loss bracket. Uses same OrderType enum values: 1 (Limit), 2 (Market), 4 (Stop), 5 (TrailingStop), 6 (JoinBid), 7 (JoinAsk).
+- **takeProfitBracket** (object) - Optional - Take profit bracket configuration.
+  - **ticks** (integer) - Required - Number of ticks for take profit.
+  - **type** (integer) - Required - Type of take profit bracket. Uses same OrderType enum values: 1 (Limit), 2 (Market), 4 (Stop), 5 (TrailingStop), 6 (JoinBid), 7 (JoinAsk).
+
+### Request Example
+```json
+{
+  "accountId": 465,
+  "contractId": "CON.F.US.DA6.M25",
+  "type": 2,
+  "side": 1,
+  "size": 1,
+  "limitPrice": null,
+  "stopPrice": null,
+  "trailPrice": null,
+  "customTag": null,
+  "stopLossBracket": {
+    "ticks": 10,
+    "type": 1
+  },
+  "takeProfitBracket": {
+    "ticks": 20,
+    "type": 1
+  }
+}
+```
+
+### Response
+#### Success Response (200)
+- **orderId** (integer) - The ID of the placed order.
+- **success** (boolean) - Indicates if the order placement was successful.
+- **errorCode** (integer) - Error code if the operation failed.
+- **errorMessage** (string) - Error message if the operation failed.
+
+#### Response Example
+```json
+{
+    "orderId": 9056,
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+
+#### Error Response
+* Example: `Error: response status is 401`
+```
+
+--------------------------------
+
+### POST /api/Contract/search
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/market-data/search-contracts
+
+Searches for contracts using specified text and live data subscription status. The response returns up to 20 contracts.
+
+```APIDOC
+## POST /api/Contract/search
+
+### Description
+Searches for contracts based on the provided `searchText` and `live` parameters. The response is paginated, returning a maximum of 20 contracts per request.
+
+### Method
+POST
+
+### Endpoint
+/api/Contract/search
+
+### Parameters
+#### Request Body
+- **searchText** (string) - Required - The name or text to search for within contract names or descriptions.
+- **live** (boolean) - Required - Specifies whether to search using live data subscription (true) or simulated data (false).
+
+### Request Example
+```json
+{
+  "live": false,
+  "searchText": "NQ"
+}
+```
+
+### Response
+#### Success Response (200)
+- **contracts** (array) - An array of contract objects matching the search criteria.
+  - **id** (string) - The unique identifier for the contract.
+  - **name** (string) - The name of the contract.
+  - **description** (string) - A detailed description of the contract.
+  - **tickSize** (number) - The minimum price fluctuation for the contract.
+  - **tickValue** (number) - The monetary value of one tick for the contract.
+  - **activeContract** (boolean) - Indicates if the contract is currently active.
+  - **symbolId** (string) - The identifier for the underlying symbol.
+- **success** (boolean) - Indicates if the operation was successful.
+- **errorCode** (integer) - An error code (0 for success).
+- **errorMessage** (null) - An error message (null if successful).
+
+#### Response Example
+```json
+{
+  "contracts": [
       {
-          "id": 36598,
-          "accountId": 704,
-          "contractId": "CON.F.US.EP.U25",
-          "symbolId": "F.US.EP",
-          "creationTimestamp": "2025-07-18T21:00:01.268009+00:00",
-          "updateTimestamp": "2025-07-18T21:00:01.268009+00:00",
-          "status": 2,
-          "type": 2,
-          "side": 0,
-          "size": 1,
-          "limitPrice": null,
-          "stopPrice": null,
-          "fillVolume": 1,
-          "filledPrice": 6335.250000000,
-          "customTag": null
+          "id": "CON.F.US.ENQ.U25",
+          "name": "NQU5",
+          "description": "E-mini NASDAQ-100: September 2025",
+          "tickSize": 0.25,
+          "tickValue": 5,
+          "activeContract": true,
+          "symbolId": "F.US.ENQ"
+      },
+      {
+          "id": "CON.F.US.MNQ.U25",
+          "name": "MNQU5",
+          "description": "Micro E-mini Nasdaq-100: September 2025",
+          "tickSize": 0.25,
+          "tickValue": 0.5,
+          "activeContract": true,
+          "symbolId": "F.US.MNQ"
+      },
+      {
+          "id": "CON.F.US.NQG.Q25",
+          "name": "QGQ5",
+          "description": "E-Mini Natural Gas: August 2025",
+          "tickSize": 0.005,
+          "tickValue": 12.5,
+          "activeContract": true,
+          "symbolId": "F.US.NQG"
+      },
+      {
+          "id": "CON.F.US.NQM.U25",
+          "name": "QMU5",
+          "description": "E-Mini Crude Oil: September 2025",
+          "tickSize": 0.025,
+          "tickValue": 12.5,
+          "activeContract": true,
+          "symbolId": "F.US.NQM"
       }
   ],
   "success": true,
   "errorCode": 0,
   "errorMessage": null
-}Search for Open Orders
+}
+```
 
-API URL: POST https://api.topstepx.com/api/Order/searchOpen
+#### Error Response (e.g., 401)
+```
+Error: response status is 401
+```
+```
 
-API Reference: /api/Order/searchOpen
+--------------------------------
 
-Description
+### cURL Request to Search Open Positions
 
-Search for open orders.
+Source: https://gateway.docs.projectx.com/docs/api-reference/positions/search-open-positions
 
-Parameters
+Demonstrates how to make a POST request to the search open positions API endpoint using cURL. It includes setting the API URL, headers, and a JSON payload with the account ID.
 
-Name	Type	Description	Required	Nullable
-accountId	integer	The account ID.	Required	false
-Example Usage
-
-Example Request
-
-cURL Request
+```bash
 curl -X 'POST' \
-  'https://api.topstepx.com/api/Order/searchOpen' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Position/searchOpen' \
   -H 'accept: text/plain' \
   -H 'Content-Type: application/json' \
-  -d '{
-    "accountId": 212
+  -d '{ \
+    "accountId": 536 \
   }'
 
-Example Response
+```
 
-Success
-Error
+--------------------------------
+
+### POST /api/Position/searchOpen
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/positions/search-open-positions
+
+Searches for open positions based on the provided account ID.
+
+```APIDOC
+## POST /api/Position/searchOpen
+
+### Description
+Searches for open positions.
+
+### Method
+POST
+
+### Endpoint
+/api/Position/searchOpen
+
+### Parameters
+#### Request Body
+- **accountId** (integer) - Required - The account ID.
+
+### Request Example
+```json
+{
+  "accountId": 536
+}
+```
+
+### Response
+#### Success Response (200)
+- **positions** (array) - A list of open positions.
+  - **id** (integer) - The ID of the position.
+  - **accountId** (integer) - The account ID associated with the position.
+  - **contractId** (string) - The contract ID.
+  - **creationTimestamp** (string) - The timestamp of position creation.
+  - **type** (integer) - The type of the position.
+  - **size** (integer) - The size of the position.
+  - **averagePrice** (float) - The average price of the position.
+- **success** (boolean) - Indicates if the operation was successful.
+- **errorCode** (integer) - The error code if an error occurred.
+- **errorMessage** (string) - The error message if an error occurred.
+
+#### Response Example
+```json
+{
+    "positions": [
+        {
+            "id": 6124,
+            "accountId": 536,
+            "contractId": "CON.F.US.GMET.J25",
+            "creationTimestamp": "2025-04-21T19:52:32.175721+00:00",
+            "type": 1,
+            "size": 2,
+            "averagePrice": 1575.750000000
+        }
+    ],
+    "success": true,
+    "errorCode": 0,
+    "errorMessage": null
+}
+```
+
+#### Error Response
+- **Error**: response status is 401
+```
+
+--------------------------------
+
+### Connect to Market Hub and Subscribe to Market Data
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Establishes a SignalR connection to the Market Hub using JWT authentication. It subscribes to contract quotes, trades, and market depth for a specified contract ID. Includes automatic reconnection logic and event handlers for received market data.
+
+```javascript
+// Import the necessary modules from @microsoft/signalr  
+const { HubConnectionBuilder, HttpTransportType } = require('@microsoft/signalr');  
+  
+function setupSignalRConnection() {
+    const JWT_TOKEN = 'your_bearer_token';  
+    const marketHubUrl = 'https://gateway-rtc-demo.s2f.projectx.com/hubs/market?access_token=YOUR_JWT_TOKEN';  
+    const CONTRACT_ID = 'CON.F.US.RTY.H25';  
+  
+    const rtcConnection = new HubConnectionBuilder()  
+        .withUrl(marketHubUrl, {  
+            skipNegotiation: true,  
+            transport: HttpTransportType.WebSockets,  
+            accessTokenFactory: () => JWT_TOKEN,  
+            timeout: 10000  
+        })  
+        .withAutomaticReconnect()  
+        .build();  
+  
+    rtcConnection.start()  
+        .then(() => {  
+            const subscribe = () => {  
+                rtcConnection.invoke('SubscribeContractQuotes', CONTRACT_ID);  
+                rtcConnection.invoke('SubscribeContractTrades', CONTRACT_ID);  
+                rtcConnection.invoke('SubscribeContractMarketDepth', CONTRACT_ID);  
+            };  
+  
+            const unsubscribe = () => {  
+                rtcConnection.invoke('UnsubscribeContractQuotes', CONTRACT_ID);  
+                rtcConnection.invoke('UnsubscribeContractTrades', CONTRACT_ID);  
+                rtcConnection.invoke('UnsubscribeContractMarketDepth', CONTRACT_ID);  
+            };  
+  
+            rtcConnection.on('GatewayQuote', (contractId, data) => {  
+                console.log('Received market quote data', data);  
+            });  
+  
+            rtcConnection.on('GatewayTrade', (contractId, data) => {  
+                console.log('Received market trade data', data);  
+            });  
+  
+            rtcConnection.on('GatewayDepth', (contractId, data) => {  
+                console.log('Received market depth data', data);  
+            });  
+  
+            subscribe();  
+  
+            rtcConnection.onreconnected((connectionId) => {  
+                console.log('RTC Connection Reconnected');  
+                subscribe();  
+            });  
+        })  
+        .catch((err) => {  
+            console.error('Error starting connection:', err);  
+        });  
+}  
+// Call the function to set up and start the connection  
+setupSignalRConnection();  
+
+```
+
+--------------------------------
+
+### Search Open Orders using cURL
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-search-open
+
+Demonstrates how to send a POST request to the searchOpen API endpoint using cURL. This includes setting the API URL, headers, and the JSON payload containing the account ID.
+
+```curl
+curl -X 'POST' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Order/searchOpen' \
+  -H 'accept: text/plain' \
+  -H 'Content-Type: application/json' \
+  -d '{ \
+    "accountId": 212 \
+  }'
+```
+
+--------------------------------
+
+### Connect to User Hub and Subscribe to User Data
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+Establishes a SignalR connection to the User Hub using JWT authentication. It subscribes to account, order, position, and trade updates. Includes automatic reconnection logic and event handlers for received data.
+
+```javascript
+// Import the necessary modules from @microsoft/signalr  
+const { HubConnectionBuilder, HttpTransportType } = require('@microsoft/signalr');  
+  
+function setupSignalRConnection() {
+    const JWT_TOKEN = 'your_bearer_token';  
+    const SELECTED_ACCOUNT_ID = 123; // your currently selected/visible account ID  
+    const userHubUrl = 'https://gateway-rtc-demo.s2f.projectx.com/hubs/user?access_token=YOUR_JWT_TOKEN';  
+      
+    const rtcConnection = new HubConnectionBuilder()  
+        .withUrl(userHubUrl, {  
+            skipNegotiation: true,  
+            transport: HttpTransportType.WebSockets,  
+            accessTokenFactory: () => JWT_TOKEN,  
+            timeout: 10000  
+        })  
+        .withAutomaticReconnect()  
+        .build();  
+  
+    rtcConnection.start()  
+        .then(() => {  
+            const subscribe = () => {  
+                rtcConnection.invoke('SubscribeAccounts');  
+                rtcConnection.invoke('SubscribeOrders', SELECTED_ACCOUNT_ID);  
+                rtcConnection.invoke('SubscribePositions', SELECTED_ACCOUNT_ID);  
+                rtcConnection.invoke('SubscribeTrades', SELECTED_ACCOUNT_ID);  
+            };  
+  
+            const unsubscribe = () => {  
+                rtcConnection.invoke('UnsubscribeAccounts');  
+                rtcConnection.invoke('UnsubscribeOrders', SELECTED_ACCOUNT_ID);  
+                rtcConnection.invoke('UnsubscribePositions', SELECTED_ACCOUNT_ID);  
+                rtcConnection.invoke('UnsubscribeTrades', SELECTED_ACCOUNT_ID);  
+            };  
+  
+            rtcConnection.on('GatewayUserAccount', (data) => {  
+                console.log('Received account update', data);  
+            });  
+  
+            rtcConnection.on('GatewayUserOrder', (data) => {  
+                console.log('Received order update', data);  
+            });  
+  
+            rtcConnection.on('GatewayUserPosition', (data) => {  
+                console.log('Received position update', data);  
+            });  
+  
+            rtcConnection.on('GatewayUserTrade', (data) => {  
+                console.log('Received trade update', data);  
+            });  
+  
+            subscribe();  
+  
+            rtcConnection.onreconnected((connectionId) => {  
+                console.log('RTC Connection Reconnected');  
+                subscribe();  
+            });  
+        })  
+        .catch((err) => {  
+            console.error('Error starting connection:', err);  
+        });  
+}  
+// Call the function to set up and start the connection  
+setupSignalRConnection();  
+
+```
+
+--------------------------------
+
+### cURL Request to Search Contracts
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/market-data/search-contracts
+
+Demonstrates how to send a POST request to the Contract search endpoint with specified search text and live status. This uses the cURL command-line tool.
+
+```curl
+curl -X 'POST' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Contract/search' \
+  -H 'accept: text/plain' \
+  -H 'Content-Type: application/json' \
+  -d '{ \
+    "live": false, \
+    "searchText": "NQ" \
+  }'
+```
+
+--------------------------------
+
+### POST /api/Order/searchOpen
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-search-open
+
+Searches for open orders associated with a specific account ID.
+
+```APIDOC
+## POST /api/Order/searchOpen
+
+### Description
+Searches for open orders.
+
+### Method
+POST
+
+### Endpoint
+/api/Order/searchOpen
+
+### Parameters
+#### Request Body
+- **accountId** (integer) - Required - The account ID.
+
+### Request Example
+```json
+{
+  "accountId": 212
+}
+```
+
+### Response
+#### Success Response (200)
+- **orders** (array) - A list of open orders.
+- **success** (boolean) - Indicates if the request was successful.
+- **errorCode** (integer) - The error code, if any.
+- **errorMessage** (string) - The error message, if any.
+
+#### Response Example
+```json
 {
     "orders": [
         {
@@ -713,415 +1357,221 @@ Error
     "errorCode": 0,
     "errorMessage": null
 }
+```
+```
 
-Place an Order
+--------------------------------
 
-API URL: POST https://api.topstepx.com/api/Order/place
+### Error Response for Searching Open Positions
 
-API Reference: /api/Order/place
+Source: https://gateway.docs.projectx.com/docs/api-reference/positions/search-open-positions
 
-Description
+Illustrates a potential error response from the search open positions API, indicating an unsuccessful request, such as an unauthorized access attempt.
 
-Place an order.
+```text
+Error: response status is 401
 
-Parameters
+```
 
-Name	Type	Description	Required	Nullable
-accountId	integer	The account ID.	Required	false
-contractId	string	The contract ID.	Required	false
-type	integer	The order type:
-1 = Limit
-2 = Market
-4 = Stop
-5 = TrailingStop
-6 = JoinBid
-7 = JoinAsk	Required	false
-side	integer	The side of the order:
-0 = Bid (buy)
-1 = Ask (sell)	Required	false
-size	integer	The size of the order.	Required	false
-limitPrice	decimal	The limit price for the order, if applicable.	Optional	true
-stopPrice	decimal	The stop price for the order, if applicable.	Optional	true
-trailPrice	decimal	The trail price for the order, if applicable.	Optional	true
-customTag	string	An optional custom tag for the order. Must be unique across the account.	Optional	true
-stopLossBracket	object	Stop loss bracket configuration.	Optional	true
-takeProfitBracket	object	Take profit bracket configuration.	Optional	true
-Bracket Objects
+--------------------------------
 
-stopLossBracket
+### OrderSide Enum Definition
 
-Name	Type	Description	Required	Nullable
-ticks	integer	Number of ticks for stop loss	Required	false
-type	integer	Type of stop loss bracket. Uses same OrderType enum values:
-1 = Limit
-2 = Market
-4 = Stop
-5 = TrailingStop
-6 = JoinBid
-7 = JoinAsk	Required	false
-takeProfitBracket
+Source: https://gateway.docs.projectx.com/docs/realtime
 
-Name	Type	Description	Required	Nullable
-ticks	integer	Number of ticks for take profit	Required	false
-type	integer	Type of take profit bracket. Uses same OrderType enum values:
-1 = Limit
-2 = Market
-4 = Stop
-5 = TrailingStop
-6 = JoinBid
-7 = JoinAsk	Required	false
-Example Usage
+C# definition for the OrderSide enumeration, indicating whether an order is a bid (buy) or an ask (sell).
 
-Example Request
+```csharp
+public enum OrderSide
+{
+    Bid = 0,
+    Ask = 1
+}
+```
 
-cURL Request
+--------------------------------
+
+### OrderStatus Enum Definition
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+C# definition for the OrderStatus enumeration, representing the current state of a trading order.
+
+```csharp
+public enum OrderStatus
+{
+    None      = 0,
+    Open      = 1,
+    Filled    = 2,
+    Cancelled = 3,
+    Expired   = 4,
+    Rejected  = 5,
+    Pending   = 6
+}
+```
+
+--------------------------------
+
+### OrderType Enum Definition
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+C# definition for the OrderType enumeration, specifying different types of trading orders.
+
+```csharp
+public enum OrderType
+{
+    Unknown      = 0,
+    Limit        = 1,
+    Market       = 2,
+    StopLimit    = 3,
+    Stop         = 4,
+    TrailingStop = 5,
+    JoinBid      = 6,
+    JoinAsk      = 7,
+}
+```
+
+--------------------------------
+
+### TradeLogType Enum Definition
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+C# definition for the TradeLogType enumeration, indicating whether a trade was a buy or a sell.
+
+```csharp
+public enum TradeLogType
+{
+    Buy  = 0,
+    Sell = 1,
+}
+```
+
+--------------------------------
+
+### PositionType Enum Definition
+
+Source: https://gateway.docs.projectx.com/docs/realtime
+
+C# definition for the PositionType enumeration, specifying whether a market position is long, short, or undefined.
+
+```csharp
+public enum PositionType
+{
+    Undefined = 0,
+    Long      = 1,
+    Short     = 2
+}
+```
+
+--------------------------------
+
+### Modify Order Request (cURL)
+
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-modify
+
+This snippet demonstrates how to send a POST request to modify an order using cURL. It includes the API endpoint, headers, and a JSON payload with order details like account ID, order ID, size, and pricing information.
+
+```cURL
 curl -X 'POST' \
-  'https://api.topstepx.com/api/Order/place' \
+  'https://gateway-api-demo.s2f.projectx.com/api/Order/modify' \
   -H 'accept: text/plain' \
   -H 'Content-Type: application/json' \
-  -d '{
-    "accountId": 465,
-    "contractId": "CON.F.US.DA6.M25",
-    "type": 2,
-    "side": 1,
-    "size": 1,
-    "limitPrice": null,
-    "stopPrice": null,
-    "trailPrice": null,
-    "customTag": null,
-    "stopLossBracket": {
-      "ticks": 10,
-      "type": 1
-    },
-    "takeProfitBracket": {
-      "ticks": 20,
-      "type": 1
-    }
+  -d '{ \
+    "accountId": 465, \
+    "orderId": 26974, \
+    "size": 1, \
+    "limitPrice": null, \
+    "stopPrice": 1604, \
+    "trailPrice": null \
   }'
+```
 
-Example Response
+--------------------------------
 
-Success
-Error
-{
-    "orderId": 9056,
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
-}
+### POST /api/Order/modify
 
-Cancel an Order
+Source: https://gateway.docs.projectx.com/docs/api-reference/order/order-modify
 
-API URL: POST https://api.topstepx.com/api/Order/cancel
+Modifies an open order. You can update fields such as size, limit price, stop price, and trail price.
 
-API Reference: /api/Order/cancel
+```APIDOC
+## POST /api/Order/modify
 
-Description
-
-Cancel an order.
-
-Parameters
-
-Name	Type	Description	Required	Nullable
-accountId	integer	The account ID.	Required	false
-orderId	integer	The order id.	Required	false
-Example Usage
-
-Example Request
-
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/Order/cancel' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "accountId": 465,
-    "orderId": 26974
-  }'
-
-Example Response
-
-Success
-Error
-{
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
-}
-
-Modify an Order
-
-API URL: POST https://api.topstepx.com/api/Order/modify
-
-API Reference: /api/Order/modify
-
-Description
-
+### Description
 Modify an open order.
 
-Parameters
+### Method
+POST
 
-Name	Type	Description	Required	Nullable
-accountId	integer	The account ID.	Required	false
-orderId	integer	The order id.	Required	false
-size	integer	The size of the order.	Optional	true
-limitPrice	decimal	The limit price for the order, if applicable.	Optional	true
-stopPrice	decimal	The stop price for the order, if applicable.	Optional	true
-trailPrice	decimal	The trail price for the order, if applicable.	Optional	true
-Example Usage
+### Endpoint
+https://gateway-api-demo.s2f.projectx.com/api/Order/modify
 
-Example Request
+### Parameters
+#### Request Body
+- **accountId** (integer) - Required - The account ID.
+- **orderId** (integer) - Required - The order id.
+- **size** (integer) - Optional - The size of the order.
+- **limitPrice** (decimal) - Optional - The limit price for the order, if applicable.
+- **stopPrice** (decimal) - Optional - The stop price for the order, if applicable.
+- **trailPrice** (decimal) - Optional - The trail price for the order, if applicable.
 
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/Order/modify' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "accountId": 465,
-    "orderId": 26974,
-    "size": 1,
-    "limitPrice": null,
-    "stopPrice": 1604,
-    "trailPrice": null
-  }'
-
-Example Response
-
-Success
-Error
+### Request Example
+```json
 {
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
+  "accountId": 465,
+  "orderId": 26974,
+  "size": 1,
+  "limitPrice": null,
+  "stopPrice": 1604,
+  "trailPrice": null
 }
+```
 
-Search for Account
+### Response
+#### Success Response (200)
+- **success** (boolean) - Indicates if the operation was successful.
+- **errorCode** (integer) - The error code, 0 if successful.
+- **errorMessage** (string) - The error message, null if successful.
 
-API URL: POST https://api.topstepx.com/api/Account/search
-
-API Reference: /api/Account/search
-
-Description
-
-Search for accounts.
-
-Parameters
-
-Name	Type	Description	Required	Nullable
-onlyActiveAccounts	boolean	Whether to filter only active accounts.	Required	false
-Example Usage
-
-Example Request
-
-cURL Request
-curl -X 'undefined' \
-  'https://api.topstepx.com/api/Account/search' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json'
-
-Example Response
-
-Success
-Error
+#### Response Example
+```json
 {
-  "accounts": [
-      {
-          "id": 1,
-          "name": "TEST_ACCOUNT_1",
-          "balance": 50000,
-          "canTrade": true,
-          "isVisible": true
-      }
-  ],
   "success": true,
   "errorCode": 0,
   "errorMessage": null
-}                      
-
-Rate Limits
-
-Overview
-
-The Gateway API employs a rate limiting system for all authenticated requests. Its goal is to promote fair usage, prevent abuse, and ensure the stability and reliability of the service, while clearly defining the level of performance clients can expect.
-
-Rate Limit Table
-
-Endpoint(s)	Limit
-POST /api/History/retrieveBars	50 requests / 30 seconds
-All other Endpoints	200 requests / 60 seconds
-What Happens If You Exceed Rate Limits?
-
-If you exceed the allowed rate limits, the API will respond with an HTTP 429 Too Many Requests error. When this occurs, you should reduce your request frequency and try again after a short delay.
-
-Connection URLs
-
-Connection Details:
-
-API Endpoint: https://api.topstepx.com
-
-User Hub: https://rtc.topstepx.com/hubs/user
-
-Market Hub: https://rtc.topstepx.com/hubs/market
-
-Placing Your First Order
-
-This documentation outlines the process for placing your first order using our API. To successfully execute an order, you must have an active trading account associated with your user. Follow the steps below to retrieve your account details, browse available contracts, and place your order.
-
-Step 1
-
-To initiate the order process, you must first retrieve a list of active accounts linked to your user. This step is essential for confirming your account status before placing an order.
-
-API URL: POST https://api.topstepx.com/api/Account/search
-
-API Reference: /api/Account/search
-
-Request
-{
-  "onlyActiveAccounts": true
-}  
-Response
-{
-    "accounts": [
-        {
-            "id": 1,
-            "name": "TEST_ACCOUNT_1",
-            "canTrade": true,
-            "isVisible": true
-        }
-    ],
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
-}  
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/Account/search' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "onlyActiveAccounts": true
-  }'
-
-Save the id of the account you want to use for placing orders. This will be used in Step 3.
-
-Step 2
-
-To place an order, you need to retrieve a list of available contracts. This step allows you to browse through the contracts that can be traded.
-
-API URL: POST https://api.topstepx.com/api/Contract/available
-
-API Reference: /api/Contract/available
-
-Request
-{
-  "live": true
 }
-Response
-{
-    "contracts": [
-        {
-            "id": "CON.F.US.BP6.U25",
-            "name": "6BU5",
-            "description": "British Pound (Globex): September 2025",
-            "tickSize": 0.0001,
-            "tickValue": 6.25,
-            "activeContract": true,
-            "symbolId": "F.US.BP6"
-        },
-        // Additional contracts...
-    ],
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
-}
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/Contract/available' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "live": true
-  }'
+```
 
-Save the id of the contract on which you would like to place an order. This will be used in Step 3.
-
-Step 3
-
-Now that you have the account ID and a list of available contracts, you can place your order. Use the following endpoint to submit your order request.
-
-API URL: POST https://api.topstepx.com/api/Order/place
-
-API Reference: /api/Order/place
-
-Request
-{
-  "accountId": 1, // Replace with your actual account ID
-  "contractId": "CON.F.US.BP6.U25", // Replace with the contract ID you want to trade
-  "type": 2, // Market order
-  "side": 1, // Ask 
-  "size": 1 // Size of the order
-}
-Response
-{
-    "orderId": 9056,
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
-}
-cURL Request
-curl -X 'POST' \
-  'https://api.topstepx.com/api/Order/place' \
-  -H 'accept: text/plain' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "accountId": 1,
-    "contractId": "CON.F.US.BP6.U25",
-    "type": 2,
-    "side": 1,
-    "size": 1
-  }'
-
-Example Response
-
-Success
-{
-    "orderId": 9056,
-    "success": true,
-    "errorCode": 0,
-    "errorMessage": null
-}
-Error
+#### Error Response (e.g., 401)
 Error: response status is 401
+```
 
-5. Operational Checklist for Algo Deployment
--------------------------------------------
+--------------------------------
 
-Before enabling live trading in `config.yaml`, complete the following sequence:
+### DomType Enum Definition
 
-1. **Prepare credentials (dotenv or shell)**  
-   ```
-   export TOPSTEPX_USERNAME="you@example.com"
-   export TOPSTEPX_PROJECTX_API_KEY="your-api-key"
-   export TOPSTEPX_ACCOUNT_ID="12345"
-   export TOPSTEPX_CONTRACT_ID="CON.F.US.MES.U25"
-   ```
-   Never commit these values; load them into your shell or `.env` (ignored by git).
+Source: https://gateway.docs.projectx.com/docs/realtime
 
-2. **Verify accounts via `/api/Account/search`**  
-   Use the sample payload above to confirm the account you plan to trade is active (`canTrade: true`).  
-   Save its `id` for `TOPSTEPX_ACCOUNT_ID`.
+C# definition for the DomType enumeration, used to specify the type of Depth of Market (DOM) update.
 
-3. **Discover contracts via `/api/Contract/available`**  
-   Query live contracts with `{"live": true}` and pick the correct `contractId`.  
-   Store that value in `TOPSTEPX_CONTRACT_ID`.
+```csharp
+public enum DomType
+{
+    Unknown    = 0,
+    Ask        = 1,
+    Bid        = 2,
+    BestAsk    = 3,
+    BestBid    = 4,
+    Trade      = 5,
+    Reset      = 6,
+    Low        = 7,
+    High       = 8,
+    NewBestBid = 9,
+    NewBestAsk = 10,
+    Fill       = 11,
+}
+```
 
-4. **Validate market data subscription**  
-   Call `/api/History/retrieveBars` with the chosen contract to ensure you can pull the required timeframe (unit=2, unitNumber=5 for 5-minute bars). Respect the 50 req / 30s rate limit.
-
-5. **Dry-run the algo in paper mode**  
-   With credentials loaded, run:  
-   `source .venv/bin/activate && python live_runner.py --config config.yaml --paper`
-
-6. **Enable live routing only after confirmation**  
-   Flip `risk.live_trading_enabled` to `true` in `config.yaml` and rerun without `--paper`. The live runner now uses `/api/Order/place`, `/api/Order/searchOpen`, and `/api/Account/search` in accordance with the rate limits documented above.
+=== COMPLETE CONTENT === This response contains all available snippets from this library. No additional content exists. Do not make further requests.

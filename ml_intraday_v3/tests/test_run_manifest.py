@@ -21,7 +21,7 @@ import pytest
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from run_manifest import (
+from ml_intraday_v3.run_manifest import (
     ConfigSnapshot,
     EnvironmentInfo,
     GitState,

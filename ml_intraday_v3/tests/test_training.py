@@ -13,7 +13,7 @@ import pandas as pd
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from training import build_event_dataset, build_meta_dataset, FoldPreprocessor
+from ml_intraday_v3.training import build_event_dataset, build_meta_dataset, FoldPreprocessor
 from cli import build_train_command
 
 

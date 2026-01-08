@@ -35,10 +35,10 @@ costs:
 # Position sizing and risk limits
 position_limits:
   # Maximum contracts per position
-  max_contracts_per_position: 2
+  max_contracts_per_position: 1
 
-  # Maximum concurrent positions (1 = no pyramiding)
-  max_concurrent_positions: 1
+  # Maximum concurrent positions (5 = allow multiple positions)
+  max_concurrent_positions: 5  # FIXED: Match risk.yaml and live_trading.yaml
 
   # Contract rounding (always round down for safety)
   rounding: "floor"

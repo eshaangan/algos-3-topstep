@@ -11,8 +11,8 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from core.instrument import InstrumentSpec, validate_risk_config_no_instrument_economics
-from run_manifest import hash_content
+from ml_intraday_v3.core.instrument import InstrumentSpec, validate_risk_config_no_instrument_economics
+from ml_intraday_v3.run_manifest import hash_content
 
 from .schema import write_audit_schema
 from .checks_alignment import (

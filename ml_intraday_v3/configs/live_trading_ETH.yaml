@@ -1,0 +1,119 @@
+# Live Trading Configuration - ETH ENABLED
+# Version: 1.0 ETH
+# Copy this to live_trading.yaml to enable Extended Trading Hours
+
+# Trading mode
+trading:
+  environment: "paper"
+  enabled: true
+  dry_run: false
+  bar_size: "1m"
+  model_bundle_path: null
+
+# Data source configuration
+data:
+  provider: "databento"
+  symbol: "MES"
+  schema: "ohlcv-1m"
+  update_frequency_seconds: 60
+  lookback_bars: 100
+
+# Topstep API configuration
+topstep:
+  base_url: "https://api.topstepx.com"
+  contract_id: "CON.F.US.EP.Z25"
+  account_id_env_var: "TOPSTEPX_ACCOUNT_ID"
+  api_key_env_var: "TOPSTEPX_PROJECTX_API_KEY"
+  session_token_env_var: "TOPSTEPX_SESSION_TOKEN"
+  order:
+    type: "MARKET"
+    time_in_force: "DAY"
+    use_brackets: true
+
+# Signal generation
+signals:
+  # INCREASED threshold for ETH (be more selective)
+  primary_threshold: 0.15  # Was 0.10 for RTH
+  use_meta_model: false
+  meta_threshold: 0.50
+  require_meta_approval: false
+  volatility_filter:
+    enabled: false
+    min_sigma: 7.0
+
+# Position management
+positions:
+  contracts_per_trade: 1
+  max_concurrent: 5
+  flatten_at_close: true
+  session_close_time: "15:00"  # Still flatten at RTH close
+  flatten_buffer_minutes: 15
+
+# Risk management
+risk:
+  use_risk_yaml: true
+  equity_floor: 0.80
+  max_loss_per_trade: 100
+  halt_on_consecutive_losses: 5
+  auto_resume_after_halt: false
+
+# Monitoring and logging
+monitoring:
+  log_level: "INFO"
+  log_file: "logs/live_trading_{timestamp}.log"
+  trade_log: "logs/trades_{timestamp}.csv"
+  equity_log: "logs/equity_{timestamp}.csv"
+  alerts:
+    alert_on_trade: true
+    alert_on_risk_breach: true
+    alert_on_error: true
+    method: "log"
+
+# Health checks
+health:
+  api_check_interval_seconds: 300
+  model_check_interval_bars: 60
+  check_feature_quality: true
+  halt_on_health_failure: true
+
+# Reconciliation
+reconciliation:
+  sync_interval_seconds: 60
+  reconcile_pnl: true
+  halt_on_mismatch: true
+  pnl_mismatch_tolerance: 10.0
+
+# Startup checks
+startup:
+  checks:
+    - "api_connection"
+    - "model_loaded"
+    - "risk_config_valid"
+    - "data_connection"
+    - "broker_account_valid"
+  require_manual_confirmation: true
+  display_account_status: true
+
+# Session configuration - EXTENDED HOURS ENABLED
+session:
+  sessions:
+    # Regular Trading Hours (primary session)
+    - name: "rth"
+      start_time: "08:30"
+      end_time: "15:00"
+      timezone: "America/Chicago"
+
+    # Overnight Session (ETH)
+    - name: "overnight"
+      start_time: "17:00"
+      end_time: "08:30"  # Next day
+      timezone: "America/Chicago"
+
+  # Don't enter new trades within 30min of RTH close
+  # But allow overnight trading to continue
+  no_entry_before_close_minutes: 30
+
+# Version and metadata
+version: "1.0.0-ETH"
+last_updated: "2025-12-27"
+notes: "Extended trading hours enabled. Model trained on RTH data - monitor ETH performance carefully."

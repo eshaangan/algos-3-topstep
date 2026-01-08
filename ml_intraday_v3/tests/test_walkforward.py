@@ -11,7 +11,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from walkforward.windows import compute_walkforward_windows
+from ml_intraday_v3.walkforward.windows import compute_walkforward_windows
 from cli import run_walkforward_command
 
 

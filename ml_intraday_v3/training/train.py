@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, roc_auc_score
 import lightgbm as lgb
 
-from run_manifest import hash_content
+from ml_intraday_v3.run_manifest import hash_content
 from .rare_events import RelogitClassifier
 
 from .dataset import build_event_dataset, build_meta_dataset

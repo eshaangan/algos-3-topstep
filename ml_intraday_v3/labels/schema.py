@@ -10,8 +10,8 @@ import logging
 from pathlib import Path
 from typing import Dict, List
 
-from run_manifest import hash_content
-from core.instrument import InstrumentSpec
+from ml_intraday_v3.run_manifest import hash_content
+from ml_intraday_v3.core.instrument import InstrumentSpec
 
 logger = logging.getLogger(__name__)
 

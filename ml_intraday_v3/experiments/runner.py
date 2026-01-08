@@ -14,10 +14,10 @@ from typing import Dict, Iterable, List, Tuple
 import pandas as pd
 import yaml
 
-from run_manifest import hash_content
-from backtesting_v3 import run_backtest
-from training import train_on_splits
-from core.instrument import (
+from ml_intraday_v3.run_manifest import hash_content
+from ml_intraday_v3.backtesting_v3 import run_backtest
+from ml_intraday_v3.training import train_on_splits
+from ml_intraday_v3.core.instrument import (
     InstrumentSpec,
     load_instrument_from_execution_spec,
     validate_risk_config_no_instrument_economics,

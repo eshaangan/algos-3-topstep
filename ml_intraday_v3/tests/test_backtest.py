@@ -12,11 +12,11 @@ import pandas as pd
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backtesting_v3.decisions import decide_trades
-from backtesting_v3.risk import RiskManager
-from backtesting_v3.fills import apply_forced_flatten, FillResult
-from backtesting_v3.simulator import run_backtest
-from core.instrument import load_instrument_from_execution_spec
+from ml_intraday_v3.backtesting_v3.decisions import decide_trades
+from ml_intraday_v3.backtesting_v3.risk import RiskManager
+from ml_intraday_v3.backtesting_v3.fills import apply_forced_flatten, FillResult
+from ml_intraday_v3.backtesting_v3.simulator import run_backtest
+from ml_intraday_v3.core.instrument import load_instrument_from_execution_spec
 from cli import build_backtest_command
 
 INSTRUMENT_SPEC = load_instrument_from_execution_spec(
