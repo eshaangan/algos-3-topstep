@@ -155,6 +155,8 @@ class ProjectXClient:
         self,
         base_url: Optional[str] = None,
         timeout_seconds: float = 5.0,
+        contract_id: Optional[str] = None,
+        account_id: Optional[str] = None,
     ) -> None:
         # Credentials for the raw HTTP client remain environment-driven so that
         # existing deployments continue to work unchanged. The tsxapipy client
@@ -169,15 +171,17 @@ class ProjectXClient:
             )
 
         # Trading context (account + contract) – required for order placement.
-        account_id = os.getenv("TOPSTEPX_ACCOUNT_ID")
-        contract_id = os.getenv("TOPSTEPX_CONTRACT_ID")
-        if not account_id or not contract_id:
+        account_id = account_id or os.getenv("TOPSTEPX_ACCOUNT_ID")
+        env_contract_id = os.getenv("TOPSTEPX_CONTRACT_ID")
+        resolved_contract_id = contract_id or env_contract_id
+        if not account_id or not resolved_contract_id:
             raise EnvironmentError(
-                "TOPSTEPX_ACCOUNT_ID and TOPSTEPX_CONTRACT_ID must be set in the environment. "
-                "Use /api/Account/search and /api/Contract/available once to discover the correct IDs."
+                "TOPSTEPX_ACCOUNT_ID and TOPSTEPX_CONTRACT_ID must be set in the environment "
+                "or supplied to ProjectXClient. Use /api/Account/search and /api/Contract/available "
+                "once to discover the correct IDs."
             )
         self._account_id = int(account_id)
-        self._contract_id = contract_id
+        self._contract_id = resolved_contract_id
 
         self._base_url = (base_url or os.getenv("TOPSTEPX_PROJECTX_BASE_URL") or PROJECTX_DEFAULT_BASE_URL).rstrip("/")
         self._timeout = timeout_seconds

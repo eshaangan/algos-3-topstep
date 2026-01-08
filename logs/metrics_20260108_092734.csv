@@ -1,0 +1,2 @@
+timestamp,session_duration_minutes,total_trades,winning_trades,losing_trades,win_rate,total_pnl,gross_profit,gross_loss,avg_win,avg_loss,avg_trade,profit_factor,max_win,max_loss,starting_equity,current_equity,peak_equity,return_pct,daily_pnl,max_drawdown,max_drawdown_pct,current_streak,max_winning_streak,max_losing_streak,open_positions,signals_generated,signals_executed,signals_rejected,execution_rate
+2026-01-08 09:54:36.193580,27.021238583333332,0,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,inf,0.0,0.0,50000.0,50000.0,50000.0,0.0,0.0,0.0,0.0,0,0,0,0,0,0,0,0.0

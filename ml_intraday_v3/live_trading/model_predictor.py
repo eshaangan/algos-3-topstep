@@ -95,8 +95,8 @@ class LiveModelPredictor:
                 - p_vertical: Probability of vertical exit (if available)
                 - meta_prob: Meta model probability (if use_meta=True)
         """
-        # Prepare features as array
-        X = features[self.feature_columns].values.reshape(1, -1)
+        # Prepare features as numeric array
+        X = features[self.feature_columns].to_numpy(dtype=float, copy=False).reshape(1, -1)
 
         # Apply preprocessing
         X_scaled = self._preprocess(X)
@@ -139,7 +139,7 @@ class LiveModelPredictor:
                 })
             ])
 
-            X_meta = meta_features[self.meta_feature_columns].values.reshape(1, -1)
+            X_meta = meta_features[self.meta_feature_columns].to_numpy(dtype=float, copy=False).reshape(1, -1)
             X_meta_scaled = self._preprocess_meta(X_meta)
 
             if hasattr(self.meta_model, 'predict_proba'):
@@ -161,6 +161,9 @@ class LiveModelPredictor:
         Returns:
             Preprocessed feature matrix
         """
+        # Ensure numeric
+        X = X.astype(float, copy=False)
+
         # Impute missing values
         if self.impute == 'median':
             mask = np.isnan(X)
@@ -197,6 +200,9 @@ class LiveModelPredictor:
         medians = np.array(self.meta_preprocessor_state['medians'])
         means = np.array(self.meta_preprocessor_state['means'])
         stds = np.array(self.meta_preprocessor_state['stds'])
+
+        # Ensure numeric
+        X = X.astype(float, copy=False)
 
         # Impute
         if impute == 'median':

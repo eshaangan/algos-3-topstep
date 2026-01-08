@@ -4,6 +4,7 @@ Main live trading runner for ml_intraday_v3 strategy.
 Orchestrates data fetching, feature generation, prediction, and execution.
 """
 
+import importlib.util
 import json
 import logging
 import os
@@ -16,6 +17,10 @@ from typing import Optional
 
 import pandas as pd
 import yaml
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 
 def setup_dual_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger:
@@ -70,16 +75,57 @@ def setup_dual_logging(log_dir: Path, log_level: str = "INFO") -> logging.Logger
 # Will be initialized in LiveTradingRunner.__init__
 logger = logging.getLogger(__name__)
 
-# Add ml_intraday_v3 to path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Add project root and ml_intraday_v3 to path
+ml_v3_dir = Path(__file__).resolve().parents[1]
+project_root = ml_v3_dir.parent
+sys.path.insert(0, str(ml_v3_dir))
+sys.path.insert(0, str(project_root))
 
-from live_trading.data_fetcher import LiveDataFetcher
+# Use TopstepX REST API data fetcher (proven polling approach)
+from live_trading.topstepx_rest_data_fetcher import TopstepXRestDataFetcher
 from live_trading.feature_generator import LiveFeatureGenerator
 from live_trading.model_predictor import LiveModelPredictor
 from live_trading.execution_engine import LiveExecutionEngine
 from monitoring.metrics_tracker import MetricsTracker
 from monitoring.alerts import AlertManager, AlertLevel
 from monitoring.dashboard import TerminalDashboard
+try:
+    from core.projectx_client import ProjectXClient
+except ModuleNotFoundError:
+    project_root = Path(__file__).resolve().parents[2]
+    core_path = project_root / "core" / "projectx_client.py"
+    spec = importlib.util.spec_from_file_location("projectx_client", core_path)
+    if spec is None or spec.loader is None:
+        raise
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["projectx_client"] = module
+    spec.loader.exec_module(module)
+    ProjectXClient = module.ProjectXClient
+
+
+def _compute_max_staleness_minutes(bar_size_minutes: int, grace_minutes: int = 2) -> float:
+    """
+    Maximum allowed staleness (minutes) for completed bars.
+
+    Bar timestamps represent bar start time; a just-completed bar can appear
+    close to bar_size minutes after its timestamp, and the next bar may not
+    arrive until nearly 2 * bar_size. Add a small grace buffer.
+    """
+    return (2 * bar_size_minutes) + grace_minutes
+
+
+def _ensure_contract_matches_expected(contract_id: str, expected_symbol: str, contracts: list[dict]) -> None:
+    """
+    Hard-fail if the resolved contract_id is not present in the search results
+    for the expected symbol (e.g., MES). This prevents silent ES trades.
+    """
+    expected_symbol = expected_symbol.upper()
+    ids = [c.get("id") for c in contracts]
+    if contract_id not in ids:
+        sample = contracts[:3]
+        raise RuntimeError(
+            f"Resolved contract_id {contract_id} not found in {expected_symbol} search results (sample={sample})"
+        )
 
 
 class LiveTradingRunner:
@@ -99,6 +145,10 @@ class LiveTradingRunner:
         config_dir: Path,
         model_bundle_path: Optional[Path] = None,
         dry_run: bool = False,
+        skip_confirmation: bool = False,
+        log_level: str = "INFO",
+        contract_id_override: Optional[str] = None,
+        account_id_override: Optional[str] = None,
     ):
         """
         Initialize live trading runner.
@@ -107,15 +157,17 @@ class LiveTradingRunner:
             config_dir: Path to configs directory
             model_bundle_path: Path to model bundle (if None, auto-detect latest)
             dry_run: If True, simulate trades without executing
+            skip_confirmation: If True, skip manual confirmation prompt
         """
         self.config_dir = Path(config_dir)
+        self.skip_confirmation = skip_confirmation
         self.dry_run = dry_run
         self.running = False
 
         # Setup dual logging (terminal + file)
         log_dir = Path("logs")
         global logger
-        logger = setup_dual_logging(log_dir, log_level="INFO")
+        logger = setup_dual_logging(log_dir, log_level=log_level.upper())
 
         logger.info("=" * 80)
         logger.info("LIVE TRADING RUNNER - ML INTRADAY V3")
@@ -134,7 +186,8 @@ class LiveTradingRunner:
             logger.warning("DRY RUN MODE enabled in config")
 
         # Load label schema
-        runs_dir = Path("runs")
+        # runs directory is at project root, not in ml_intraday_v3/
+        runs_dir = Path(__file__).resolve().parents[2] / "runs"
         if model_bundle_path is None:
             # Auto-detect latest model
             bar_size = self.live_cfg['trading']['bar_size']
@@ -152,10 +205,20 @@ class LiveTradingRunner:
         # Initialize components
         logger.info("Initializing components...")
 
-        # Data fetcher
-        self.data_fetcher = LiveDataFetcher(
-            symbol=self.live_cfg['data']['symbol'],
-            bar_size=self.live_cfg['trading']['bar_size'],
+        # Data fetcher (TopstepX REST API polling - proven approach)
+        # Extract bar size as minutes (e.g., "5m" -> 5)
+        bar_size_str = self.live_cfg['trading']['bar_size']
+        self.bar_size_minutes = int(bar_size_str.replace('m', ''))
+
+        resolved_contract_id = contract_id_override or self.live_cfg["topstep"]["contract_id"]
+        account_env_var = self.live_cfg["topstep"].get("account_id_env_var", "TOPSTEPX_ACCOUNT_ID")
+        resolved_account_id = account_id_override or os.getenv(account_env_var)
+        self.resolved_contract_id = resolved_contract_id
+        self.resolved_account_id = resolved_account_id
+
+        self.data_fetcher = TopstepXRestDataFetcher(
+            contract_id=resolved_contract_id,
+            bar_size_minutes=self.bar_size_minutes,
             lookback_bars=self.live_cfg['data']['lookback_bars'],
         )
 
@@ -167,9 +230,11 @@ class LiveTradingRunner:
                    f"features={model_info['n_features']}, "
                    f"threshold={model_info['primary_threshold']}")
 
-        # Feature generator
+        # Feature generator (reuse offline features.yaml for parity)
         self.feature_generator = LiveFeatureGenerator(
-            feature_columns=self.predictor.feature_columns
+            feature_columns=self.predictor.feature_columns,
+            bar_size=bar_size_str,
+            features_config_path=self.config_dir / "features.yaml",
         )
 
         # Execution engine
@@ -178,6 +243,8 @@ class LiveTradingRunner:
             execution_spec=self.execution_spec,
             label_schema=self.label_schema,
             dry_run=self.dry_run,
+            contract_id=resolved_contract_id,
+            account_id=resolved_account_id,
         )
 
         # State tracking
@@ -223,10 +290,14 @@ class LiveTradingRunner:
             'risk_config_valid': False,
         }
 
-        # Check data connection
+        # Check data connection (REST API)
         logger.info("Testing data connection...")
         try:
-            checks['data_connection'] = self.data_fetcher.check_connection()
+            # Connect to TopstepX API
+            self.data_fetcher.connect()
+            # Initialize buffer with historical bars
+            self.data_fetcher.initialize_buffer()
+            checks['data_connection'] = not self.data_fetcher.get_buffer().empty
         except Exception as e:
             logger.error(f"Data connection failed: {e}")
 
@@ -283,18 +354,46 @@ class LiveTradingRunner:
         now = pd.Timestamp.now(tz='America/Chicago')
         staleness = (now - last_bar_time).total_seconds() / 60
 
-        if staleness > 5:  # More than 5 minutes old
-            logger.warning(f"Data is stale: {staleness:.1f} minutes old")
+        # Allow up to ~2 bars of staleness + small grace (timestamps are bar start)
+        max_staleness = _compute_max_staleness_minutes(self.bar_size_minutes)
+        if staleness > max_staleness:
+            logger.warning(f"Data is stale: {staleness:.1f} minutes old (threshold: {max_staleness}m)")
             return False
 
         # Check for gaps
         time_diffs = bars.index.to_series().diff().dt.total_seconds() / 60
-        gaps = time_diffs[time_diffs > 1.5]  # Gaps > 1.5 minutes
+        # Gap if difference is significantly larger than bar size (e.g. 1.5x)
+        gap_threshold = self.bar_size_minutes * 1.5
+        gaps = time_diffs[time_diffs > gap_threshold]
 
         if len(gaps) > 0:
-            logger.warning(f"Found {len(gaps)} gaps in buffer")
+            logger.warning(f"Found {len(gaps)} gaps in buffer (threshold: {gap_threshold}m)")
 
         return True
+
+    def _validate_contract_identity(self):
+        """
+        Ensure the resolved contract_id maps to the expected symbol (e.g., MES).
+        Hard-fails if there is a mismatch to avoid ES trades.
+        """
+        expected_symbol = self.live_cfg["data"].get("symbol", "").upper()
+        if not expected_symbol:
+            logger.warning("No expected symbol configured; skipping contract validation")
+            return
+
+        live_flag = self.live_cfg["trading"].get("environment", "paper").lower() == "live"
+        try:
+            client = ProjectXClient(
+                contract_id=self.resolved_contract_id,
+                account_id=self.resolved_account_id,
+            )
+            contracts = client.search_contracts(search_text=expected_symbol, live=live_flag)
+        except Exception as e:
+            logger.error(f"Contract validation failed: {e}")
+            raise
+
+        _ensure_contract_matches_expected(self.resolved_contract_id, expected_symbol, contracts)
+        logger.info(f"Contract sanity check passed: {self.resolved_contract_id} is {expected_symbol}")
 
     def run(self):
         """
@@ -307,25 +406,33 @@ class LiveTradingRunner:
             logger.error("Startup checks failed - aborting")
             return
 
+        # Hard-fail if the resolved contract is not the expected symbol (e.g., MES)
+        self._validate_contract_identity()
+
         # Require manual confirmation
         if self.live_cfg['startup'].get('require_manual_confirmation', True):
             logger.info("")
-            logger.info("=" * 80)
-            logger.info("MANUAL CONFIRMATION REQUIRED")
-            logger.info("=" * 80)
-            logger.info(f"Environment: {self.live_cfg['trading']['environment']}")
-            logger.info(f"Dry Run: {self.dry_run}")
-            logger.info(f"Account: {os.getenv('TOPSTEPX_ACCOUNT_ID')}")
-            logger.info("")
+            if not self.skip_confirmation:
+                logger.info("=" * 80)
+                logger.info("MANUAL CONFIRMATION REQUIRED")
+                logger.info("=" * 80)
+                logger.info(f"Environment: {self.live_cfg['trading']['environment']}")
+                logger.info(f"Dry Run: {self.dry_run}")
+                logger.info(f"Account: {self.resolved_account_id or os.getenv('TOPSTEPX_ACCOUNT_ID')}")
+                logger.info("")
 
-            response = input("Start trading? (type 'yes' to confirm): ")
-            if response.lower() != 'yes':
-                logger.warning("Trading cancelled by user")
-                return
+                response = input("Start trading? (type 'yes' to confirm): ")
+                if response.lower() != 'yes':
+                    logger.warning("Trading cancelled by user")
+                    return
+            else:
+                logger.info("Skipping confirmation (--no-confirm flag set)")
+                logger.info(f"Environment: {self.live_cfg['trading']['environment']}")
+                logger.info(f"Dry Run: {self.dry_run}")
+                logger.info(f"Account: {self.resolved_account_id or os.getenv('TOPSTEPX_ACCOUNT_ID')}")
 
-        # Initialize data buffer
-        logger.info("Initializing data buffer...")
-        self.data_fetcher.initialize_buffer()
+        # Buffer already initialized in startup checks
+        logger.info("TopstepX REST API ready for polling")
 
         # Register signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -340,7 +447,7 @@ class LiveTradingRunner:
 
         # Send session start alert
         self.alert_manager.session_started(
-            account_id=os.getenv('TOPSTEPX_ACCOUNT_ID', 'unknown'),
+            account_id=self.resolved_account_id or os.getenv('TOPSTEPX_ACCOUNT_ID', 'unknown'),
             starting_equity=self.execution_engine.get_equity()
         )
 
@@ -356,22 +463,26 @@ class LiveTradingRunner:
                     time.sleep(60)
                     continue
 
+                # Poll for a new completed bar and update buffer (REST fetcher path)
+                new_bar = self.data_fetcher.fetch_latest_bar()
+                if new_bar is not None:
+                    self.data_fetcher.update_buffer(new_bar)
+
                 # Check buffer health every iteration
                 if not self._check_buffer_health():
                     logger.error("Buffer health check failed, skipping this iteration")
                     time.sleep(60)
                     continue
 
-                # Fetch latest bar
-                latest_bar = self.data_fetcher.fetch_latest_bar()
+                # Get latest completed bar from buffer
+                latest_bar = self.data_fetcher.get_latest_bar()
 
-                if latest_bar is not None:
+                if latest_bar is not None and (self.last_bar_time is None or latest_bar.name > self.last_bar_time):
                     # New bar available
                     bar_time = latest_bar.name
                     logger.info(f"New bar: {bar_time}, close={latest_bar['close']:.2f}")
 
-                    # Update buffer
-                    self.data_fetcher.update_buffer(latest_bar)
+                    # Note: Buffer is automatically updated by TopstepX data fetcher
 
                     # Update positions first (check for exits)
                     closed = self.execution_engine.update_positions(
@@ -613,6 +724,10 @@ class LiveTradingRunner:
             pd.DataFrame(self.execution_engine.trade_log).to_csv(log_path, index=False)
             logger.info(f"Trade log saved: {log_path}")
 
+        # Disconnect from market data
+        logger.info("Disconnecting from market data...")
+        self.data_fetcher.disconnect()
+
         logger.info("")
         logger.info("Shutdown complete")
         logger.info("=" * 80)
@@ -629,11 +744,16 @@ def main():
     """Entry point for live trading."""
     import argparse
 
+    # Calculate default config dir relative to this file
+    # This file is in ml_intraday_v3/live_trading/live_runner.py
+    # We want ml_intraday_v3/configs
+    default_config_dir = Path(__file__).resolve().parents[1] / "configs"
+
     parser = argparse.ArgumentParser(description="Live trading runner for ml_intraday_v3")
     parser.add_argument(
         "--config-dir",
         type=Path,
-        default=Path("configs"),
+        default=default_config_dir,
         help="Path to configs directory",
     )
     parser.add_argument(
@@ -647,6 +767,29 @@ def main():
         action="store_true",
         help="Dry run mode (simulate trades without executing)",
     )
+    parser.add_argument(
+        "--no-confirm",
+        action="store_true",
+        help="Skip manual confirmation prompt",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR)",
+    )
+    parser.add_argument(
+        "--contract-id",
+        type=str,
+        default=None,
+        help="Override contract id (defaults to live_trading.yaml)",
+    )
+    parser.add_argument(
+        "--account-id",
+        type=str,
+        default=None,
+        help="Override account id (defaults to environment)",
+    )
 
     args = parser.parse_args()
 
@@ -655,6 +798,10 @@ def main():
         config_dir=args.config_dir,
         model_bundle_path=args.model_bundle,
         dry_run=args.dry_run,
+        skip_confirmation=args.no_confirm,
+        log_level=args.log_level,
+        contract_id_override=args.contract_id,
+        account_id_override=args.account_id,
     )
 
     # Start trading

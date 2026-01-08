@@ -46,7 +46,7 @@ topstep:
 
   # Contract ID for MES
   # Update this for each contract rollover
-  contract_id: "CON.F.US.EP.H26"  # MES March 2026
+  contract_id: "CON.F.US.MES.H26"  # MES March 2026
 
   # Account ID (from .env)
   account_id_env_var: "TOPSTEPX_ACCOUNT_ID"

@@ -4,6 +4,7 @@ Live execution engine for ml_intraday_v3 strategy.
 Executes trades via Topstep ProjectX API with full risk enforcement.
 """
 
+import importlib.util
 import logging
 import os
 import sys
@@ -18,13 +19,29 @@ parent_dir = Path(__file__).resolve().parents[2]
 if str(parent_dir) not in sys.path:
     sys.path.insert(0, str(parent_dir))
 
-# Add ml_intraday_v3 to path for backtesting_v3 imports
-ml_v3_dir = Path(__file__).resolve().parents[1]
+# Add paths for imports
+ml_v3_dir = Path(__file__).resolve().parents[1]  # ml_intraday_v3/
+project_root = ml_v3_dir.parent  # algos 3 topstep/
+
 if str(ml_v3_dir) not in sys.path:
     sys.path.insert(0, str(ml_v3_dir))
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from ml_intraday_v3.core.projectx_client import ProjectXClient, OrderState
-from ml_intraday_v3.backtesting_v3.risk import RiskManager
+try:
+    from core.projectx_client import ProjectXClient, OrderState
+except ModuleNotFoundError:
+    project_root = Path(__file__).resolve().parents[2]
+    core_path = project_root / "core" / "projectx_client.py"
+    spec = importlib.util.spec_from_file_location("projectx_client", core_path)
+    if spec is None or spec.loader is None:
+        raise
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["projectx_client"] = module
+    spec.loader.exec_module(module)
+    ProjectXClient = module.ProjectXClient
+    OrderState = module.OrderState
+from backtesting_v3.risk import RiskManager
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +59,8 @@ class LiveExecutionEngine:
         execution_spec: dict,
         label_schema: dict,
         dry_run: bool = False,
+        contract_id: str | None = None,
+        account_id: str | None = None,
     ):
         """
         Initialize execution engine.
@@ -56,6 +75,8 @@ class LiveExecutionEngine:
         self.execution_spec = execution_spec
         self.label_schema = label_schema
         self.dry_run = dry_run
+        self.contract_id = contract_id
+        self.account_id = account_id
 
         # Initialize risk manager
         self.risk_manager = RiskManager(risk_cfg)
@@ -64,20 +85,24 @@ class LiveExecutionEngine:
         base_url = os.getenv("TOPSTEPX_PROJECTX_BASE_URL", "https://api.topstepx.com")
         username = os.getenv("TOPSTEPX_USERNAME")
         api_key = os.getenv("TOPSTEPX_PROJECTX_API_KEY")
-        account_id = os.getenv("TOPSTEPX_ACCOUNT_ID")
-        contract_id = os.getenv("TOPSTEPX_CONTRACT_ID", "CON.F.US.EP.Z25")
+        env_account_id = os.getenv("TOPSTEPX_ACCOUNT_ID")
+        env_contract_id = os.getenv("TOPSTEPX_CONTRACT_ID", "CON.F.US.EP.Z25")
 
-        if not all([username, api_key, account_id]):
+        # Resolve with explicit overrides first, then fall back to environment.
+        resolved_account_id = account_id or env_account_id
+        resolved_contract_id = contract_id or env_contract_id
+
+        if not all([username, api_key, resolved_account_id]):
             raise ValueError("Missing Topstep credentials in .env")
 
-        self.account_id = account_id
-        self.contract_id = contract_id
+        self.account_id = str(resolved_account_id)
+        self.contract_id = resolved_contract_id
 
         # Initialize ProjectX client (only if not dry run)
         if not dry_run:
-            logger.info(f"Connecting to Topstep: account={account_id}, contract={contract_id}")
-            # ProjectXClient reads credentials from environment, no args needed
-            self.client = ProjectXClient()
+            logger.info(f"Connecting to Topstep: account={self.account_id}, contract={self.contract_id}")
+            # ProjectXClient reads credentials from environment; allow override
+            self.client = ProjectXClient(contract_id=self.contract_id, account_id=self.account_id)
         else:
             logger.info("DRY RUN MODE - No trades will be executed")
             self.client = None
