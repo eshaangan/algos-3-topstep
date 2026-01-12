@@ -49,7 +49,7 @@ def main():
 
     # Trade 1: Winning LONG
     print("Trade 1: LONG +$125.00")
-    tracker.record_signal(executed=True)
+    tracker.record_signal(executed=True, score=0.25, direction="LONG")
     entry_time = current_time - timedelta(minutes=15)
     exit_time = current_time - timedelta(minutes=10)
     pnl = 125.00
@@ -71,7 +71,7 @@ def main():
 
     # Trade 2: Losing SHORT
     print("Trade 2: SHORT -$85.00")
-    tracker.record_signal(executed=True)
+    tracker.record_signal(executed=True, score=-0.18, direction="SHORT")
     entry_time = exit_time
     exit_time = current_time - timedelta(minutes=5)
     pnl = -85.00
@@ -93,7 +93,7 @@ def main():
 
     # Trade 3: Winning LONG
     print("Trade 3: LONG +$200.00")
-    tracker.record_signal(executed=True)
+    tracker.record_signal(executed=True, score=0.32, direction="LONG")
     entry_time = exit_time
     exit_time = current_time - timedelta(minutes=2)
     pnl = 200.00
@@ -115,7 +115,7 @@ def main():
 
     # Trade 4: Losing LONG
     print("Trade 4: LONG -$110.00")
-    tracker.record_signal(executed=True)
+    tracker.record_signal(executed=True, score=0.15, direction="LONG")
     entry_time = exit_time
     exit_time = current_time
     pnl = -110.00
@@ -137,9 +137,9 @@ def main():
 
     # Some rejected signals
     print("\nRejecting 3 signals (risk limits)")
-    tracker.record_signal(executed=False)
-    tracker.record_signal(executed=False)
-    tracker.record_signal(executed=False)
+    tracker.record_signal(executed=False, score=0.08, reason="below_threshold")
+    tracker.record_signal(executed=False, score=0.12, reason="max_positions")
+    tracker.record_signal(executed=False, score=-0.11, reason="daily_loss_limit")
 
     # Simulate approaching daily loss limit (for warning alert)
     print("\nSimulating warning: Approaching daily loss limit")

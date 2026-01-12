@@ -1,0 +1,3 @@
+timestamp,action,direction,contracts,price,order_id,prediction_score,reason,pnl_usd
+2026-01-08 13:00:00-06:00,ENTRY,LONG,1,6958.25,2204233172,0.9640584560594514,,
+2026-01-08 13:09:16.926686,EXIT,,1,6958.25,2204233172,,shutdown,-3.74

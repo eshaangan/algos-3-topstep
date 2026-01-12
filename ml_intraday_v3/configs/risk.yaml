@@ -54,18 +54,18 @@ trailing_drawdown:
 
 # Position limits (redundant with execution_spec but enforced here for safety)
 position_limits:
-  # Max contracts per position
-  max_contracts_per_position: 1
+  # Max contracts per position (increased to allow Kelly scaling)
+  max_contracts_per_position: 5  # Was: 1
 
-  # Max concurrent positions (user preference: 5 for MES, Topstep allows 50)
-  max_concurrent_positions: 5
+  # Max concurrent positions (user preference: 15 for MES, Topstep allows 50)
+  max_concurrent_positions: 15  # Was: 10
 
   # Max total contracts across all positions
-  max_total_contracts: 5
+  max_total_contracts: 75  # 15 positions × 5 contracts
 
   # Max notional exposure (in dollars)
   # MES @ 5000 points = $25,000 notional per contract
-  max_notional_exposure: 50000  # 2 MES contracts
+  max_notional_exposure: 375000  # 15 MES contracts × $25k
 
 # Intraday risk controls
 intraday_controls:

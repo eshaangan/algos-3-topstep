@@ -62,6 +62,8 @@ class AccountState:
     balance: float
     open_pnl: float
     realized_pnl: float
+    daily_pnl: float = 0.0
+    open_positions: int = 0
 
 
 @dataclass
@@ -192,7 +194,9 @@ class ProjectXClient:
         # installed or fails to configure itself from the environment.
         self._api_client: Optional[Any] = None
         self._order_placer: Optional[Any] = None
-        self._disable_tsxapipy = os.getenv("TOPSTEPX_DISABLE_TSXAPIPY", "").lower() in ("1", "true", "yes")
+        # Force raw HTTP for now to ensure stop/target brackets are sent; tsxapipy
+        # skips stop/limit payloads in our current usage.
+        self._disable_tsxapipy = True
 
         # Authenticate once to obtain a session token for the legacy HTTP path.
         # This remains the primary implementation for endpoints that are not
@@ -473,12 +477,29 @@ class ProjectXClient:
                             getattr(selected, "realizedPnl", 0.0),
                         )
                     )
+                    # Derive daily PnL if provided; fall back to realized + open.
+                    daily_pnl = float(
+                        getattr(
+                            selected,
+                            "daily_pnl",
+                            getattr(selected, "dailyPnl", realized_pnl + open_pnl),
+                        )
+                    )
+
+                    try:
+                        open_positions_count = len(self.search_open_positions())
+                    except Exception as exc:
+                        LOGGER.warning("Failed to fetch open positions via tsxapipy path: %s", exc)
+                        open_positions_count = 0
+
                     return AccountState(
                         account_id=str(getattr(selected, "id")),
                         equity=equity,
                         balance=balance,
                         open_pnl=open_pnl,
                         realized_pnl=realized_pnl,
+                        daily_pnl=daily_pnl,
+                        open_positions=open_positions_count,
                     )
 
         # Legacy raw HTTP implementation.
@@ -498,12 +519,31 @@ class ProjectXClient:
         if account is None:
             raise ProjectXClientError(f"Configured accountId {self._account_id} not found in Account/search response.")
 
+        daily_pnl = float(
+            account.get(
+                "dailyPnl",
+                account.get(
+                    "daily_pnl",
+                    account.get("realizedPnl", account.get("realized_pnl", 0.0))
+                    + account.get("openPnl", account.get("open_pnl", 0.0)),
+                ),
+            )
+        )
+
+        try:
+            open_positions_count = len(self.search_open_positions())
+        except Exception as exc:
+            LOGGER.warning("Failed to fetch open positions: %s", exc)
+            open_positions_count = 0
+
         return AccountState(
             account_id=str(account["id"]),
             equity=float(account.get("equity", account.get("balance", 0.0))),
             balance=float(account.get("balance", account.get("equity", 0.0))),
             open_pnl=float(account.get("openPnl", account.get("open_pnl", 0.0))),
             realized_pnl=float(account.get("realizedPnl", account.get("realized_pnl", 0.0))),
+            daily_pnl=daily_pnl,
+            open_positions=open_positions_count,
         )
 
     def _unit_to_timedelta(self, unit: int, unit_number: int) -> timedelta:
@@ -687,6 +727,7 @@ class ProjectXClient:
         take_profit_bracket: Optional[BracketInstruction] = None,
         account_id: Optional[int] = None,
         contract_id: Optional[str] = None,
+        linked_order_id: Optional[int] = None,
     ) -> OrderState:
         """
         Place a market order via /api/Order/place.
@@ -702,8 +743,14 @@ class ProjectXClient:
         """
 
         order_type_value = order_type.upper()
-        if order_type_value != "MARKET":
-            raise ValueError("Only MARKET orders are supported by place_order at this time.")
+        if order_type_value == "MARKET":
+            type_code = 2
+        elif order_type_value == "LIMIT":
+            type_code = 1
+        elif order_type_value == "STOP":
+            type_code = 4
+        else:
+            raise ValueError(f"Unsupported order_type: {order_type}")
 
         side_upper = side.upper()
         if side_upper == "BUY":
@@ -718,35 +765,14 @@ class ProjectXClient:
         if not contract:
             raise ValueError("contract_id must be provided via argument or environment.")
 
-        # Prefer tsxapipy's OrderPlacer for simple market orders without custom
-        # brackets so we benefit from its order modelling and validation. When
-        # complex bracket payloads are requested we continue to use the legacy
-        # HTTP path until the exact ProjectX payload structure is confirmed.
-        if self._order_placer is not None and account == self._account_id and not stop_loss_bracket and not take_profit_bracket:
-            try:  # pragma: no cover - depends on external library
-                order_id = self._order_placer.place_market_order(
-                    side=side_upper,
-                    size=quantity,
-                    contract_id=contract,
-                )
-            except Exception as exc:
-                LOGGER.error("tsxapipy OrderPlacer.place_market_order failed; falling back to raw HTTP: %s", exc)
-            else:
-                return OrderState(
-                    order_id=str(order_id),
-                    symbol=symbol,
-                    side=side_upper,
-                    quantity=quantity,
-                    status="ACCEPTED",
-                    avg_fill_price=None,
-                )
+        # We force raw HTTP below to ensure stop/limit brackets are always sent.
 
         # Legacy raw HTTP implementation used as a robust fallback and for
         # scenarios that require explicit stop/target brackets.
         body: Dict[str, Any] = {
             "accountId": account,
             "contractId": contract,
-            "type": 2,  # 2 == market order per ProjectX docs
+            "type": type_code,
             "side": side_code,
             "size": quantity,
         }
@@ -756,11 +782,14 @@ class ProjectXClient:
             body["limitPrice"] = float(take_profit)
         if client_order_id:
             body["customTag"] = client_order_id
+        if linked_order_id is not None:
+            body["linkedOrderId"] = int(linked_order_id)
         if stop_loss_bracket:
             body["stopLossBracket"] = stop_loss_bracket.to_payload()
         if take_profit_bracket:
             body["takeProfitBracket"] = take_profit_bracket.to_payload()
 
+        LOGGER.debug("Order payload: %s", body)
         payload = self._post("/api/Order/place", body)
         success = bool(payload.get("success"))
         error_code = payload.get("errorCode", 0)

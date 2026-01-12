@@ -34,11 +34,11 @@ costs:
 
 # Position sizing and risk limits
 position_limits:
-  # Maximum contracts per position
-  max_contracts_per_position: 1
+  # Maximum contracts per position (increased to allow Kelly scaling)
+  max_contracts_per_position: 5  # Was: 1
 
-  # Maximum concurrent positions (5 = allow multiple positions)
-  max_concurrent_positions: 5  # FIXED: Match risk.yaml and live_trading.yaml
+  # Maximum concurrent positions (15 = allow multiple positions)
+  max_concurrent_positions: 15  # FIXED: Match risk.yaml and live_trading.yaml
 
   # Contract rounding (always round down for safety)
   rounding: "floor"

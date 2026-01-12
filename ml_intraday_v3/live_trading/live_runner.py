@@ -11,9 +11,10 @@ import os
 import sys
 import time
 import signal
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yaml
@@ -220,6 +221,7 @@ class LiveTradingRunner:
             contract_id=resolved_contract_id,
             bar_size_minutes=self.bar_size_minutes,
             lookback_bars=self.live_cfg['data']['lookback_bars'],
+            enable_rth_filter=self.live_cfg['data'].get('enable_rth_filter', True),  # Filter to RTH only
         )
 
         # Model predictor
@@ -245,12 +247,22 @@ class LiveTradingRunner:
             dry_run=self.dry_run,
             contract_id=resolved_contract_id,
             account_id=resolved_account_id,
+            order_type=self.live_cfg["topstep"].get("order", {}).get("type", "MARKET"),
         )
 
         # State tracking
         self.last_bar_time = None
         self.signals_generated = 0
         self.trades_executed = 0
+
+        # Initialize Kelly sizer if enabled
+        self.kelly_sizer = None
+        if self.live_cfg.get('kelly_sizing', {}).get('enabled', False):
+            from live_trading.kelly_sizer import KellySizer
+            self.kelly_sizer = KellySizer(self.live_cfg['kelly_sizing'])
+            logger.info(f"Kelly sizing enabled: fraction={self.kelly_sizer.config['kelly_fraction']}")
+        else:
+            logger.info("Kelly sizing disabled - using fixed contracts")
 
         # Initialize monitoring
         logs_dir = Path("logs")
@@ -297,7 +309,15 @@ class LiveTradingRunner:
             self.data_fetcher.connect()
             # Initialize buffer with historical bars
             self.data_fetcher.initialize_buffer()
-            checks['data_connection'] = not self.data_fetcher.get_buffer().empty
+            buffer = self.data_fetcher.get_buffer()
+            checks['data_connection'] = not buffer.empty
+            if checks['data_connection']:
+                # Treat the last warmup bar as already processed so we only act on the
+                # next *new* bar after startup.
+                self.last_bar_time = buffer.index[-1]
+                logger.info(
+                    f"Warmup buffer loaded; will wait for the next bar after {self.last_bar_time} before trading"
+                )
         except Exception as e:
             logger.error(f"Data connection failed: {e}")
 
@@ -519,6 +539,12 @@ class LiveTradingRunner:
 
                 # Update metrics from execution engine
                 status = self.execution_engine.get_status()
+                logger.debug(
+                    "Broker status: equity=%.2f daily_pnl=%.2f open_positions=%s",
+                    status['equity'],
+                    status['daily_pnl'],
+                    status['open_positions'],
+                )
                 self.metrics_tracker.update_equity(status['equity'], status['daily_pnl'])
                 self.metrics_tracker.update_positions(status['open_positions'])
 
@@ -539,6 +565,9 @@ class LiveTradingRunner:
 
                     # Save metrics snapshot
                     self.metrics_tracker.save_snapshot()
+                    self.metrics_tracker.save_signal_log()
+                    if self.kelly_sizer:
+                        self.metrics_tracker.save_kelly_log()
 
                 # Sleep until next update
                 time.sleep(update_interval)
@@ -579,8 +608,9 @@ class LiveTradingRunner:
         use_meta = self.live_cfg['signals'].get('use_meta_model', False)
         prediction = self.predictor.predict(features, use_meta=use_meta)
 
-        logger.debug(
-            f"Prediction: score={prediction.get('score_ev', 0.0):.3f}, "
+        score = prediction.get('score_ev', 0.0)
+        logger.info(
+            f"Signal generated: score={score:.3f}, "
             f"p_target={prediction.get('p_target', 0.0):.3f}, "
             f"p_stop={prediction.get('p_stop', 0.0):.3f}"
         )
@@ -596,14 +626,26 @@ class LiveTradingRunner:
         )
 
         if not should_trade:
-            logger.debug(f"Trade rejected: {reason}")
+            logger.info(f"✗ Signal rejected: score={score:.3f}, reason={reason}")
+            
+            # Record rejected signal
+            self.metrics_tracker.record_signal(
+                executed=False,
+                score=score,
+                timestamp=bar_time,
+                direction=None,
+                reason=reason,
+            )
             return
 
         # Determine direction (for now, always LONG based on positive score)
         # TODO: Add regime detection or direction logic
         direction = "LONG" if prediction['score_ev'] > 0 else "SHORT"
 
-        # Execute trade
+        # Get trade history for Kelly calculation
+        trade_history = self.metrics_tracker.trade_history
+
+        # Execute trade (Kelly sizer will override contracts if enabled)
         contracts = self.live_cfg['positions']['contracts_per_trade']
         success, exec_reason = self.execution_engine.execute_signal(
             timestamp=bar_time,
@@ -611,57 +653,76 @@ class LiveTradingRunner:
             prediction=prediction,
             bars_df=bars_df,
             contracts=contracts,
+            kelly_sizer=self.kelly_sizer,  # NEW
+            trade_history=trade_history,   # NEW
         )
 
         if success:
             self.trades_executed += 1
-            logger.info(f"✓ Trade executed: {direction} {contracts} contracts")
+            logger.info(f"✓ Trade executed: {direction} {contracts} contracts, score={score:.3f}")
 
             # Record signal execution
-            self.metrics_tracker.record_signal(executed=True)
+            self.metrics_tracker.record_signal(
+                executed=True,
+                score=score,
+                timestamp=bar_time,
+                direction=direction,
+                reason="executed",
+            )
 
             # Send alert
             self.alert_manager.trade_executed(
                 direction=direction,
                 contracts=contracts,
                 price=bars_df.iloc[-1]['close'],
-                prediction_score=prediction.get('score_ev', 0)
+                prediction_score=score
             )
         else:
-            logger.warning(f"Trade rejected: {exec_reason}")
+            logger.warning(f"✗ Trade rejected by execution engine: score={score:.3f}, reason={exec_reason}")
 
             # Record signal rejection
-            self.metrics_tracker.record_signal(executed=False)
+            self.metrics_tracker.record_signal(
+                executed=False,
+                score=score,
+                timestamp=bar_time,
+                direction=direction,
+                reason=exec_reason,
+            )
 
     def _is_trading_time(self) -> bool:
         """
-        Check if current time is within trading session.
-
-        Returns:
-            True if within trading hours, False otherwise
+        Check if current time (America/Chicago) is within any configured session,
+        supporting sessions that span midnight (e.g., ETH 17:00-16:00 next day).
         """
-        now = datetime.now()
-        current_time = now.time()
+        tz = ZoneInfo("America/Chicago")
+        now_ct = datetime.now(tz)
+        buffer_minutes = self.live_cfg['session']['no_entry_before_close_minutes']
+        buffer_delta = timedelta(minutes=buffer_minutes)
 
-        # Check against session rules
         sessions = self.live_cfg['session']['sessions']
         for session in sessions:
-            start = datetime.strptime(session['start_time'], "%H:%M").time()
-            end = datetime.strptime(session['end_time'], "%H:%M").time()
+            start_time = datetime.strptime(session['start_time'], "%H:%M").time()
+            end_time = datetime.strptime(session['end_time'], "%H:%M").time()
 
-            if start <= current_time <= end:
-                # Check if we're before the no-entry window
-                no_entry_buffer = self.live_cfg['session']['no_entry_before_close_minutes']
-                end_minus_buffer = datetime.combine(
-                    datetime.today(),
-                    end
-                ) - pd.Timedelta(minutes=no_entry_buffer)
+            start_dt = datetime.combine(now_ct.date(), start_time, tzinfo=tz)
+            end_dt = datetime.combine(now_ct.date(), end_time, tzinfo=tz)
 
-                if current_time >= end_minus_buffer.time():
-                    logger.debug("Within no-entry window before close")
-                    return False
+            # Handle sessions that wrap past midnight (end < start)
+            if end_dt <= start_dt:
+                end_dt += timedelta(days=1)
 
-                return True
+            # Check both today's window and the prior day's window (for overnight coverage)
+            intervals = [
+                (start_dt, end_dt),
+                (start_dt - timedelta(days=1), end_dt - timedelta(days=1)),
+            ]
+
+            for window_start, window_end in intervals:
+                if window_start <= now_ct <= window_end:
+                    if now_ct >= window_end - buffer_delta:
+                        logger.debug("Within no-entry window before close")
+                        return False
+                    return True
 
         return False
 

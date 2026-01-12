@@ -48,6 +48,7 @@ class TopstepXRestDataFetcher:
         contract_id: str,
         bar_size_minutes: int = 5,
         lookback_bars: int = 100,
+        enable_rth_filter: bool = True,
     ):
         """
         Initialize the TopstepX REST data fetcher.
@@ -56,10 +57,12 @@ class TopstepXRestDataFetcher:
             contract_id: TopstepX contract ID (e.g., "CON.F.US.EP.H26")
             bar_size_minutes: Bar size in minutes (default: 5)
             lookback_bars: Number of historical bars to maintain
+            enable_rth_filter: If True, filter to RTH only (8:30 AM - 3:00 PM CT)
         """
         self.contract_id = contract_id
         self.bar_size_minutes = bar_size_minutes
         self.lookback_bars = lookback_bars
+        self.enable_rth_filter = enable_rth_filter
 
         # Initialize ProjectX client
         self.client = ProjectXClient()
@@ -75,7 +78,8 @@ class TopstepXRestDataFetcher:
 
         logger.info(
             f"TopstepXRestDataFetcher initialized: contract={contract_id}, "
-            f"bar_size={bar_size_minutes}m, lookback={lookback_bars}"
+            f"bar_size={bar_size_minutes}m, lookback={lookback_bars}, "
+            f"rth_filter={'ENABLED' if enable_rth_filter else 'DISABLED'}"
         )
 
     def connect(self):
@@ -93,15 +97,53 @@ class TopstepXRestDataFetcher:
         """Disconnect from TopstepX API."""
         logger.info("✓ Disconnected from TopstepX API")
 
+    def filter_rth_bars(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filter DataFrame to Regular Trading Hours (8:30 AM - 3:00 PM CT).
+
+        This removes pre-market, post-market, and overnight bars to match
+        the training distribution.
+
+        Args:
+            df: DataFrame with Chicago timezone index
+
+        Returns:
+            Filtered DataFrame with RTH bars only
+        """
+        if df.empty or not self.enable_rth_filter:
+            return df
+
+        # Index should already be in Chicago time, but verify
+        df_ct = df.copy()
+        if df_ct.index.tz != self.chicago_tz:
+            if df_ct.index.tz is not None:
+                df_ct.index = df_ct.index.tz_convert(self.chicago_tz)
+            else:
+                logger.warning("DataFrame index has no timezone, assuming Chicago time")
+
+        # RTH mask: 8:30 AM - 3:00 PM CT
+        # hour > 8 OR (hour == 8 AND minute >= 30)
+        # AND hour < 15
+        rth_mask = (df_ct.index.hour > 8) | ((df_ct.index.hour == 8) & (df_ct.index.minute >= 30))
+        rth_mask &= (df_ct.index.hour < 15)
+
+        df_rth = df[rth_mask]
+
+        if len(df_rth) < len(df):
+            logger.debug(f"RTH filter: {len(df)} bars -> {len(df_rth)} bars ({len(df) - len(df_rth)} filtered)")
+
+        return df_rth
+
     def initialize_buffer(self):
         """Initialize the rolling buffer with historical bars."""
         logger.info("Initializing buffer with historical bars...")
 
-        # Fetch historical bars
-        # Fetch more than needed to account for gaps
         end_time = datetime.now(timezone.utc)
-        # Calculate start time based on bar size and lookback
-        minutes_back = self.lookback_bars * self.bar_size_minutes * 2  # 2x buffer
+        
+        # Fetch 7 days of data to handle weekends/holidays
+        # This ensures we get enough RTH bars even on Monday morning
+        # 7 days = 10,080 minutes
+        minutes_back = 7 * 24 * 60
         start_time = end_time - timedelta(minutes=minutes_back)
 
         try:
@@ -111,7 +153,7 @@ class TopstepXRestDataFetcher:
                 end_time=end_time,
                 unit=2,  # 2 = minutes
                 unit_number=self.bar_size_minutes,
-                limit=self.lookback_bars * 2,
+                limit=1000,  # Increased from 200 to handle 7 days
                 include_partial_bar=False,
                 live=False,  # Use historical data mode
             )
@@ -136,7 +178,13 @@ class TopstepXRestDataFetcher:
             df = df.set_index('timestamp')
             df = df.sort_index()
 
-            # Keep only last N bars
+            logger.debug(f"Fetched {len(df)} raw bars from last 7 days")
+
+            # ✅ CRITICAL: Filter to RTH FIRST (before truncating)
+            # This ensures we get 100 RTH bars, not 100 mixed bars
+            df = self.filter_rth_bars(df)
+
+            # ✅ THEN truncate to last N bars
             if len(df) > self.lookback_bars:
                 df = df.iloc[-self.lookback_bars:]
 
@@ -200,6 +248,16 @@ class TopstepXRestDataFetcher:
                 return None
 
             bar_timestamp = pd.to_datetime(latest_bar.timestamp, utc=True).tz_convert(self.chicago_tz)
+
+            # ✅ RTH FILTER: Check if this bar is during RTH
+            if self.enable_rth_filter:
+                hour = bar_timestamp.hour
+                minute = bar_timestamp.minute
+                is_rth = ((hour > 8) or (hour == 8 and minute >= 30)) and (hour < 15)
+                
+                if not is_rth:
+                    logger.debug(f"Skipping non-RTH bar: {bar_timestamp.strftime('%Y-%m-%d %H:%M')}")
+                    return None
 
             # Check if this is a new bar
             if self.last_bar_timestamp is not None and bar_timestamp <= self.last_bar_timestamp:

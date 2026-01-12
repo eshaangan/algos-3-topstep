@@ -61,6 +61,7 @@ class LiveExecutionEngine:
         dry_run: bool = False,
         contract_id: str | None = None,
         account_id: str | None = None,
+        order_type: str = "MARKET",
     ):
         """
         Initialize execution engine.
@@ -77,6 +78,7 @@ class LiveExecutionEngine:
         self.dry_run = dry_run
         self.contract_id = contract_id
         self.account_id = account_id
+        self.order_type = order_type.upper()
 
         # Initialize risk manager
         self.risk_manager = RiskManager(risk_cfg)
@@ -92,11 +94,12 @@ class LiveExecutionEngine:
         resolved_account_id = account_id or env_account_id
         resolved_contract_id = contract_id or env_contract_id
 
-        if not all([username, api_key, resolved_account_id]):
+        # Skip credential validation in dry run mode (replay/testing)
+        if not dry_run and not all([username, api_key, resolved_account_id]):
             raise ValueError("Missing Topstep credentials in .env")
 
-        self.account_id = str(resolved_account_id)
-        self.contract_id = resolved_contract_id
+        self.account_id = str(resolved_account_id) if resolved_account_id else "MOCK"
+        self.contract_id = resolved_contract_id or "MOCK"
 
         # Initialize ProjectX client (only if not dry run)
         if not dry_run:
@@ -122,6 +125,8 @@ class LiveExecutionEngine:
         prediction: Dict[str, float],
         bars_df: pd.DataFrame,
         contracts: int = 1,
+        kelly_sizer: Optional['KellySizer'] = None,  # NEW: Kelly sizing support
+        trade_history: Optional[List[Dict]] = None,  # NEW: For Kelly calculation
     ) -> Tuple[bool, str]:
         """
         Execute a trading signal.
@@ -131,7 +136,9 @@ class LiveExecutionEngine:
             direction: Trade direction ("LONG" or "SHORT")
             prediction: Model prediction dictionary
             bars_df: Recent bars (for setting stop/target)
-            contracts: Number of contracts to trade
+            contracts: Number of contracts to trade (fallback if Kelly disabled)
+            kelly_sizer: Optional KellySizer instance for dynamic sizing
+            trade_history: Optional trade history for Kelly calculation
 
         Returns:
             (success, reason) tuple
@@ -141,6 +148,22 @@ class LiveExecutionEngine:
         if not can_trade:
             logger.warning(f"Trade rejected by risk manager: {reason}")
             return False, f"risk_{reason}"
+
+        # Override contracts with Kelly sizing if enabled
+        if kelly_sizer is not None and kelly_sizer.config.get('enabled', False):
+            try:
+                score_ev = prediction.get('score_ev', 0.0)
+                contracts, sizing_reason = kelly_sizer.get_position_size(
+                    trade_history=trade_history or [],
+                    score_ev=score_ev,
+                    max_contracts_limit=self.risk_cfg['position_limits']['max_contracts_per_position'],
+                    current_equity=self.get_equity(),
+                    contract_margin=self.risk_cfg['margin']['initial_margin_per_contract'],
+                )
+                logger.info(f"Kelly sizing: {contracts} contracts (reason: {sizing_reason})")
+            except Exception as e:
+                logger.error(f"Kelly sizing error: {e}, falling back to default contracts")
+                # Keep the original contracts value on error
 
         # Check position limits
         max_concurrent = self.risk_cfg.get('position_limits', {}).get('max_concurrent_positions', 5)
@@ -171,25 +194,63 @@ class LiveExecutionEngine:
         )
 
         # Execute trade (or simulate if dry_run)
+        stop_order_id = None
+        target_order_id = None
+
         if self.dry_run:
             # Simulate execution
             order_id = f"DRY_{timestamp.strftime('%Y%m%d_%H%M%S')}"
-            logger.info(f"DRY RUN: Simulated order {order_id}")
+            stop_order_id = f"DRY_STOP_{timestamp.strftime('%Y%m%d_%H%M%S')}"
+            target_order_id = f"DRY_TARGET_{timestamp.strftime('%Y%m%d_%H%M%S')}"
+            logger.info(f"DRY RUN: Simulated order {order_id}, stop={stop_order_id}, target={target_order_id}")
             success = True
         else:
             # Execute via API
             try:
                 side = "BUY" if direction == "LONG" else "SELL"
+                # Entry order
                 order = self.client.place_order(
                     symbol="MES",
                     side=side,
                     quantity=contracts,
-                    order_type="MARKET",
+                    order_type=self.order_type,
                     contract_id=self.contract_id,
+                    stop_loss=stop_price,
+                    take_profit=target_price,
                 )
                 order_id = order.order_id
                 logger.info(f"Order placed: {order_id}")
                 success = True
+
+                # Submit OCO children (stop + target) linked to entry
+                if not self.dry_run:
+                    oco_side = "SELL" if direction == "LONG" else "BUY"
+                    # Stop child
+                    stop_order = self.client.place_order(
+                        symbol="MES",
+                        side=oco_side,
+                        quantity=contracts,
+                        order_type="STOP",
+                        contract_id=self.contract_id,
+                        stop_loss=stop_price,
+                        take_profit=None,
+                        linked_order_id=int(order_id),
+                    )
+                    stop_order_id = stop_order.order_id
+                    logger.info(f"OCO stop placed: {stop_order_id}")
+                    # Target child
+                    target_order = self.client.place_order(
+                        symbol="MES",
+                        side=oco_side,
+                        quantity=contracts,
+                        order_type="LIMIT",
+                        contract_id=self.contract_id,
+                        stop_loss=None,
+                        take_profit=target_price,
+                        linked_order_id=int(order_id),
+                    )
+                    target_order_id = target_order.order_id
+                    logger.info(f"OCO target placed: {target_order_id}")
             except Exception as e:
                 logger.error(f"Order execution failed: {e}")
                 return False, f"execution_error: {str(e)}"
@@ -197,6 +258,8 @@ class LiveExecutionEngine:
         # Record position
         position = {
             'order_id': order_id,
+            'stop_order_id': stop_order_id,
+            'target_order_id': target_order_id,
             'entry_ts': timestamp,
             'direction': direction,
             'contracts': contracts,
@@ -244,33 +307,79 @@ class LiveExecutionEngine:
         high = current_bar['high']
         low = current_bar['low']
 
+        # Query broker for current open orders
+        open_order_ids = set()
+        if not self.dry_run:
+            try:
+                open_orders = self.client.search_open_orders()
+                open_order_ids = {str(order.order_id) for order in open_orders}
+                logger.debug(f"Found {len(open_order_ids)} open orders at broker")
+            except Exception as e:
+                logger.error(f"Failed to query open orders: {e}")
+                # Continue with empty set - will rely on price-based detection
+
         closed_positions = []
 
         for position in self.open_positions[:]:  # Iterate over copy
-            # Check for stop/target hit
-            hit_stop = False
-            hit_target = False
+            # Skip if order IDs not tracked (backward compatibility)
+            if 'stop_order_id' not in position or 'target_order_id' not in position:
+                logger.warning(f"Position {position['order_id']} missing bracket order IDs, skipping")
+                continue
 
-            if position['direction'] == "LONG":
-                hit_stop = low <= position['stop_price']
-                hit_target = high >= position['target_price']
-            else:  # SHORT
-                hit_stop = high >= position['stop_price']
-                hit_target = low <= position['target_price']
+            # Check if bracket orders are still open at broker
+            stop_still_open = str(position['stop_order_id']) in open_order_ids
+            target_still_open = str(position['target_order_id']) in open_order_ids
 
-            # Determine exit
+            # Determine if position exited and which order filled
             exit_price = None
             exit_reason = None
+            order_to_cancel = None
 
-            if hit_stop:
+            if not stop_still_open and not target_still_open:
+                # Both orders closed - position exited but we missed it
+                logger.warning(f"Both bracket orders closed for position {position['order_id']}")
+                # Use price-based heuristic to determine which filled first
+                if position['direction'] == "LONG":
+                    if current_price <= position['stop_price']:
+                        exit_price = position['stop_price']
+                        exit_reason = "stop"
+                    else:
+                        exit_price = position['target_price']
+                        exit_reason = "target"
+                else:  # SHORT
+                    if current_price >= position['stop_price']:
+                        exit_price = position['stop_price']
+                        exit_reason = "stop"
+                    else:
+                        exit_price = position['target_price']
+                        exit_reason = "target"
+
+            elif not stop_still_open:
+                # Stop order filled, cancel target
                 exit_price = position['stop_price']
                 exit_reason = "stop"
-            elif hit_target:
+                order_to_cancel = position['target_order_id']
+                logger.info(f"Stop order filled for {position['order_id']}, will cancel target {order_to_cancel}")
+
+            elif not target_still_open:
+                # Target order filled, cancel stop
                 exit_price = position['target_price']
                 exit_reason = "target"
+                order_to_cancel = position['stop_order_id']
+                logger.info(f"Target order filled for {position['order_id']}, will cancel stop {order_to_cancel}")
 
-            # Close position if exit triggered
+            # If position exited, cancel remaining order and close position
             if exit_price is not None:
+                # Cancel the remaining bracket order
+                if order_to_cancel and not self.dry_run:
+                    try:
+                        self.client.cancel_order(order_id=order_to_cancel)
+                        logger.info(f"Successfully cancelled remaining bracket order {order_to_cancel}")
+                    except Exception as e:
+                        logger.error(f"Failed to cancel order {order_to_cancel}: {e}")
+                        # Continue anyway - position is closed, we'll log the orphaned order
+
+                # Calculate PnL
                 pnl = self._calculate_pnl(
                     entry_price=position['entry_price'],
                     exit_price=exit_price,
@@ -299,6 +408,9 @@ class LiveExecutionEngine:
                     'price': exit_price,
                     'pnl_usd': pnl,
                     'order_id': position['order_id'],
+                    'stop_order_id': position['stop_order_id'],
+                    'target_order_id': position['target_order_id'],
+                    'cancelled_order_id': order_to_cancel,
                 })
 
                 # Remove from open positions
@@ -478,10 +590,28 @@ class LiveExecutionEngine:
         Returns:
             Dictionary with status information
         """
+        broker_open_positions = len(self.open_positions)
+        broker_daily_pnl = self.get_daily_pnl()
+        broker_equity = self.get_equity()
+
+        if not self.dry_run and self.client is not None:
+            try:
+                acct = self.client.get_account_state()
+                broker_equity = acct.equity
+                broker_daily_pnl = acct.daily_pnl
+                broker_open_positions = acct.open_positions
+
+                # Keep risk manager in sync with broker equity to reflect real drawdown.
+                self.risk_manager.equity = broker_equity
+                self.risk_manager.hwm = max(self.risk_manager.hwm, broker_equity)
+                self.risk_manager.daily_pnl = broker_daily_pnl
+            except Exception as exc:
+                logger.warning("Failed to refresh broker account state; using internal metrics: %s", exc)
+
         return {
-            'open_positions': len(self.open_positions),
-            'equity': self.get_equity(),
-            'daily_pnl': self.get_daily_pnl(),
+            'open_positions': broker_open_positions,
+            'equity': broker_equity,
+            'daily_pnl': broker_daily_pnl,
             'drawdown': self.get_drawdown(),
             'trades_today': self.risk_manager.trades_today,
             'consecutive_losses': self.risk_manager.consecutive_losses,

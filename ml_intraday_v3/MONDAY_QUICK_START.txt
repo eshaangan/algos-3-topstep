@@ -1,0 +1,56 @@
+================================================================================
+KELLY CRITERION - MONDAY MORNING QUICK START
+================================================================================
+
+✅ KELLY IS ENABLED AND READY FOR PAPER TRADING
+
+WHAT TO EXPECT:
+  Trades 1-20:  All use 1 contract (learning phase)
+  Trade 21+:    Dynamic 2-5 contracts (Kelly active)
+  High conviction: Get 1.5x boost when score_ev ≥ 0.15
+
+STARTUP:
+  cd /Users/eshaanganguly/Documents/projects/algos\ 3\ topstep
+
+  python -m ml_intraday_v3.live_trading.live_runner \
+    --config-dir ml_intraday_v3/configs \
+    --bundle-path <YOUR_MODEL_BUNDLE_PATH>
+
+VERIFY KELLY LOADED:
+  Look for: "[INFO] Kelly sizing enabled: fraction=0.25"
+
+MONITOR LOGS:
+  Learning phase:  "[INFO] Kelly sizing decision: contracts=1, reason=learning_phase_5/20"
+  Kelly active:    "[INFO] Kelly sizing decision: contracts=3, reason=kelly_0.137_score_0.183"
+
+DAILY REVIEW:
+  tail -20 logs/kelly_sizing_*.csv   # Check contract distribution
+  tail -20 logs/trades_*.csv         # Check P&L per trade
+  tail -5  logs/metrics_*.csv        # Check session stats
+
+EMERGENCY DISABLE:
+  nano ml_intraday_v3/configs/live_trading.yaml
+  Change line 112: enabled: false
+  Restart live runner
+
+SETTINGS:
+  Kelly fraction: 0.25 (1/4 Kelly - conservative)
+  Max contracts: 5 per position
+  Max concurrent: 15 positions
+  Confidence boost: 1.5x when score_ev ≥ 0.15
+
+DOCUMENTATION:
+  Full details:    ml_intraday_v3/KELLY_IMPLEMENTATION_SUMMARY.md
+  Quick guide:     ml_intraday_v3/KELLY_QUICK_START.md
+  Test results:    ml_intraday_v3/KELLY_TEST_RESULTS.md
+  Full checklist:  ml_intraday_v3/KELLY_MONDAY_CHECKLIST.md
+
+REMEMBER:
+  - First 20 trades = learning (1 contract each)
+  - Kelly learns from YOUR live performance
+  - Can disable instantly if needed
+  - RiskManager still enforces all limits ($1k daily loss, $2.5k drawdown)
+
+GOOD LUCK! 🚀
+
+================================================================================

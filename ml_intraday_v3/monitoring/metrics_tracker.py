@@ -62,6 +62,12 @@ class MetricsTracker:
         self.signals_executed = 0
         self.signals_rejected = 0
 
+        # Signal tracking
+        self.signal_history: List[Dict] = []
+
+        # Kelly sizing tracking
+        self.kelly_sizing_log: List[Dict] = []
+
         logger.info(f"MetricsTracker initialized: {output_dir}")
 
     def set_starting_equity(self, equity: float):
@@ -89,18 +95,43 @@ class MetricsTracker:
         if drawdown > self.max_drawdown:
             self.max_drawdown = drawdown
 
-    def record_signal(self, executed: bool):
+    def record_signal(
+        self,
+        executed: bool,
+        score: float,
+        timestamp: Optional[pd.Timestamp] = None,
+        direction: Optional[str] = None,
+        reason: Optional[str] = None,
+    ):
         """
         Record a signal generation.
 
         Args:
             executed: Whether signal was executed or rejected
+            score: Prediction score (score_ev)
+            timestamp: Signal timestamp
+            direction: Signal direction (LONG/SHORT) if executed
+            reason: Rejection reason if not executed
         """
         self.signals_generated += 1
         if executed:
             self.signals_executed += 1
         else:
             self.signals_rejected += 1
+
+        # Log to signal history (for CSV export)
+        signal_record = {
+            'timestamp': timestamp or datetime.now(),
+            'score': score,
+            'executed': executed,
+            'direction': direction,
+            'reason': reason,
+        }
+        
+        # Add to signal log if it exists
+        if not hasattr(self, 'signal_history'):
+            self.signal_history = []
+        self.signal_history.append(signal_record)
 
     def record_trade(
         self,
@@ -252,6 +283,28 @@ class MetricsTracker:
         pd.DataFrame(self.metrics_history).to_csv(metrics_path, index=False)
 
         logger.debug(f"Metrics snapshot saved: {metrics_path}")
+
+    def save_signal_log(self):
+        """Save signal history to disk."""
+        if not self.signal_history:
+            return
+
+        signal_path = self.output_dir / f"signals_{self.session_start.strftime('%Y%m%d_%H%M%S')}.csv"
+        pd.DataFrame(self.signal_history).to_csv(signal_path, index=False)
+        logger.debug(f"Signal log saved: {signal_path}")
+
+    def record_kelly_decision(self, sizing_decision: Dict):
+        """Record Kelly sizing decision for post-analysis."""
+        self.kelly_sizing_log.append(sizing_decision)
+
+    def save_kelly_log(self):
+        """Save Kelly sizing log to CSV."""
+        if not self.kelly_sizing_log:
+            return
+
+        kelly_path = self.output_dir / f"kelly_sizing_{self.session_start.strftime('%Y%m%d_%H%M%S')}.csv"
+        pd.DataFrame(self.kelly_sizing_log).to_csv(kelly_path, index=False)
+        logger.debug(f"Kelly sizing log saved: {kelly_path}")
 
     def save_trades(self):
         """Save trade history to disk."""

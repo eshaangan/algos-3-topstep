@@ -39,6 +39,12 @@ data:
   # Need enough history to compute features (ATR, EMA, etc.)
   lookback_bars: 100
 
+  # RTH (Regular Trading Hours) filtering
+  # If true, only use bars from 8:30 AM - 3:00 PM CT (matches training data)
+  # If false, use all bars including pre-market, post-market, overnight
+  # RECOMMENDATION: Keep this TRUE to match model training distribution
+  enable_rth_filter: true
+
 # Topstep API configuration
 topstep:
   # API base URL
@@ -94,7 +100,7 @@ positions:
   contracts_per_trade: 1
 
   # Maximum concurrent positions (from risk.yaml but repeated here)
-  max_concurrent: 5
+  max_concurrent: 15  # Was: 10
 
   # Force flatten at session close
   flatten_at_close: true
@@ -105,6 +111,41 @@ positions:
   # Flatten buffer before close (minutes)
   # Close all positions this many minutes before session close
   flatten_buffer_minutes: 5
+
+# Kelly Criterion Dynamic Position Sizing
+kelly_sizing:
+  # MASTER KILL SWITCH: Set to false to immediately revert to fixed sizing
+  enabled: true  # ENABLED FOR PAPER TRADING - Starting Monday
+
+  # Learning phase: Fixed 1 contract until this many trades complete
+  min_trades_for_kelly: 20
+
+  # Fractional Kelly multiplier (0.25 = 1/4 Kelly, conservative)
+  # Never use full Kelly (1.0) - far too aggressive for Topstep
+  kelly_fraction: 0.25
+
+  # Rolling window: Calculate Kelly from last N trades
+  # Set to null to use all trades since session start
+  rolling_window_trades: 50
+
+  # Hard cap: Maximum contracts per single trade
+  # Even if Kelly suggests more, never exceed this
+  max_contracts_per_trade: 5
+
+  # Minimum contracts (floor)
+  min_contracts: 1
+
+  # Confidence boost: Scale position on high-conviction signals
+  confidence_boost:
+    enabled: true
+    boost_factor: 1.5        # Multiply Kelly size by this
+    boost_threshold: 0.15    # When abs(score_ev) exceeds this
+
+  # Safety: Revert to 1 contract after N consecutive negative Kellys
+  negative_kelly_threshold: 3
+
+  # Logging verbosity
+  log_sizing_decisions: true
 
 # Risk management (overrides risk.yaml for live trading)
 risk:
