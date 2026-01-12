@@ -1,0 +1,3 @@
+timestamp,score,executed,direction,reason
+2026-01-12 14:15:00-06:00,0.9844742962700399,True,LONG,executed
+2026-01-12 14:20:00-06:00,0.9845571354044448,False,LONG,risk_min_time

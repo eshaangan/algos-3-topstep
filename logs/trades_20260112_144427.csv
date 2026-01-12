@@ -1,0 +1,3 @@
+timestamp,action,direction,contracts,price,order_id,prediction_score,reason,pnl_usd,stop_order_id,target_order_id,cancelled_order_id
+2026-01-12 14:15:00-06:00,ENTRY,LONG,1,7019.25,2221052047,0.9844742962700399,,,,,
+2026-01-12 14:20:00-06:00,EXIT,,1,7017.0,2221052047,,stop,-14.99,2221052085,2221052110,2221052110

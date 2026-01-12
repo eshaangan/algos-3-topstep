@@ -267,6 +267,21 @@ class LiveTradingRunner:
         # Initialize monitoring
         logs_dir = Path("logs")
         self.metrics_tracker = MetricsTracker(logs_dir)
+        
+        # Load previous session's trade history for Kelly persistence
+        # This allows Kelly to continue from previous statistics on restart
+        if self.kelly_sizer and self.kelly_sizer.config.get('enabled', False):
+            latest_trade_file = self.metrics_tracker.find_latest_trade_file(logs_dir)
+            if latest_trade_file:
+                trades_loaded = self.metrics_tracker.load_trades_from_csv(latest_trade_file)
+                if trades_loaded > 0:
+                    logger.info(f"Kelly persistence: Loaded {trades_loaded} trades from previous session")
+                    logger.info(f"Kelly will continue from trade #{trades_loaded + 1}")
+                else:
+                    logger.info("Kelly will start fresh (no previous trades loaded)")
+            else:
+                logger.info("Kelly will start fresh (no previous trade files found)")
+        
         self.alert_manager = AlertManager(logs_dir, enable_sound=True)
         self.dashboard = TerminalDashboard()
 
