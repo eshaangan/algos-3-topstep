@@ -653,9 +653,18 @@ class LiveTradingRunner:
             )
             return
 
-        # Determine direction (for now, always LONG based on positive score)
-        # TODO: Add regime detection or direction logic
-        direction = "LONG" if prediction['score_ev'] > 0 else "SHORT"
+        # Determine direction from bidirectional model or fallback to score-based
+        if 'side' in prediction and prediction['side'] != 0:
+            # Use model's predicted side (1=LONG, -1=SHORT)
+            direction = "LONG" if prediction['side'] == 1 else "SHORT"
+            logger.info(f"  Bidirectional choice: {direction} (EV_long={prediction.get('score_ev_long', 'N/A'):.3f}, EV_short={prediction.get('score_ev_short', 'N/A'):.3f})")
+        elif 'side' in prediction and prediction['side'] == 0:
+            # Model says skip (neither side has positive EV)
+            logger.info(f"✗ Bidirectional model recommends SKIP (both sides have negative EV)")
+            return
+        else:
+            # Fallback for non-bidirectional models
+            direction = "LONG" if prediction['score_ev'] > 0 else "SHORT"
 
         # Get trade history for Kelly calculation
         trade_history = self.metrics_tracker.trade_history

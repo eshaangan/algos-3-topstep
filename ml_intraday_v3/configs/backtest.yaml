@@ -32,10 +32,11 @@ decision:
     vol_window: 20         # Bars for volatility regime computation
     trend_window: 50       # Bars for trend regime computation
 
-    # SHORT TRADING: Enable regime-based side selection
-    enable_shorts: true              # NEW: Short in downtrends, long in uptrends
-    downtrend_regimes: [0, 3, 6]     # Regimes where we go SHORT
-    uptrend_regimes: [2, 5, 8]       # Regimes where we go LONG
+    # SHORT TRADING: Use model-predicted sides (CUSUM-based), not regime-based heuristics
+    # The model was trained with CUSUM sides as a feature, so we must use those sides at test time!
+    enable_shorts: false             # DISABLED: Regime-based side selection breaks model's input distribution
+    downtrend_regimes: [0, 3, 6]     # (Unused when disabled)
+    uptrend_regimes: [2, 5, 8]       # (Unused when disabled)
 
     # With shorts enabled, we don't need to skip downtrends anymore
     skip_regimes: []                 # No regimes skipped (we trade all of them)
