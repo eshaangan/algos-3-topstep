@@ -59,6 +59,10 @@ from validation import (
 )
 from ml_intraday_v3.training import train_on_splits
 from ml_intraday_v3.backtesting_v3 import run_backtest, write_backtest_schema
+from ml_intraday_v3.backtesting_v3.dual import (
+    combine_dual_primary_predictions,
+    combine_dual_meta_predictions,
+)
 from experiments import run_experiments
 from audit import run_audit
 from walkforward import run_walkforward
@@ -955,19 +959,27 @@ def build_weights_command(args):
         labeling_config_hash = hash_content(f.read())
 
     manifest_path = run_dir / "run_manifest.json"
+    manifest = None
     if manifest_path.exists():
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
-        logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
-    else:
-        bar_size_dirs = [
-            d.name
-            for d in run_dir.iterdir()
-            if d.is_dir() and d.name.startswith("bar_size=")
-        ]
-        bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
-        logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
+
+    bar_sizes = None
+    if args.bar_sizes:
+        bar_sizes = [s.strip() for s in args.bar_sizes.split(",") if s.strip()]
+        logger.info("Using bar_sizes override: %s", bar_sizes)
+    if bar_sizes is None:
+        if manifest is not None:
+            bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
+            logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
+        else:
+            bar_size_dirs = [
+                d.name
+                for d in run_dir.iterdir()
+                if d.is_dir() and d.name.startswith("bar_size=")
+            ]
+            bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
+            logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
 
     if not bar_sizes:
         logger.error("No bar_size directories found in run directory")
@@ -1372,19 +1384,27 @@ def build_cv_command(args):
         validation_config_hash = hash_content(f.read())
 
     manifest_path = run_dir / "run_manifest.json"
+    manifest = None
     if manifest_path.exists():
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
-        logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
-    else:
-        bar_size_dirs = [
-            d.name
-            for d in run_dir.iterdir()
-            if d.is_dir() and d.name.startswith("bar_size=")
-        ]
-        bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
-        logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
+
+    bar_sizes = None
+    if args.bar_sizes:
+        bar_sizes = [s.strip() for s in args.bar_sizes.split(",") if s.strip()]
+        logger.info("Using bar_sizes override: %s", bar_sizes)
+    if bar_sizes is None:
+        if manifest is not None:
+            bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
+            logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
+        else:
+            bar_size_dirs = [
+                d.name
+                for d in run_dir.iterdir()
+                if d.is_dir() and d.name.startswith("bar_size=")
+            ]
+            bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
+            logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
 
     if not bar_sizes:
         logger.error("No bar_size directories found in run directory")
@@ -1630,19 +1650,27 @@ def build_train_command(args):
     meta_enabled = bool(training_config.get("meta", {}).get("enabled", False))
 
     manifest_path = run_dir / "run_manifest.json"
+    manifest = None
     if manifest_path.exists():
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
-        logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
-    else:
-        bar_size_dirs = [
-            d.name
-            for d in run_dir.iterdir()
-            if d.is_dir() and d.name.startswith("bar_size=")
-        ]
-        bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
-        logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
+
+    bar_sizes = None
+    if args.bar_sizes:
+        bar_sizes = [s.strip() for s in args.bar_sizes.split(",") if s.strip()]
+        logger.info("Using bar_sizes override: %s", bar_sizes)
+    if bar_sizes is None:
+        if manifest is not None:
+            bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
+            logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
+        else:
+            bar_size_dirs = [
+                d.name
+                for d in run_dir.iterdir()
+                if d.is_dir() and d.name.startswith("bar_size=")
+            ]
+            bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
+            logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
 
     if not bar_sizes:
         logger.error("No bar_size directories found in run directory")
@@ -1656,11 +1684,25 @@ def build_train_command(args):
         logger.info(f"Processing bar_size: {bar_size}")
         logger.info("=" * 80)
 
+        training_dir_override = None
+        if args.training_dir:
+            base = Path(args.training_dir)
+            if "bar_size=" in base.parts or base.name in {cv_kind, "training"}:
+                if base.name == "training":
+                    training_dir_override = base / cv_kind
+                else:
+                    training_dir_override = base
+            else:
+                training_dir_override = (
+                    base / f"bar_size={bar_size}" / "training" / cv_kind
+                )
+
         result = train_on_splits(
             run_dir=run_dir,
             bar_size=bar_size,
             training_config=training_config,
             cv_kind=cv_kind,
+            training_dir_override=training_dir_override,
         )
 
         training_dir = result["training_dir"]
@@ -1668,14 +1710,24 @@ def build_train_command(args):
         schema_hash = result["training_schema_hash"]
         n_splits = result["n_splits"]
 
+        try:
+            training_dir_rel = training_dir.relative_to(run_dir)
+        except ValueError:
+            training_dir_rel = training_dir
+
+        try:
+            schema_path_rel = schema_path.relative_to(run_dir)
+        except ValueError:
+            schema_path_rel = schema_path
+
         per_bar_training_artifacts[bar_size] = {
-            "training_dir": str(training_dir.relative_to(run_dir)),
-            "training_schema_path": str(schema_path.relative_to(run_dir)),
+            "training_dir": str(training_dir_rel),
+            "training_schema_path": str(schema_path_rel),
             "training_schema_hash": schema_hash,
             "cv_kind_trained": cv_kind,
             "n_splits_trained": int(n_splits),
             "meta_training_enabled": meta_enabled,
-            "meta_training_dir": str(training_dir.relative_to(run_dir)),
+            "meta_training_dir": str(training_dir_rel),
         }
 
     logger.info("")
@@ -1797,19 +1849,27 @@ def build_backtest_command(args):
 
     cv_kind = args.cv_kind
     manifest_path = run_dir / "run_manifest.json"
+    manifest = None
     if manifest_path.exists():
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
-        logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
-    else:
-        bar_size_dirs = [
-            d.name
-            for d in run_dir.iterdir()
-            if d.is_dir() and d.name.startswith("bar_size=")
-        ]
-        bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
-        logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
+
+    bar_sizes = None
+    if args.bar_sizes:
+        bar_sizes = [s.strip() for s in args.bar_sizes.split(",") if s.strip()]
+        logger.info("Using bar_sizes override: %s", bar_sizes)
+    if bar_sizes is None:
+        if manifest is not None:
+            bar_sizes = manifest.get("bar_sizes", ["1m", "5m"])
+            logger.info(f"Found existing manifest with bar_sizes: {bar_sizes}")
+        else:
+            bar_size_dirs = [
+                d.name
+                for d in run_dir.iterdir()
+                if d.is_dir() and d.name.startswith("bar_size=")
+            ]
+            bar_sizes = [d.replace("bar_size=", "") for d in bar_size_dirs]
+            logger.info(f"Discovered bar_sizes from directories: {bar_sizes}")
 
     per_bar_backtest_artifacts = {}
 
@@ -1884,6 +1944,20 @@ def build_backtest_command(args):
         if not training_dir.exists():
             logger.error(f"Training dir not found: {training_dir}")
             sys.exit(1)
+        secondary_training_dir = None
+        if args.secondary_training_dir:
+            secondary_training_dir = _resolve_training_dir(
+                run_dir, bar_size, cv_kind, args.secondary_training_dir
+            )
+            if not secondary_training_dir.exists():
+                logger.error(
+                    f"Secondary training dir not found: {secondary_training_dir}"
+                )
+                sys.exit(1)
+            logger.info(
+                "Using secondary training dir for dual-model backtest: %s",
+                secondary_training_dir,
+            )
 
         backtest_dir = bar_dir / "backtests" / cv_kind
         backtest_dir.mkdir(parents=True, exist_ok=True)
@@ -1899,7 +1973,39 @@ def build_backtest_command(args):
 
             primary_preds = pd.read_parquet(primary_path)
             meta_preds = None
-            if backtest_config.get("decision", {}).get("use_meta", False):
+            if secondary_training_dir:
+                secondary_split_dir = (
+                    secondary_training_dir / f"{prefix}_{split_id}"
+                )
+                secondary_primary_path = (
+                    secondary_split_dir / "preds.parquet"
+                )
+                secondary_meta_path = (
+                    secondary_split_dir / "meta_preds.parquet"
+                )
+                if not secondary_primary_path.exists():
+                    raise FileNotFoundError(
+                        f"Missing secondary preds: {secondary_primary_path}"
+                    )
+                secondary_preds = pd.read_parquet(secondary_primary_path)
+                primary_preds = combine_dual_primary_predictions(
+                    primary_preds, secondary_preds, events_df
+                )
+                if backtest_config.get("decision", {}).get("use_meta", False):
+                    if not meta_path.exists():
+                        raise FileNotFoundError(
+                            f"Missing meta preds: {meta_path}"
+                        )
+                    if not secondary_meta_path.exists():
+                        raise FileNotFoundError(
+                            f"Missing secondary meta preds: {secondary_meta_path}"
+                        )
+                    meta_preds = combine_dual_meta_predictions(
+                        pd.read_parquet(meta_path),
+                        pd.read_parquet(secondary_meta_path),
+                        primary_preds,
+                    )
+            elif backtest_config.get("decision", {}).get("use_meta", False):
                 if not meta_path.exists():
                     raise FileNotFoundError(f"Missing meta preds: {meta_path}")
                 meta_preds = pd.read_parquet(meta_path)
@@ -2212,6 +2318,12 @@ def main():
         default="ml_intraday_v3/configs/labeling.yaml",
         help="Path to labeling config YAML file",
     )
+    build_weights_parser.add_argument(
+        "--bar-sizes",
+        type=str,
+        default=None,
+        help="Comma-separated list of bar sizes to process (e.g., 5m)",
+    )
 
     # build-cv command
     build_cv_parser = subparsers.add_parser(
@@ -2230,6 +2342,12 @@ def main():
         default="ml_intraday_v3/configs/validation.yaml",
         help="Path to validation config YAML file",
     )
+    build_cv_parser.add_argument(
+        "--bar-sizes",
+        type=str,
+        default=None,
+        help="Comma-separated list of bar sizes to process (e.g., 5m)",
+    )
 
     # build-train command
     build_train_parser = subparsers.add_parser(
@@ -2247,6 +2365,16 @@ def main():
         type=str,
         default="ml_intraday_v3/configs/training.yaml",
         help="Path to training config YAML file",
+    )
+    build_train_parser.add_argument(
+        "--training-dir",
+        type=str,
+        help="Optional training output base directory (defaults to run_dir)",
+    )
+    build_train_parser.add_argument(
+        "--bar-sizes",
+        type=str,
+        help="Comma-separated bar sizes to process (e.g., 5m)",
     )
     build_train_parser.add_argument(
         "--cv-kind",
@@ -2273,6 +2401,11 @@ def main():
         help="Optional training base directory (defaults to run_dir)",
     )
     build_backtest_parser.add_argument(
+        "--secondary-training-dir",
+        type=str,
+        help="Optional secondary training directory for dual-model backtests",
+    )
+    build_backtest_parser.add_argument(
         "--backtest-config",
         type=str,
         default="ml_intraday_v3/configs/backtest.yaml",
@@ -2296,6 +2429,11 @@ def main():
         default="purged_kfold",
         choices=["purged_kfold", "cpcv"],
         help="Which CV splits to backtest",
+    )
+    build_backtest_parser.add_argument(
+        "--bar-sizes",
+        type=str,
+        help="Comma-separated bar sizes to process (e.g., 5m)",
     )
 
     # run-experiments command

@@ -164,6 +164,8 @@ def build_event_dataset(
             "w_final": w_final,
         }
     )
+    if "side" in events_df.columns:
+        dataset["side"] = events_df["side"].astype(int)
 
     dataset = pd.concat([dataset, features_sel], axis=1)
     return dataset

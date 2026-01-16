@@ -86,7 +86,9 @@ sys.path.insert(0, str(project_root))
 from live_trading.topstepx_rest_data_fetcher import TopstepXRestDataFetcher
 from live_trading.feature_generator import LiveFeatureGenerator
 from live_trading.model_predictor import LiveModelPredictor
+from live_trading.risk_manager import RiskManager as LiveRiskManager
 from live_trading.execution_engine import LiveExecutionEngine
+from live_trading.event_detector import LiveEventDetector
 from monitoring.metrics_tracker import MetricsTracker
 from monitoring.alerts import AlertManager, AlertLevel
 from monitoring.dashboard import TerminalDashboard
@@ -144,6 +146,7 @@ class LiveTradingRunner:
     def __init__(
         self,
         config_dir: Path,
+        config_name: str = "live_trading.yaml",
         model_bundle_path: Optional[Path] = None,
         dry_run: bool = False,
         skip_confirmation: bool = False,
@@ -176,10 +179,29 @@ class LiveTradingRunner:
 
         # Load configurations
         logger.info("Loading configurations...")
-        self.live_cfg = self._load_config("live_trading.yaml")
+        self.live_cfg = self._load_config(config_name)
         self.risk_cfg = self._load_config("risk.yaml")
         self.execution_spec = self._load_config("execution_spec.yaml")
         self.backtest_cfg = self._load_config("backtest.yaml")
+        self.risk_cfg_source_path = self.config_dir / "risk.yaml"
+
+        # Allow selecting a different risk config file via live_trading.yaml.
+        # This keeps defaults backward compatible while enabling Topstep-specific variants.
+        risk_cfg_path = (self.live_cfg.get("risk", {}) or {}).get("risk_config_path")
+        if risk_cfg_path:
+            # Mirror _load_config_any_path resolution logic so the LiveRiskManager reads the same file.
+            candidate = Path(risk_cfg_path)
+            if not candidate.is_absolute():
+                candidate_dir = self.config_dir / risk_cfg_path
+                if candidate_dir.exists():
+                    candidate = candidate_dir
+                else:
+                    candidate_root = project_root / risk_cfg_path
+                    if candidate_root.exists():
+                        candidate = candidate_root
+            self.risk_cfg_source_path = candidate
+            self.risk_cfg = self._load_config_any_path(risk_cfg_path)
+            logger.info(f"Loaded risk config override: {risk_cfg_path}")
 
         # Override dry_run if specified in config
         if self.live_cfg['trading'].get('dry_run', False):
@@ -205,6 +227,15 @@ class LiveTradingRunner:
 
         # Initialize components
         logger.info("Initializing components...")
+
+        # Live risk manager (Topstep circuit breakers)
+        self.use_risk_manager = self.live_cfg.get('risk', {}).get('use_risk_manager', False)
+        self.live_risk_manager = None
+        if self.use_risk_manager:
+            self.live_risk_manager = LiveRiskManager(self.risk_cfg_source_path)
+            logger.info("Live risk manager enabled")
+        else:
+            logger.info("Live risk manager disabled")
 
         # Data fetcher (TopstepX REST API polling - proven approach)
         # Extract bar size as minutes (e.g., "5m" -> 5)
@@ -239,6 +270,20 @@ class LiveTradingRunner:
             features_config_path=self.config_dir / "features.yaml",
         )
 
+        # Event detector (CUSUM filter to match training event generation)
+        event_cfg = self.live_cfg['signals'].get('event_filter', {})
+        self.event_detector = None
+        if event_cfg.get('enabled', True):  # Default: enabled
+            atr_period = event_cfg.get('atr_period', 14)
+            cusum_mult = event_cfg.get('cusum_threshold_atr_mult', 0.8)
+            self.event_detector = LiveEventDetector(
+                atr_period=atr_period,
+                cusum_threshold_atr_mult=cusum_mult,
+            )
+            logger.info(f"Event filter enabled: CUSUM with atr_period={atr_period}, mult={cusum_mult}")
+        else:
+            logger.warning("Event filter DISABLED - predicting on every bar (train/test mismatch!)")
+
         # Execution engine
         self.execution_engine = LiveExecutionEngine(
             risk_cfg=self.risk_cfg,
@@ -249,6 +294,8 @@ class LiveTradingRunner:
             account_id=resolved_account_id,
             order_type=self.live_cfg["topstep"].get("order", {}).get("type", "MARKET"),
         )
+        if self.live_risk_manager:
+            self.live_risk_manager.sync_equity(self.execution_engine.get_equity())
 
         # State tracking
         self.last_bar_time = None
@@ -282,6 +329,29 @@ class LiveTradingRunner:
         """Load YAML config file."""
         path = self.config_dir / filename
         with open(path) as f:
+            return yaml.safe_load(f)
+
+    def _load_config_any_path(self, path_str: str) -> dict:
+        """
+        Load a YAML config from an absolute path or a project-relative path.
+
+        Priority for relative paths:
+          1) path relative to this config_dir
+          2) path relative to project root
+          3) path as provided
+        """
+        candidate = Path(path_str)
+        if not candidate.is_absolute():
+            candidate_dir = self.config_dir / path_str
+            if candidate_dir.exists():
+                candidate = candidate_dir
+            else:
+                candidate_root = project_root / path_str
+                if candidate_root.exists():
+                    candidate = candidate_root
+        if not candidate.exists():
+            raise FileNotFoundError(f"Config not found: {path_str} (resolved={candidate})")
+        with open(candidate) as f:
             return yaml.safe_load(f)
 
     def startup_checks(self) -> bool:
@@ -524,6 +594,8 @@ class LiveTradingRunner:
                                 pnl=pos['pnl_usd'],
                                 exit_reason=pos['exit_reason'],
                             )
+                            if self.live_risk_manager:
+                                self.live_risk_manager.update_pnl(pos['pnl_usd'])
 
                             # Send alert
                             self.alert_manager.trade_closed(
@@ -545,8 +617,25 @@ class LiveTradingRunner:
                     status['daily_pnl'],
                     status['open_positions'],
                 )
+                if self.live_risk_manager:
+                    self.live_risk_manager.sync_state(status.get("equity"), status.get("daily_pnl"))
                 self.metrics_tracker.update_equity(status['equity'], status['daily_pnl'])
                 self.metrics_tracker.update_positions(status['open_positions'])
+
+                # Hard circuit-breaker: if we are at a Topstep hard limit and still have exposure, flatten.
+                if self.live_risk_manager and status.get("open_positions", 0):
+                    allowed, reason = self.live_risk_manager.check_trading_allowed()
+                    if not allowed and reason in {"daily_loss_limit", "trailing_drawdown_limit"}:
+                        try:
+                            current_price = float(latest_bar["close"]) if latest_bar is not None else None
+                        except Exception:
+                            current_price = None
+                        if current_price is not None:
+                            self.execution_engine.flatten_all_positions(
+                                current_time=pd.Timestamp.now(tz="UTC"),
+                                current_price=current_price,
+                                reason=f"risk_{reason}",
+                            )
 
                 # Check for risk warnings
                 if status['daily_pnl'] < 0 and abs(status['daily_pnl']) > 1500:  # 75% of $2000 limit
@@ -593,6 +682,28 @@ class LiveTradingRunner:
         # Get rolling buffer
         bars_df = self.data_fetcher.get_buffer()
 
+        # Event detection: only predict on CUSUM events (matching training)
+        if self.event_detector is not None:
+            is_event, event_info = self.event_detector.is_event(
+                bars_df=bars_df,
+                current_bar_close=float(latest_bar['close'])
+            )
+
+            if not is_event:
+                logger.debug(
+                    f"Not a CUSUM event: s_pos={event_info.get('s_pos', 0):.2f}, "
+                    f"s_neg={event_info.get('s_neg', 0):.2f}, "
+                    f"threshold={event_info.get('threshold', 0):.2f}"
+                )
+                return  # Skip prediction on non-events
+
+            # Log event details
+            logger.info(
+                f"✓ CUSUM event detected ({event_info['event_type']}): "
+                f"threshold={event_info['threshold']:.2f}, "
+                f"price_diff={event_info.get('price_diff', 0):.2f}"
+            )
+
         # Generate features
         features = self.feature_generator.generate_features(bars_df)
 
@@ -617,10 +728,34 @@ class LiveTradingRunner:
 
         self.signals_generated += 1
 
+        # Risk manager gating before trade decision
+        primary_threshold = self.live_cfg['signals']['primary_threshold']
+        if self.live_risk_manager:
+            allowed, risk_reason = self.live_risk_manager.check_trading_allowed()
+            if not allowed:
+                logger.info(f"✗ Risk manager blocked trade: {risk_reason}")
+                self.metrics_tracker.record_signal(
+                    executed=False,
+                    score=score,
+                    timestamp=bar_time,
+                    direction=None,
+                    reason=f"risk_manager_{risk_reason}",
+                )
+                return
+
+            threshold_adjustment = self.live_risk_manager.get_threshold_adjustment()
+            if threshold_adjustment > 0:
+                primary_threshold += threshold_adjustment
+                logger.info(
+                    "Risk manager threshold adjustment: +%.3f -> %.3f",
+                    threshold_adjustment,
+                    primary_threshold,
+                )
+
         # Check if we should trade
         should_trade, reason = self.predictor.should_trade(
             prediction=prediction,
-            primary_threshold=self.live_cfg['signals']['primary_threshold'],
+            primary_threshold=primary_threshold,
             meta_threshold=self.live_cfg['signals'].get('meta_threshold'),
             require_meta_approval=self.live_cfg['signals'].get('require_meta_approval', False),
         )
@@ -656,6 +791,26 @@ class LiveTradingRunner:
 
         # Execute trade (Kelly sizer will override contracts if enabled)
         contracts = self.live_cfg['positions']['contracts_per_trade']
+        contracts_cap = None
+        if self.live_risk_manager:
+            sigma_val = None
+            try:
+                if isinstance(features, pd.Series) and 'sigma' in features.index:
+                    sigma_val = float(features.get('sigma'))
+            except Exception:
+                sigma_val = None
+            contracts = self.live_risk_manager.get_position_size(contracts, sigma=sigma_val)
+            if contracts <= 0:
+                logger.info("✗ Risk manager blocked trade: position_size=0")
+                self.metrics_tracker.record_signal(
+                    executed=False,
+                    score=score,
+                    timestamp=bar_time,
+                    direction=direction,
+                    reason="risk_manager_position_size_zero",
+                )
+                return
+            contracts_cap = contracts
         success, exec_reason = self.execution_engine.execute_signal(
             timestamp=bar_time,
             direction=direction,
@@ -664,6 +819,7 @@ class LiveTradingRunner:
             contracts=contracts,
             kelly_sizer=self.kelly_sizer,  # NEW
             trade_history=trade_history,   # NEW
+            contracts_cap=contracts_cap,
         )
 
         if success:
@@ -827,6 +983,12 @@ def main():
         help="Path to configs directory",
     )
     parser.add_argument(
+        "--config-name",
+        type=str,
+        default="live_trading.yaml",
+        help="Config filename within config-dir (default: live_trading.yaml)",
+    )
+    parser.add_argument(
         "--model-bundle",
         type=Path,
         default=None,
@@ -866,6 +1028,7 @@ def main():
     # Create runner
     runner = LiveTradingRunner(
         config_dir=args.config_dir,
+        config_name=args.config_name,
         model_bundle_path=args.model_bundle,
         dry_run=args.dry_run,
         skip_confirmation=args.no_confirm,

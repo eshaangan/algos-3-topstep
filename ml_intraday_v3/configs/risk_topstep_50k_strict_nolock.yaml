@@ -1,0 +1,84 @@
+# Strict Topstep 50K combine risk configuration (5m / intraday), WITHOUT a daily profit lock.
+# Goal: maximize pass probability while allowing faster accumulation; consistency should be
+# enforced via the true Topstep rule (best day <= 50% of total profit), not a hard daily cap.
+#
+# Notes
+# - Uses REAL-TIME trailing high-water mark updates (more conservative than end_of_day).
+# - Adds pre-breach forced flatten thresholds to reduce overshoot risk on 5m bars.
+
+topstep:
+  account_type: "combine"
+  starting_balance: 50000
+
+daily_loss_limit:
+  enabled: true
+  # Internal buffer below Topstep's $1,000 limit to reduce overshoot risk.
+  max_daily_loss: 900
+  pnl_calculation: "realized_and_unrealized"
+  reset_time: "17:00"
+  reset_timezone: "America/Chicago"
+  breach_action: "flatten_and_halt"
+
+trailing_drawdown:
+  enabled: true
+  # Internal buffer below Topstep's $2,500 limit to reduce overshoot risk.
+  max_drawdown: 2400
+  pnl_calculation: "realized_and_unrealized"
+  hwm_update_policy: "real_time"
+  breach_action: "flatten_and_halt"
+
+position_limits:
+  max_contracts_per_position: 2
+  max_concurrent_positions: 1
+  max_total_contracts: 2
+  max_notional_exposure: 30000
+
+intraday_controls:
+  max_trades_per_day: 12
+  min_seconds_between_trades: 300
+  max_consecutive_losses: 3
+  consecutive_loss_action: "halt_trading"
+  # Disabled: allow profitable days to run.
+  daily_profit_lock_usd: 0
+
+margin:
+  initial_margin_per_contract: 1320
+  maintenance_margin_per_contract: 1200
+  margin_buffer: 0.30
+
+forced_flatten:
+  flatten_at_session_close: true
+  # Pre-breach flattening to reduce bar-level overshoot risk.
+  flatten_at_loss_threshold: 0.50
+  flatten_at_drawdown_threshold: 0.75
+
+# Live-only adaptive knobs (used by live_trading.risk_manager)
+risk_management:
+  enabled: true
+
+  daily_loss_limit_usd: 1000
+  daily_loss_warning_usd: 300
+  daily_loss_critical_usd: 600
+
+  base_position_size: 1
+  reduce_size_on_loss: true
+  size_after_warning: 1.0
+  size_after_critical: 0.0
+
+  max_drawdown_from_hwm: 2500
+  drawdown_warning: 1500
+
+  avoid_first_hour: true
+  avoid_last_hour: true
+
+  threshold_increase_on_loss: 0.04
+
+  # Disabled: use consistency ratio instead.
+  daily_profit_lock_usd: 0
+
+output:
+  risk_utilization_path: "runs/{run_id}/bar_size={bar_size}/risk_utilization_daily.csv"
+  breach_log_path: "runs/{run_id}/bar_size={bar_size}/risk_breaches.csv"
+
+risk_spec_version: "1.0.0"
+

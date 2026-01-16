@@ -46,21 +46,21 @@ position_limits:
 # Session constraints
 session_rules:
   # Trading sessions (America/Chicago timezone)
-  # ES/MES trades nearly 24/5 but we restrict to liquid hours
+  # CHANGED FOR 24-HOUR TRADING: Trade all Globex hours
   allowed_sessions:
-    - name: "rth"  # Regular Trading Hours
-      start_time: "08:30"
-      end_time: "15:00"
+    - name: "all_hours"  # 24-hour Globex trading
+      start_time: "17:00"  # Sunday open
+      end_time: "16:00"    # Friday close
       timezone: "America/Chicago"
 
   # Entry restrictions
-  # No new entries within this many bars of session end
+  # No new entries within this many bars of weekly session end
   no_entry_before_close_bars:
-    "1m": 30   # Don't enter in last 30 min of RTH
-    "5m": 6    # Don't enter in last 30 min of RTH
+    "1m": 60   # Don't enter in last 60 min before Friday close
+    "5m": 12   # Don't enter in last 60 min before Friday close
 
   # Exit policy
-  # Force flatten all positions at session close
+  # Force flatten all positions at weekly session close (Friday 4pm CT)
   force_flatten_at_close: true
 
 # Holding period constraints
@@ -80,8 +80,8 @@ decision:
 
   # Primary model probability threshold (0.0-1.0)
   # Lower values = more trades, higher values = fewer but higher quality trades
-  # Baseline: 0.5 (standard), Emergency triage: 0.30
-  primary_threshold: 0.30
+  # LOWERED FOR COMBINE: Aggressive threshold for high trade frequency
+  primary_threshold: 0.03
 
   # Meta-model probability threshold (0.0-1.0)
   # Only applies if use_meta is true

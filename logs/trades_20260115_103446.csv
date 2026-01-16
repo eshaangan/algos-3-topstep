@@ -1,0 +1,2 @@
+entry_time,exit_time,direction,contracts,entry_price,exit_price,pnl,exit_reason,duration_minutes
+2026-01-15 11:05:00-06:00,2026-01-15 11:55:00-06:00,SHORT,1,7016.25,7003.0,62.51,target,50.0

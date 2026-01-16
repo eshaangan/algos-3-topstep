@@ -1,0 +1,4 @@
+timestamp,score,executed,direction,reason
+2026-01-15 12:55:00-06:00,0.07082073916382764,True,LONG,executed
+2026-01-15 13:00:00-06:00,0.1752996899644207,True,LONG,executed
+2026-01-15 13:25:00-06:00,0.0,False,,primary_threshold (score=0.000 < 0.090)

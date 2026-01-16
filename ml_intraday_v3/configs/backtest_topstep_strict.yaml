@@ -1,0 +1,48 @@
+# Backtest configuration tuned for Topstep 50K combine pass probability.
+# Meta off, 5m bars. Uses score_ev and stricter filtering than default backtest.yaml.
+
+decision:
+  use_meta: false
+  primary_score_column: "score_ev"
+  # Stricter than 0.03 to reduce churn + drawdowns.
+  primary_threshold: 0.08
+  meta_threshold: 0.50
+  require_meta_for_trade: false
+
+  volatility_filter:
+    enabled: false
+    min_sigma: 7.0
+
+  regime_filter:
+    enabled: true
+    vol_window: 20
+    trend_window: 50
+    enable_shorts: false
+
+    # Skip historically dangerous regimes for this strategy family.
+    # 6: high_vol_downtrend, 7: high_vol_sideways
+    skip_regimes: [6, 7]
+    threshold_boost_regimes: [3]  # med_vol_downtrend
+    threshold_boost: 0.03
+
+sizing:
+  contracts: 1
+  max_concurrent_positions: 1
+
+costs:
+  use_execution_spec: true
+  use_event_ret_net: true
+
+risk:
+  use_risk_yaml: true
+
+session:
+  # RTH-only backtest window to reduce overnight risk and avoid forced-flatten churn.
+  trade_start_time_chicago: "08:30"
+  trade_end_time_chicago: "15:00"
+  # Flatten before RTH close (and well before the 17:00 CT Topstep reset).
+  flatten_time_chicago: "14:55"
+
+outputs:
+  write_trade_log: true
+  write_equity_curve: true

@@ -1,0 +1,230 @@
+{
+  "scenarios": [
+    {
+      "total_pnl_usd": 43070.08963139963,
+      "max_drawdown_usd": 2840.9778046419815,
+      "win_rate": 0.47507507507507507,
+      "profit_factor": 1.9301616329779803,
+      "trades": 1665,
+      "daily_loss_violations": 9,
+      "daily_loss_violation_pct": 0.0989010989010989,
+      "sharpe": 4.499741300712952,
+      "cv": 2.632651548105568,
+      "mc_pass_rate": 0.6977,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.6977,
+        "days_to_pass": {
+          "p05": 3.0,
+          "p50": 7.0,
+          "p95": 14.0,
+          "mean": 7.400315321771535
+        },
+        "fail_reasons": {
+          "daily_loss": 435,
+          "trailing_drawdown": 6,
+          "consistency_limit": 2582,
+          "max_days": 0
+        },
+        "max_drawdown": {
+          "p05": 174.9499999999898,
+          "p50": 622.8542136372198,
+          "p95": 1371.8163256940234,
+          "mean": 684.4817353887437
+        }
+      },
+      "scenario": "cusum_dual_long_baseline",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold_long_baseline"
+    },
+    {
+      "total_pnl_usd": -979.2967217864939,
+      "max_drawdown_usd": 2513.5767597859667,
+      "win_rate": 0.4533762057877814,
+      "profit_factor": 0.9239268856756625,
+      "trades": 311,
+      "daily_loss_violations": 1,
+      "daily_loss_violation_pct": 0.008620689655172414,
+      "sharpe": -0.5553017343808949,
+      "cv": -6.714533821326458,
+      "mc_pass_rate": 0.1181,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.1181,
+        "days_to_pass": {
+          "p05": 42.0,
+          "p50": 115.0,
+          "p95": 221.0,
+          "mean": 120.74089754445386
+        },
+        "fail_reasons": {
+          "daily_loss": 801,
+          "trailing_drawdown": 7478,
+          "consistency_limit": 9,
+          "max_days": 531
+        },
+        "max_drawdown": {
+          "p05": 1141.8290337189508,
+          "p50": 2532.465322259417,
+          "p95": 2749.4968359473455,
+          "mean": 2352.100546749085
+        }
+      },
+      "scenario": "cusum_dual_short_baseline",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold_short_baseline"
+    },
+    {
+      "total_pnl_usd": 43429.62120499383,
+      "max_drawdown_usd": 2895.957804641992,
+      "win_rate": 0.47686832740213525,
+      "profit_factor": 1.9336293085341465,
+      "trades": 1686,
+      "daily_loss_violations": 10,
+      "daily_loss_violation_pct": 0.10989010989010989,
+      "sharpe": 4.498804122186557,
+      "cv": 2.6345990065890112,
+      "mc_pass_rate": 0.7049,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.7049,
+        "days_to_pass": {
+          "p05": 3.0,
+          "p50": 7.0,
+          "p95": 14.0,
+          "mean": 7.4763796283160735
+        },
+        "fail_reasons": {
+          "daily_loss": 394,
+          "trailing_drawdown": 8,
+          "consistency_limit": 2549,
+          "max_days": 0
+        },
+        "max_drawdown": {
+          "p05": 176.18376252577582,
+          "p50": 623.9714909906797,
+          "p95": 1390.2111760878752,
+          "mean": 688.595428301676
+        }
+      },
+      "scenario": "cusum_dual_long_regularized",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold_long_regularized"
+    },
+    {
+      "total_pnl_usd": 91.82801457500523,
+      "max_drawdown_usd": 2693.1283871171545,
+      "win_rate": 0.48863636363636365,
+      "profit_factor": 1.0113882635951374,
+      "trades": 176,
+      "daily_loss_violations": 1,
+      "daily_loss_violation_pct": 0.013333333333333334,
+      "sharpe": 0.07162344437202012,
+      "cv": 92.96235726868136,
+      "mc_pass_rate": 0.2893,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.2893,
+        "days_to_pass": {
+          "p05": 38.599999999999994,
+          "p50": 110.0,
+          "p95": 224.0,
+          "mean": 118.31939163498099
+        },
+        "fail_reasons": {
+          "daily_loss": 965,
+          "trailing_drawdown": 5452,
+          "consistency_limit": 46,
+          "max_days": 644
+        },
+        "max_drawdown": {
+          "p05": 823.927703901774,
+          "p50": 2507.365187962605,
+          "p95": 2726.7062335707437,
+          "mean": 2131.67802411889
+        }
+      },
+      "scenario": "cusum_dual_short_regularized",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold_short_regularized"
+    },
+    {
+      "total_pnl_usd": 46969.076918444014,
+      "max_drawdown_usd": 2840.9778046419815,
+      "win_rate": 0.4942084942084942,
+      "profit_factor": 1.9542428991050886,
+      "trades": 1813,
+      "daily_loss_violations": 10,
+      "daily_loss_violation_pct": 0.10638297872340426,
+      "sharpe": 4.715428688980049,
+      "cv": 2.3888203227981384,
+      "mc_pass_rate": 0.6929,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.6929,
+        "days_to_pass": {
+          "p05": 3.0,
+          "p50": 7.0,
+          "p95": 13.0,
+          "mean": 7.243325155145042
+        },
+        "fail_reasons": {
+          "daily_loss": 391,
+          "trailing_drawdown": 6,
+          "consistency_limit": 2674,
+          "max_days": 0
+        },
+        "max_drawdown": {
+          "p05": 178.6999999999898,
+          "p50": 603.8120901781149,
+          "p95": 1319.0547676363326,
+          "mean": 664.349780061452
+        }
+      },
+      "scenario": "cusum_dual_dual_baseline",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold_dual_baseline"
+    },
+    {
+      "total_pnl_usd": 43580.00927447506,
+      "max_drawdown_usd": 2895.957804641992,
+      "win_rate": 0.4789816459443458,
+      "profit_factor": 1.9368555454921346,
+      "trades": 1689,
+      "daily_loss_violations": 10,
+      "daily_loss_violation_pct": 0.10989010989010989,
+      "sharpe": 4.516327047004932,
+      "cv": 2.6241832235284748,
+      "mc_pass_rate": 0.7051,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.7051,
+        "days_to_pass": {
+          "p05": 3.0,
+          "p50": 7.0,
+          "p95": 14.0,
+          "mean": 7.430009927669834
+        },
+        "fail_reasons": {
+          "daily_loss": 415,
+          "trailing_drawdown": 9,
+          "consistency_limit": 2525,
+          "max_days": 0
+        },
+        "max_drawdown": {
+          "p05": 179.87899999998814,
+          "p50": 626.2199999999939,
+          "p95": 1383.2129713728814,
+          "mean": 688.2103957675072
+        }
+      },
+      "scenario": "cusum_dual_dual_regularized",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold_dual_regularized"
+    }
+  ],
+  "topstep_rules": {
+    "starting_balance": 50000.0,
+    "profit_target": 3000.0,
+    "daily_loss_limit": 1000.0,
+    "trailing_drawdown": 2500.0,
+    "consistency_limit": 1500.0,
+    "runs": 10000,
+    "seed": 42,
+    "max_days": 252
+  }
+}

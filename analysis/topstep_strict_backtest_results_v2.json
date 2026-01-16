@@ -1,0 +1,86 @@
+{
+  "scenarios": [
+    {
+      "total_pnl_usd": 78744.75906990502,
+      "max_drawdown_usd": 2531.5093423703147,
+      "win_rate": 0.5170346143363315,
+      "profit_factor": 1.9691675410799743,
+      "trades": 3669,
+      "daily_loss_violations": 7,
+      "daily_loss_violation_pct": 0.030434782608695653,
+      "sharpe": 5.434382849864785,
+      "cv": 1.6269431244125308,
+      "mc_pass_rate": 0.8707,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.8707,
+        "days_to_pass": {
+          "p05": 5.0,
+          "p50": 9.0,
+          "p95": 18.0,
+          "mean": 9.914666360399679
+        },
+        "fail_reasons": {
+          "daily_loss": 197,
+          "trailing_drawdown": 4,
+          "consistency_limit": 1092,
+          "max_days": 0
+        },
+        "max_drawdown": {
+          "p05": 194.11969418917582,
+          "p50": 567.9123301115178,
+          "p95": 1240.452862205178,
+          "mean": 624.0885506115833
+        }
+      },
+      "scenario": "topstep_strict_long_regularized_v2",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold__topstep_strict_long_regularized_v2"
+    },
+    {
+      "total_pnl_usd": 78874.08267516695,
+      "max_drawdown_usd": 2531.5093423703147,
+      "win_rate": 0.5174291938997821,
+      "profit_factor": 1.9714130325834203,
+      "trades": 3672,
+      "daily_loss_violations": 7,
+      "daily_loss_violation_pct": 0.030434782608695653,
+      "sharpe": 5.445549933806631,
+      "cv": 1.6233147510864323,
+      "mc_pass_rate": 0.8639,
+      "mc_result": {
+        "runs": 10000,
+        "pass_rate": 0.8639,
+        "days_to_pass": {
+          "p05": 5.0,
+          "p50": 9.0,
+          "p95": 18.0,
+          "mean": 9.920129644634796
+        },
+        "fail_reasons": {
+          "daily_loss": 197,
+          "trailing_drawdown": 2,
+          "consistency_limit": 1162,
+          "max_days": 0
+        },
+        "max_drawdown": {
+          "p05": 202.48999999999796,
+          "p50": 570.4706278578597,
+          "p95": 1216.483294854209,
+          "mean": 623.5634749793173
+        }
+      },
+      "scenario": "topstep_strict_dual_regularized_v2",
+      "backtest_path": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold__topstep_strict_dual_regularized_v2"
+    }
+  ],
+  "topstep_rules": {
+    "starting_balance": 50000.0,
+    "profit_target": 3000.0,
+    "daily_loss_limit": 1000.0,
+    "trailing_drawdown": 2500.0,
+    "consistency_limit": 1500.0,
+    "runs": 10000,
+    "seed": 42,
+    "max_days": 252
+  }
+}

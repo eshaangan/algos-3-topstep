@@ -1,0 +1,176 @@
+# Training configuration - primary model (long-side filter)
+# Version: 1.0
+# PHASE 5: Upgraded to LightGBM for non-linear pattern capture
+
+model:
+  kind: "lgbm"  # Changed from "logreg" - Phase 5 upgrade
+  params:
+    # LightGBM parameters - BALANCED regularization (class +1 is only 7.4% of data)
+    n_estimators: 300  # Increased from 200 (model needs more capacity for rare class)
+    learning_rate: 0.05
+    num_leaves: 31
+    max_depth: 4  # Increased from 3 (more capacity for imbalanced classes)
+    min_child_samples: 150  # Decreased from 200 (allow smaller leaves for rare class)
+    subsample: 0.8  # Bagging fraction (row sampling)
+    subsample_freq: 5
+    colsample_bytree: 0.8  # Feature fraction (column sampling)
+    reg_alpha: 0.3  # L1 regularization (decreased from 0.5 for better recall)
+    reg_lambda: 0.3  # L2 regularization (decreased from 0.5 for better recall)
+    class_weight: "balanced"  # AUTO-BALANCE classes (7.4% vs 31.9% vs 60.7%)
+
+# Hyperparameter Search with Trial Tracking (for PBO analysis)
+hyperparam_search:
+  enabled: false  # Set to true to run grid search with TrialTracker
+
+  model:
+    kind: "lgbm"  # Model type for grid search
+
+    # Parameter grid - all combinations will be tested
+    # WARNING: Grid size = product of all list lengths
+    # Example below: 3 x 3 x 3 = 27 trials
+    param_grid:
+      # Number of boosting iterations
+      n_estimators: [300, 500, 1000]
+
+      # Learning rate (eta)
+      learning_rate: [0.01, 0.05, 0.1]
+
+      # Tree complexity
+      max_depth: [4, 6, 8]
+
+      # Optional: Add more parameters to search
+      # num_leaves: [15, 31, 63]
+      # min_child_samples: [50, 100, 200]
+      # subsample: [0.7, 0.8, 0.9]
+      # colsample_bytree: [0.7, 0.8, 0.9]
+      # reg_alpha: [0.0, 0.1, 0.5]
+      # reg_lambda: [0.0, 0.1, 0.5]
+
+  # Fixed parameters (not searched over)
+  fixed_params:
+    min_child_samples: 100
+    subsample: 0.8
+    subsample_freq: 5
+    colsample_bytree: 0.8
+    reg_alpha: 0.1
+    reg_lambda: 0.1
+
+features:
+  use_columns: "all"  # or explicit list
+  drop_meta_columns:
+    - "is_synthetic"
+    - "usable_for_training"
+
+target:
+  column: "y"
+  # Multiclass: stop / vertical / target
+  mode: "multiclass"
+  classes: [-1, 0, 1]
+  positive_label: 1  # only used in binary mode
+  flip_sign: false
+  flip_ret_net: false
+  side_filter: 1
+
+sample_weight:
+  column: "w_final"
+  enabled: true
+
+preprocessing:
+  scaler: "standard"
+  impute: "median"
+
+eval:
+  metrics:
+    - "accuracy"
+    - "balanced_accuracy"
+    - "log_loss"
+    - "f1_macro"
+    - "f1_weighted"
+    - "roc_auc_target_vs_rest"
+  threshold: 0.5
+
+output:
+  write_predictions: true
+  write_model: true
+
+seed: 42
+
+# Date filtering - train only on recent data
+# NOTE: Disabled because filtering is now done at data.yaml level (more efficient)
+# This addresses regime shift concerns (2020 COVID era patterns don't apply to current markets)
+date_filter:
+  enabled: false  # Disabled - filtering done at data ingestion
+  min_date: "2022-01-01"  # Only use data from 2022 onwards
+  max_date: null  # null = use all data up to present
+
+# Probability Calibration (Isotonic Regression)
+# Fixes miscalibrated probability estimates from the model
+# IMPORTANT: Enabled by default for multiclass to fix systematic overconfidence
+calibration:
+  enabled: true  # Enable isotonic calibration
+
+  # Method: "isotonic" (non-parametric, recommended) or "platt" (logistic)
+  method: "isotonic"
+
+  # Fraction of training data to hold out for calibration fitting
+  # Larger = better calibration but less training data
+  # 0.15-0.25 is typically a good range
+  calibration_fraction: 0.20
+
+  # Whether to recalibrate score_ev from calibrated probabilities
+  recalibrate_score_ev: true
+
+  # Save calibrator alongside model
+  save_calibrator: true
+
+  # Random seed for train/calibration split
+  calibration_seed: 42
+
+# Rare events corrections (King & Zeng 2001) - only applies when model.kind == "logreg"
+rare_events:
+  enabled: true
+
+  # Prior probability of positive class (profitable trade)
+  # Set to null to auto-estimate from training data
+  # Or provide known value (e.g., 0.35 for 35% win rate)
+  tau: null  # Auto-estimate from data
+
+  # Use sample weighting during training (King & Zeng method)
+  use_sample_weights: true
+
+  # Method for computing sample weights
+  # Options: "king_zeng", "inverse_freq", "balanced"
+  weight_method: "king_zeng"
+
+  # Method for correcting predicted probabilities
+  # Options: "king_zeng", "simple"
+  correction_method: "king_zeng"
+
+meta:
+  # Meta-model ENABLED to address high PBO scores via two-stage filtering
+  # Primary model has high recall (loose threshold), meta-model filters low-quality signals
+  enabled: true
+  threshold_primary: 0.20  # Lowered from 0.30 (model max p_target=0.27 due to class imbalance)
+  target:
+    kind: "y_positive"  # y_positive | ret_net_positive | y_and_ret_net
+  features:
+    include_primary_prob: true
+    include_primary_logit: true
+    include_original_features: true
+  model:
+    kind: "lgbm"  # LightGBM for meta-model (handles non-linear interactions)
+    params:
+      # LightGBM parameters - REGULARIZED for meta-model to prevent overfitting
+      n_estimators: 150  # Reduced from 300
+      learning_rate: 0.05
+      num_leaves: 15  # Shallower trees for meta-model
+      max_depth: 3  # Reduced from 4 for consistency with primary
+      min_child_samples: 100  # Increased from 50 (stricter leaf requirements)
+      subsample: 0.8
+      subsample_freq: 5
+      colsample_bytree: 0.8
+      reg_alpha: 0.5  # Increased from 0.1 (consistent with primary)
+      reg_lambda: 0.5  # Increased from 0.1 (consistent with primary)
+  output:
+    write_meta_predictions: true
+    write_meta_model: true

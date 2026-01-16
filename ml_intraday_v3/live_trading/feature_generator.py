@@ -106,6 +106,11 @@ class LiveFeatureGenerator:
         latest = feats_df.iloc[-1]
         feature_series = latest.reindex(self.feature_columns)
 
+        # For DualSideModel, 'side' feature needs to be present but will be overwritten by the model
+        # Add it as 0.0 (placeholder) if it's expected but not generated
+        if 'side' in self.feature_columns and 'side' not in feats_df.columns:
+            feature_series['side'] = 0.0
+
         logger.debug(
             f"Generated {len(feature_series)} features, "
             f"{feature_series.isna().sum()} NaN values"
@@ -125,23 +130,27 @@ class LiveFeatureGenerator:
         """
         checks = {}
 
+        # Exclude 'side' from quality checks - it's not a real feature, just a training-time indicator
+        # For DualSideModel, 'side' is expected to be missing/NaN
+        features_to_check = features.drop('side', errors='ignore')
+
         # Check for NaN values
-        nan_mask = features.isna()
+        nan_mask = features_to_check.isna()
         nan_count = int(nan_mask.sum())
         checks["has_nan"] = nan_count > 0
         checks["nan_count"] = nan_count
-        checks["nan_columns"] = features.index[nan_mask].tolist() if nan_count else []
+        checks["nan_columns"] = features_to_check.index[nan_mask].tolist() if nan_count else []
 
         # Check for infinite values (coerce non-numeric to nan first)
-        numeric = pd.to_numeric(features, errors="coerce")
+        numeric = pd.to_numeric(features_to_check, errors="coerce")
         inf_mask = np.isinf(numeric.to_numpy())
         inf_count = int(inf_mask.sum())
         checks["has_inf"] = inf_count > 0
         checks["inf_count"] = inf_count
-        checks["inf_columns"] = features.index[inf_mask].tolist() if inf_count else []
+        checks["inf_columns"] = features_to_check.index[inf_mask].tolist() if inf_count else []
 
         # Check for extreme values (> 100 std from mean)
-        numeric_features = features.dropna()
+        numeric_features = features_to_check.dropna()
         if len(numeric_features) > 0:
             z_scores = np.abs(
                 (numeric_features - numeric_features.mean())

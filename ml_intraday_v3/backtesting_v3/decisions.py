@@ -132,6 +132,8 @@ def decide_trades(
     if score_col and score_col in primary_preds.columns:
         cols = ["event_id", score_col]
         extra = [c for c in ["p_target", "p_stop", "p_vertical"] if c in primary_preds.columns]
+        if "predicted_side" in primary_preds.columns:
+            extra.append("predicted_side")
         cols.extend(extra)
         preds = primary_preds[cols].rename(columns={score_col: "p_primary"})
     else:
@@ -153,10 +155,18 @@ def decide_trades(
         merged.loc[missing_primary, "accept"] = False
         merged.loc[missing_primary, "decision_reason"] = "missing_primary"
 
+    if "predicted_side" in merged.columns:
+        merged["side"] = merged["predicted_side"].fillna(merged.get("side", 1))
+        no_side = merged["predicted_side"] == 0
+        if no_side.any():
+            merged.loc[no_side, "accept"] = False
+            merged.loc[no_side & (merged["decision_reason"] == ""), "decision_reason"] = "no_positive_ev"
+
     # Volatility filter (only trade in high-vol regimes)
     vol_filter_cfg = decision_cfg.get("volatility_filter", {})
     if vol_filter_cfg.get("enabled", False):
         min_sigma = float(vol_filter_cfg.get("min_sigma", 0.0))
+        max_sigma = float(vol_filter_cfg.get("max_sigma", 0.0) or 0.0)
         if "sigma" in merged.columns:
             low_vol = merged["sigma"] < min_sigma
             if low_vol.any():
@@ -168,6 +178,18 @@ def decide_trades(
                     int(merged["proposed"].sum()),
                     min_sigma,
                 )
+
+            if max_sigma > 0:
+                high_vol = merged["sigma"] > max_sigma
+                if high_vol.any():
+                    merged.loc[high_vol & merged["accept"], "accept"] = False
+                    merged.loc[high_vol & (merged["decision_reason"] == ""), "decision_reason"] = "high_volatility"
+                    logger.info(
+                        "Volatility filter: rejected %d/%d proposed trades (sigma > %.2f)",
+                        int((high_vol & merged["proposed"]).sum()),
+                        int(merged["proposed"].sum()),
+                        max_sigma,
+                    )
         else:
             logger.warning("Volatility filter enabled but sigma column not found in events")
 

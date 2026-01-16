@@ -70,7 +70,7 @@ position_limits:
 # Intraday risk controls
 intraday_controls:
   # Max trades per day (circuit breaker for misbehaving strategies)
-  max_trades_per_day: 20
+  max_trades_per_day: 100
 
   # Min time between trades (in seconds)
   # Prevents rapid-fire order spam
@@ -124,6 +124,32 @@ monitoring:
     - "consecutive_losses"
     - "open_positions"
     - "margin_utilization"
+
+# Live risk management overrides (used by live_trading.risk_manager)
+risk_management:
+  enabled: true
+
+  # Daily loss limits
+  daily_loss_limit_usd: 1000  # Hard stop (Topstep rule)
+  daily_loss_warning_usd: 500  # Soft stop (reduce size)
+  daily_loss_critical_usd: 750  # Stop new trades
+
+  # Position sizing
+  base_position_size: 1  # contracts
+  reduce_size_on_loss: true
+  size_after_warning: 0.5  # 50% size after -$500
+  size_after_critical: 0  # No new trades after -$750
+
+  # Trailing drawdown
+  max_drawdown_from_hwm: 2500  # Topstep limit
+  drawdown_warning: 1500  # Warning at 60% of limit
+
+  # Time filters
+  avoid_first_hour: true  # Skip 17:00-18:00 ET
+  avoid_last_hour: true  # Skip 15:00-16:00 ET
+
+  # Threshold adjustments
+  threshold_increase_on_loss: 0.02  # Raise threshold after losses
 
 # Output paths
 output:

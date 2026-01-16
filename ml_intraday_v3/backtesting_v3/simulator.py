@@ -4,6 +4,8 @@ Offline backtest simulator.
 
 import json
 from pathlib import Path
+from datetime import datetime, time as dt_time
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -58,10 +60,14 @@ def run_backtest(
 
     decisions_df = decisions_df.sort_values("t0").reset_index(drop=True)
 
-    contracts = int(backtest_cfg.get("sizing", {}).get("contracts", 1))
+    sizing_cfg = backtest_cfg.get("sizing", {}) or {}
+    base_contracts = int(sizing_cfg.get("contracts", 1))
     flatten_time = backtest_cfg.get("session", {}).get(
         "flatten_time_chicago", None
     )
+    trade_start_time = backtest_cfg.get("session", {}).get("trade_start_time_chicago")
+    trade_end_time = backtest_cfg.get("session", {}).get("trade_end_time_chicago")
+    trade_tz = ZoneInfo("America/Chicago")
     contract_multiplier = float(
         instrument_spec.contract_multiplier_usd_per_point
     )
@@ -112,14 +118,60 @@ def run_backtest(
         executed = False
 
         if accept:
+            contracts = base_contracts
+            dyn_cfg = (sizing_cfg.get("dynamic_contracts", {}) or {})
+            if dyn_cfg.get("enabled", False):
+                sigma = row.get("sigma")
+                if sigma is not None and not pd.isna(sigma):
+                    try:
+                        sigma_val = float(sigma)
+                    except Exception:
+                        sigma_val = None
+                    if sigma_val is not None:
+                        rules = dyn_cfg.get("sigma_thresholds", []) or []
+                        for rule in rules:
+                            try:
+                                max_sigma = float(rule.get("max_sigma"))
+                                rule_contracts = int(rule.get("contracts"))
+                            except Exception:
+                                continue
+                            if sigma_val <= max_sigma:
+                                contracts = rule_contracts
+                                break
+            contracts = max(0, int(contracts))
+            if contracts <= 0:
+                accept = False
+                reason = "dynamic_contracts"
+
             fill = get_entry_exit(row, bars_df, execution_spec)
             fill = apply_forced_flatten(
                 fill, bars_df, flatten_time_chicago=flatten_time
             )
 
-            can_trade, risk_reason = risk_mgr.can_trade(fill.entry_ts)
-            if not can_trade:
-                reason = risk_reason
+            # Optional: restrict entries to a specific intraday window (Chicago time).
+            can_trade = True
+            if trade_start_time and trade_end_time and fill.entry_ts is not None:
+                entry_ts = pd.Timestamp(fill.entry_ts)
+                if entry_ts.tzinfo is None:
+                    entry_ts = entry_ts.tz_localize("UTC")
+                entry_ts_local = entry_ts.tz_convert(trade_tz)
+
+                start_t = dt_time.fromisoformat(trade_start_time)
+                end_t = dt_time.fromisoformat(trade_end_time)
+                now_t = entry_ts_local.to_pydatetime().time()
+                in_window = (
+                    start_t <= now_t < end_t
+                    if start_t <= end_t
+                    else (now_t >= start_t or now_t < end_t)
+                )
+                if not in_window:
+                    reason = "time_filter"
+                    can_trade = False
+
+            if can_trade:
+                can_trade, risk_reason = risk_mgr.can_trade(fill.entry_ts)
+                if not can_trade:
+                    reason = risk_reason
             else:
                 # Check concurrent position limit
                 # Clean up positions that have closed before this entry time
@@ -158,19 +210,34 @@ def run_backtest(
                 breach_reason = None
                 for pos in range(entry_pos, exit_pos + 1):
                     ts = bars_idx[pos]
-                    price = float(bars_df.iloc[pos]["close"])
-                    unrealized_points = side * (price - entry_px)
-                    equity_unrealized = (
-                        risk_mgr.equity
-                        + unrealized_points * contract_multiplier * contracts
-                    )
+                    bar = bars_df.iloc[pos]
+
+                    # Conservative intrabar bounds:
+                    # - For LONG: best = high, worst = low
+                    # - For SHORT: best = low, worst = high
+                    high = float(bar.get("high", bar.get("close")))
+                    low = float(bar.get("low", bar.get("close")))
+                    if side > 0:
+                        price_best = high
+                        price_worst = low
+                    else:
+                        price_best = low
+                        price_worst = high
+
+                    equity_best = risk_mgr.equity + side * (price_best - entry_px) * contract_multiplier * contracts
+                    equity_worst = risk_mgr.equity + side * (price_worst - entry_px) * contract_multiplier * contracts
+
                     breached, reason_breach = risk_mgr.check_breach(
-                        ts, equity_unrealized
+                        ts, equity_worst, equity_best=equity_best
                     )
                     if breached:
                         exit_ts = ts
-                        exit_px = price
-                        exit_reason = "mtm_risk"
+                        exit_px = price_worst
+                        exit_reason = (
+                            "mtm_risk_soft"
+                            if reason_breach in {"risk_daily_loss_soft", "risk_drawdown_soft"}
+                            else "mtm_risk"
+                        )
                         breach_reason = reason_breach
                         break
 

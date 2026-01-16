@@ -47,6 +47,7 @@ def simulate_combine(
     seed: int = 42,
     max_days: int = 252,
     consistency_limit: Optional[float] = None,
+    consistency_max_day_fraction: Optional[float] = None,
 ) -> Dict[str, object]:
     """
     Simulate Topstep combine pass/fail using empirical trade distribution.
@@ -55,6 +56,15 @@ def simulate_combine(
       - profit_target: pass if equity - starting_balance >= target
       - daily_loss_limit: fail if daily PnL <= -limit
       - trailing_drawdown: fail if peak_equity - equity >= limit
+
+    Consistency (Topstep):
+      - If consistency_max_day_fraction is provided (e.g., 0.5), enforce the true rule:
+        max(single_day_profit) <= fraction * total_profit when you stop trading.
+        Simulation assumes you stop trading immediately once both profit_target and
+        consistency are satisfied; if profit_target is reached but consistency is
+        not satisfied, it stops trading for the day and continues on subsequent days.
+      - If consistency_limit is provided, enforce a legacy hard cap:
+        fail if any single day profit exceeds this value.
     """
     _require_columns(trades, ["pnl", "entry_time"])
     if trades.empty:
@@ -75,19 +85,27 @@ def simulate_combine(
 
     pass_flags = []
     days_to_pass = []
-    fail_reasons: Dict[str, int] = {"daily_loss": 0, "trailing_drawdown": 0, "consistency_limit": 0, "max_days": 0}
+    fail_reasons: Dict[str, int] = {
+        "daily_loss": 0,
+        "trailing_drawdown": 0,
+        "consistency_limit": 0,
+        "consistency_ratio": 0,
+        "max_days": 0,
+    }
     max_drawdowns = []
 
     for _ in range(runs):
         equity = starting_balance
         peak = equity
         max_dd = 0.0
+        max_day_profit = 0.0
         passed = False
         reason = None
 
         for day in range(1, max_days + 1):
             trades_today = int(rng.choice(trade_counts))
             daily_pnl = 0.0
+            hit_target_today = False
 
             for _ in range(trades_today):
                 trade_pnl = float(rng.choice(pnl_values))
@@ -96,10 +114,6 @@ def simulate_combine(
                 peak = max(peak, equity)
                 max_dd = max(max_dd, peak - equity)
 
-                if equity - starting_balance >= profit_target:
-                    passed = True
-                    days_to_pass.append(day)
-                    break
                 if trailing_drawdown > 0 and peak - equity >= trailing_drawdown:
                     reason = "trailing_drawdown"
                     break
@@ -107,20 +121,62 @@ def simulate_combine(
                     reason = "daily_loss"
                     break
 
-            if consistency_limit is not None and daily_pnl > consistency_limit:
+                total_profit = equity - starting_balance
+                if total_profit >= profit_target:
+                    if consistency_max_day_fraction is None:
+                        passed = True
+                        days_to_pass.append(day)
+                        break
+
+                    best_day = max(max_day_profit, daily_pnl)
+                    # Enforce ratio only when overall profit is positive.
+                    if total_profit > 0 and best_day <= consistency_max_day_fraction * total_profit:
+                        passed = True
+                        days_to_pass.append(day)
+                        break
+
+                    # Target hit, but consistency not satisfied: stop trading for the day
+                    # and continue on subsequent days to build total profit.
+                    hit_target_today = True
+                    break
+
+            # Legacy hard-cap consistency.
+            if consistency_limit is not None and daily_pnl > consistency_limit and not passed and not reason:
                 reason = "consistency_limit"
+
+            # End-of-day accounting for ratio-based consistency.
+            if not reason:
+                max_day_profit = max(max_day_profit, daily_pnl)
+                if (
+                    not passed
+                    and consistency_max_day_fraction is not None
+                    and (equity - starting_balance) >= profit_target
+                ):
+                    total_profit = equity - starting_balance
+                    if total_profit > 0 and max_day_profit <= consistency_max_day_fraction * total_profit:
+                        passed = True
+                        days_to_pass.append(day)
 
             if passed or reason:
                 break
 
         if not passed:
             reason = reason or "max_days"
+            if reason == "max_days" and consistency_max_day_fraction is not None and (equity - starting_balance) >= profit_target:
+                # Special accounting: target reached but never satisfied ratio before max_days.
+                reason = "consistency_ratio"
             fail_reasons[reason] = fail_reasons.get(reason, 0) + 1
 
         pass_flags.append(passed)
         max_drawdowns.append(max_dd)
 
     pass_rate = float(np.mean(pass_flags))
+    days_to_pass_arr = np.array(days_to_pass, dtype=int) if days_to_pass else np.array([], dtype=int)
+
+    def _pass_within(n_days: int) -> float:
+        if days_to_pass_arr.size == 0:
+            return 0.0
+        return float(np.mean(days_to_pass_arr <= int(n_days)))
 
     def _percentiles(values: list[float]) -> Dict[str, float]:
         if not values:
@@ -136,6 +192,11 @@ def simulate_combine(
     return {
         "runs": runs,
         "pass_rate": pass_rate,
+        "pass_within_days": {
+            "10": _pass_within(10),
+            "15": _pass_within(15),
+            "20": _pass_within(20),
+        },
         "days_to_pass": _percentiles(days_to_pass),
         "fail_reasons": fail_reasons,
         "max_drawdown": _percentiles(max_drawdowns),

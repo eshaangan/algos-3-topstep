@@ -63,6 +63,16 @@ class LiveModelPredictor:
         self.means = np.array(self.preprocessor_state['means'])
         self.stds = np.array(self.preprocessor_state['stds'])
 
+        # Check if model is DualSideModel with 'side' feature
+        self.has_dual_model = hasattr(self.model, "predict_proba_dual")
+        self.has_side_feature = 'side' in self.feature_columns
+
+        # For DualSideModel with 'side' feature, set the side_feature_idx so it can inject values
+        if self.has_dual_model and self.has_side_feature:
+            side_idx = self.feature_columns.index('side')
+            self.model.side_feature_idx = side_idx
+            logger.info(f"DualSideModel configured with side_feature_idx={side_idx}")
+
         logger.info(f"Model loaded: {type(self.model).__name__}")
         logger.info(f"Features: {len(self.feature_columns)}")
         logger.info(f"Preprocessor: impute={self.impute}, scaler={self.scaler}")
@@ -82,7 +92,7 @@ class LiveModelPredictor:
     ) -> Dict[str, float]:
         """
         Generate prediction from features.
-        
+
         For bidirectional models with 'side' feature, evaluates both LONG and SHORT
         and returns the direction with higher expected value.
 
@@ -104,17 +114,79 @@ class LiveModelPredictor:
                 - score_ev_short: EV score for SHORT (if bidirectional)
                 - meta_prob: Meta model probability (if use_meta=True)
         """
-        # Check if this is a bidirectional model
-        has_side_feature = 'side' in self.feature_columns
-        
         # Prepare features as numeric array
         X = features[self.feature_columns].to_numpy(dtype=float, copy=False).reshape(1, -1)
 
         # Apply preprocessing
         X_scaled = self._preprocess(X)
         
-        # For bidirectional models, evaluate both LONG and SHORT
-        if has_side_feature and side is None:
+        # For dual-model bundles, evaluate both LONG and SHORT
+        if self.has_dual_model:
+            proba_long, proba_short = self.model.predict_proba_dual(X_scaled)
+
+            # Get class ordering from the underlying model
+            # DualSideModel wraps long_model and short_model, check long_model for classes
+            # Typically classes are [0, 1, 2] representing [stop, vertical, target]
+            if hasattr(self.model.long_model, 'classes_') and self.model.long_model.classes_ is not None:
+                classes = list(self.model.long_model.classes_)
+            elif hasattr(self.model, 'classes_') and self.model.classes_ is not None:
+                classes = list(self.model.classes_)
+            else:
+                classes = [0, 1, 2]  # Default
+
+            # Map outcome labels to indices
+            # Class labels are typically [0, 1, 2] for [stop=-1, vertical=0, target=1]
+            if classes == [0, 1, 2]:
+                stop_idx, vertical_idx, target_idx = 0, 1, 2
+            else:
+                # Try to find actual outcome values in classes
+                target_idx = classes.index(1) if 1 in classes else 2
+                stop_idx = classes.index(-1) if -1 in classes else 0
+                vertical_idx = classes.index(0) if 0 in classes else 1
+
+            score_ev_long = float(proba_long[0, target_idx] - proba_long[0, stop_idx])
+            score_ev_short = float(proba_short[0, target_idx] - proba_short[0, stop_idx])
+
+            if side is not None:
+                if side > 0:
+                    chosen_side = 1
+                    proba = proba_long
+                    chosen_score_ev = score_ev_long
+                else:
+                    chosen_side = -1
+                    proba = proba_short
+                    chosen_score_ev = score_ev_short
+            else:
+                if score_ev_long > score_ev_short and score_ev_long > 0:
+                    chosen_side = 1
+                    proba = proba_long
+                    chosen_score_ev = score_ev_long
+                elif score_ev_short > score_ev_long and score_ev_short > 0:
+                    chosen_side = -1
+                    proba = proba_short
+                    chosen_score_ev = score_ev_short
+                elif score_ev_long == score_ev_short and score_ev_long > 0:
+                    chosen_side = 1
+                    proba = proba_long
+                    chosen_score_ev = score_ev_long
+                else:
+                    chosen_side = 0
+                    proba = proba_long
+                    chosen_score_ev = 0.0
+
+            pred = {
+                'p_stop': float(proba[0, stop_idx]),
+                'p_target': float(proba[0, target_idx]),
+                'p_vertical': float(proba[0, vertical_idx]) if vertical_idx is not None else None,
+                'y_prob': float(proba[0, target_idx]),
+                'score_ev': chosen_score_ev,
+                'side': chosen_side,
+                'score_ev_long': score_ev_long,
+                'score_ev_short': score_ev_short,
+            }
+
+        # For bidirectional models with side feature, evaluate both LONG and SHORT
+        elif self.has_side_feature and side is None:
             side_idx = self.feature_columns.index('side')
             
             # Evaluate LONG (side=1)
@@ -166,7 +238,7 @@ class LiveModelPredictor:
             
         else:
             # Non-bidirectional or explicit side provided
-            if has_side_feature and side is not None:
+            if self.has_side_feature and side is not None:
                 side_idx = self.feature_columns.index('side')
                 X_scaled[0, side_idx] = float(side)
             
@@ -176,25 +248,55 @@ class LiveModelPredictor:
 
                 # Check if multiclass (3 outcomes: stop, vertical, target)
                 if proba.shape[1] == 3:
+                    # proba[0, 0] = stop loss hit (-1)
+                    # proba[0, 1] = vertical exit (0)
+                    # proba[0, 2] = profit target hit (1)
+                    p_stop = float(proba[0, 0])
+                    p_target = float(proba[0, 2])
+                    p_vertical = float(proba[0, 1])
+                    
+                    # Calculate EV score
+                    # For Long: P(Up) - P(Down)
+                    score_ev = float(p_target - p_stop)
+                    
+                    # Determine side based on EV
+                    # If score_ev is positive -> LONG (side 1)
+                    # If score_ev is negative -> SHORT (side -1)
+                    if score_ev > 0:
+                        side = 1
+                        final_score = score_ev
+                    else:
+                        side = -1
+                        final_score = abs(score_ev)
+                    
                     pred = {
-                        'p_stop': float(proba[0, 0]),
-                        'p_target': float(proba[0, 2]),
-                        'p_vertical': float(proba[0, 1]),
-                        'y_prob': float(proba[0, 2]),  # Target probability
-                        'score_ev': float(proba[0, 2] - proba[0, 0]),  # EV score
+                        'p_stop': p_stop,
+                        'p_target': p_target,
+                        'p_vertical': p_vertical,
+                        'y_prob': p_target if side == 1 else p_stop,
+                        'score_ev': final_score,
+                        'raw_score_ev': score_ev,
+                        'side': side
                     }
                 else:
                     # Binary classification
+                    # Assumes class 1 is positive outcome
+                    p_pos = float(proba[0, 1] if proba.shape[1] > 1 else proba[0, 0])
                     pred = {
-                        'y_prob': float(proba[0, 1] if proba.shape[1] > 1 else proba[0, 0]),
-                        'score_ev': float(proba[0, 1] if proba.shape[1] > 1 else proba[0, 0]),
+                        'y_prob': p_pos,
+                        'score_ev': p_pos,
+                        'raw_score_ev': p_pos,
+                        'side': 1  # Default to Long for binary if meaning ambiguous
                     }
             else:
                 # Regression model
                 y_pred = self.model.predict(X_scaled)
+                score = float(y_pred[0])
                 pred = {
-                    'y_prob': float(y_pred[0]),
-                    'score_ev': float(y_pred[0]),
+                    'y_prob': abs(score),
+                    'score_ev': abs(score),
+                    'raw_score_ev': score,
+                    'side': 1 if score > 0 else -1
                 }
 
         # Generate meta prediction if requested

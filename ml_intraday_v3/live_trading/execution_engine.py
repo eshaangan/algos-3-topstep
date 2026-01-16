@@ -118,6 +118,32 @@ class LiveExecutionEngine:
 
         logger.info(f"LiveExecutionEngine initialized (dry_run={dry_run})")
 
+    def get_net_position_direction(self) -> str:
+        """
+        Calculate net position direction from all open positions.
+
+        Returns:
+            "LONG" if net positive contracts
+            "SHORT" if net negative contracts
+            "FLAT" if zero contracts
+        """
+        net_contracts = 0
+        for pos in self.open_positions:
+            direction = pos['direction']  # "LONG" or "SHORT"
+            contracts = pos['contracts']
+
+            if direction == "LONG":
+                net_contracts += contracts
+            elif direction == "SHORT":
+                net_contracts -= contracts
+
+        if net_contracts > 0:
+            return "LONG"
+        elif net_contracts < 0:
+            return "SHORT"
+        else:
+            return "FLAT"
+
     def execute_signal(
         self,
         timestamp: pd.Timestamp,
@@ -127,6 +153,7 @@ class LiveExecutionEngine:
         contracts: int = 1,
         kelly_sizer: Optional['KellySizer'] = None,  # NEW: Kelly sizing support
         trade_history: Optional[List[Dict]] = None,  # NEW: For Kelly calculation
+        contracts_cap: Optional[int] = None,  # NEW: Cap for Kelly sizing
     ) -> Tuple[bool, str]:
         """
         Execute a trading signal.
@@ -143,6 +170,46 @@ class LiveExecutionEngine:
         Returns:
             (success, reason) tuple
         """
+        # DIRECTION CHANGE DETECTION (PRIMARY FIX)
+        # Get current net position direction
+        current_direction = self.get_net_position_direction()  # "LONG", "SHORT", or "FLAT"
+
+        # If we have positions and signal is opposite direction, flatten everything first
+        if current_direction != "FLAT" and direction != current_direction:
+            logger.warning(
+                f"DIRECTION CHANGE DETECTED: {current_direction} → {direction}. "
+                f"Flattening all positions before proceeding."
+            )
+
+            # Get current price for flattening
+            if bars_df.empty:
+                logger.error("No bars available for flattening")
+                return False, "no_bars_for_flatten"
+
+            current_price = bars_df.iloc[-1]['close']
+
+            # Flatten all positions and cancel all brackets
+            success = self.flatten_all_positions(
+                current_time=timestamp,
+                current_price=current_price,
+                reason=f"direction_change_{current_direction}_to_{direction}"
+            )
+
+            if not success:
+                logger.error("Failed to flatten positions on direction change")
+                return False, "flatten_failed"
+
+            # After flattening, we're FLAT with no brackets
+            # Conservative approach: Wait for next signal to confirm new direction
+            logger.info(
+                "Positions flattened. Waiting for next confirming signal in new direction."
+            )
+            return False, "direction_changed_awaiting_confirmation"
+
+            # ALTERNATIVE (uncomment for aggressive immediate reversal):
+            # logger.info("Positions flattened. Opening new position in opposite direction.")
+            # # Continue with normal execution below to open new position
+
         # Check risk gates
         can_trade, reason = self.risk_manager.can_trade(timestamp)
         if not can_trade:
@@ -153,10 +220,13 @@ class LiveExecutionEngine:
         if kelly_sizer is not None and kelly_sizer.config.get('enabled', False):
             try:
                 score_ev = prediction.get('score_ev', 0.0)
+                max_contracts_limit = self.risk_cfg['position_limits']['max_contracts_per_position']
+                if contracts_cap is not None:
+                    max_contracts_limit = min(max_contracts_limit, int(contracts_cap))
                 contracts, sizing_reason = kelly_sizer.get_position_size(
                     trade_history=trade_history or [],
                     score_ev=score_ev,
-                    max_contracts_limit=self.risk_cfg['position_limits']['max_contracts_per_position'],
+                    max_contracts_limit=max_contracts_limit,
                     current_equity=self.get_equity(),
                     contract_margin=self.risk_cfg['margin']['initial_margin_per_contract'],
                 )
@@ -170,6 +240,28 @@ class LiveExecutionEngine:
         if len(self.open_positions) >= max_concurrent:
             logger.warning(f"Max concurrent positions reached: {len(self.open_positions)}")
             return False, "max_concurrent_positions"
+
+        max_total_contracts = self.risk_cfg.get('position_limits', {}).get('max_total_contracts')
+        if max_total_contracts is not None:
+            try:
+                max_total_contracts = int(max_total_contracts)
+            except Exception:
+                max_total_contracts = None
+        if max_total_contracts is not None:
+            current_total = 0
+            for pos in self.open_positions:
+                try:
+                    current_total += int(pos.get('contracts', 0) or 0)
+                except Exception:
+                    continue
+            if current_total + int(contracts) > max_total_contracts:
+                logger.warning(
+                    "Max total contracts reached: open=%s new=%s limit=%s",
+                    current_total,
+                    contracts,
+                    max_total_contracts,
+                )
+                return False, "max_total_contracts"
 
         # Get current price from latest bar
         if bars_df.empty:
@@ -193,6 +285,36 @@ class LiveExecutionEngine:
             f"score={prediction.get('score_ev', 0.0):.3f}"
         )
 
+        # PRE-EXECUTION BROKER DESYNC CHECK (TERTIARY FIX)
+        # Query broker for existing open orders (detect desync before placing new orders)
+        if not self.dry_run:
+            try:
+                open_orders = self.client.search_open_orders()
+                open_entry_orders = [
+                    o for o in open_orders
+                    if o.status in [0, 1, 2]  # Pending, working, partially filled
+                    and o.symbol == "MES"
+                ]
+
+                # Check if we have untracked orders
+                tracked_order_ids = {str(p['order_id']) for p in self.open_positions}
+                untracked_orders = [
+                    o for o in open_entry_orders
+                    if str(o.order_id) not in tracked_order_ids
+                ]
+
+                if len(untracked_orders) > 0:
+                    logger.error(
+                        f"DESYNC DETECTED: {len(untracked_orders)} untracked "
+                        f"open orders at broker. Triggering reconciliation."
+                    )
+                    # Trigger reconciliation
+                    self.reconcile_positions_with_broker()
+
+            except Exception as e:
+                logger.error(f"Failed to query broker orders: {e}")
+                # Continue anyway - don't block trading on query failure
+
         # Execute trade (or simulate if dry_run)
         stop_order_id = None
         target_order_id = None
@@ -205,55 +327,90 @@ class LiveExecutionEngine:
             logger.info(f"DRY RUN: Simulated order {order_id}, stop={stop_order_id}, target={target_order_id}")
             success = True
         else:
-            # Execute via API
+            # Execute via API with PURE OCO BRACKETS + ATOMIC ROLLBACK (SECONDARY FIX)
+            entry_order_id = None
+            stop_order_id = None
+            target_order_id = None
+
             try:
                 side = "BUY" if direction == "LONG" else "SELL"
-                # Entry order
+
+                # Entry order - NO position brackets (pure entry only)
                 order = self.client.place_order(
                     symbol="MES",
                     side=side,
                     quantity=contracts,
                     order_type=self.order_type,
                     contract_id=self.contract_id,
-                    stop_loss=stop_price,
-                    take_profit=target_price,
+                    # REMOVED: stop_loss=stop_price (no position brackets)
+                    # REMOVED: take_profit=target_price (no position brackets)
                 )
-                order_id = order.order_id
-                logger.info(f"Order placed: {order_id}")
-                success = True
+                entry_order_id = order.order_id
+                logger.info(f"Entry order placed: {entry_order_id}")
 
                 # Submit OCO children (stop + target) linked to entry
-                if not self.dry_run:
-                    oco_side = "SELL" if direction == "LONG" else "BUY"
-                    # Stop child
-                    stop_order = self.client.place_order(
-                        symbol="MES",
-                        side=oco_side,
-                        quantity=contracts,
-                        order_type="STOP",
-                        contract_id=self.contract_id,
-                        stop_loss=stop_price,
-                        take_profit=None,
-                        linked_order_id=int(order_id),
-                    )
-                    stop_order_id = stop_order.order_id
-                    logger.info(f"OCO stop placed: {stop_order_id}")
-                    # Target child
-                    target_order = self.client.place_order(
-                        symbol="MES",
-                        side=oco_side,
-                        quantity=contracts,
-                        order_type="LIMIT",
-                        contract_id=self.contract_id,
-                        stop_loss=None,
-                        take_profit=target_price,
-                        linked_order_id=int(order_id),
-                    )
-                    target_order_id = target_order.order_id
-                    logger.info(f"OCO target placed: {target_order_id}")
+                # These are the ONLY brackets - linked via OCO mechanism
+                oco_side = "SELL" if direction == "LONG" else "BUY"
+
+                # Stop child - uses stop_loss parameter (becomes stopPrice in API)
+                stop_order = self.client.place_order(
+                    symbol="MES",
+                    side=oco_side,
+                    quantity=contracts,
+                    order_type="STOP",
+                    contract_id=self.contract_id,
+                    stop_loss=stop_price,  # For STOP orders, this becomes stopPrice
+                    take_profit=None,
+                    linked_order_id=int(entry_order_id),  # OCO link to entry
+                )
+                stop_order_id = stop_order.order_id
+                logger.info(f"OCO stop placed: {stop_order_id}, linked to {entry_order_id}")
+
+                # Target child - uses take_profit parameter (becomes limitPrice in API)
+                target_order = self.client.place_order(
+                    symbol="MES",
+                    side=oco_side,
+                    quantity=contracts,
+                    order_type="LIMIT",
+                    contract_id=self.contract_id,
+                    stop_loss=None,
+                    take_profit=target_price,  # For LIMIT orders, this becomes limitPrice
+                    linked_order_id=int(entry_order_id),  # OCO link to entry
+                )
+                target_order_id = target_order.order_id
+                logger.info(f"OCO target placed: {target_order_id}, linked to {entry_order_id}")
+
+                # All 3 orders placed successfully
+                order_id = entry_order_id
+                success = True
+
             except Exception as e:
-                logger.error(f"Order execution failed: {e}")
-                return False, f"execution_error: {str(e)}"
+                # ATOMIC ROLLBACK: Cancel any orders that were placed
+                logger.error(f"Bracket placement failed: {e}. Rolling back...")
+
+                # Cancel in reverse order (target, stop, entry)
+                if target_order_id:
+                    try:
+                        self.client.cancel_order(order_id=target_order_id)
+                        logger.info(f"Rollback: Cancelled target order {target_order_id}")
+                    except Exception as rollback_err:
+                        logger.error(f"Rollback failed for target: {rollback_err}")
+
+                if stop_order_id:
+                    try:
+                        self.client.cancel_order(order_id=stop_order_id)
+                        logger.info(f"Rollback: Cancelled stop order {stop_order_id}")
+                    except Exception as rollback_err:
+                        logger.error(f"Rollback failed for stop: {rollback_err}")
+
+                if entry_order_id:
+                    try:
+                        self.client.cancel_order(order_id=entry_order_id)
+                        logger.info(f"Rollback: Cancelled entry order {entry_order_id}")
+                    except Exception as rollback_err:
+                        logger.error(f"Rollback failed for entry: {rollback_err}")
+
+                return False, f"bracket_placement_failed: {str(e)}"
 
         # Record position
         position = {
@@ -300,6 +457,11 @@ class LiveExecutionEngine:
         Returns:
             List of closed positions
         """
+        # PERIODIC RECONCILIATION (TERTIARY FIX)
+        # Sync local tracking with broker state every cycle
+        if not self.dry_run:
+            self.reconcile_positions_with_broker()
+
         if not self.open_positions:
             return []
 
@@ -370,14 +532,9 @@ class LiveExecutionEngine:
 
             # If position exited, cancel remaining order and close position
             if exit_price is not None:
-                # Cancel the remaining bracket order
+                # Cancel the remaining bracket order with retry logic (TERTIARY FIX)
                 if order_to_cancel and not self.dry_run:
-                    try:
-                        self.client.cancel_order(order_id=order_to_cancel)
-                        logger.info(f"Successfully cancelled remaining bracket order {order_to_cancel}")
-                    except Exception as e:
-                        logger.error(f"Failed to cancel order {order_to_cancel}: {e}")
-                        # Continue anyway - position is closed, we'll log the orphaned order
+                    self._cancel_order_with_retry(order_to_cancel, max_retries=3)
 
                 # Calculate PnL
                 pnl = self._calculate_pnl(
@@ -430,20 +587,84 @@ class LiveExecutionEngine:
         current_time: pd.Timestamp,
         current_price: float,
         reason: str = "flatten",
-    ):
+    ) -> bool:
         """
-        Flatten all open positions.
+        Close all open positions and cancel all bracket orders.
+
+        This is the PRIMARY method for direction changes and emergency flattening.
+        Cancels ALL bracket orders, closes net position to FLAT.
 
         Args:
             current_time: Current timestamp
-            current_price: Current price
-            reason: Reason for flattening
+            current_price: Current price (for PnL calculation)
+            reason: Reason for flattening (for logging)
+
+        Returns:
+            True if successfully flattened, False otherwise
         """
-        if not self.open_positions:
-            return
+        if len(self.open_positions) == 0:
+            logger.info("No positions to flatten")
+            return True
 
-        logger.warning(f"Flattening all {len(self.open_positions)} positions: {reason}")
+        logger.warning(
+            f"FLATTENING ALL POSITIONS: reason={reason}, "
+            f"count={len(self.open_positions)}"
+        )
 
+        # Calculate total net position to close
+        net_long = sum(p['contracts'] for p in self.open_positions if p['direction'] == "LONG")
+        net_short = sum(p['contracts'] for p in self.open_positions if p['direction'] == "SHORT")
+        net_contracts = net_long - net_short
+
+        if net_contracts == 0:
+            logger.info("Net position is already FLAT, just canceling brackets")
+
+        # Cancel ALL bracket orders first
+        cancelled_orders = []
+        for pos in self.open_positions:
+            # Cancel stop order
+            if pos.get('stop_order_id'):
+                try:
+                    if not self.dry_run:
+                        self.client.cancel_order(order_id=pos['stop_order_id'])
+                    cancelled_orders.append(pos['stop_order_id'])
+                    logger.info(f"Cancelled stop order: {pos['stop_order_id']}")
+                except Exception as e:
+                    logger.error(f"Failed to cancel stop {pos['stop_order_id']}: {e}")
+
+            # Cancel target order
+            if pos.get('target_order_id'):
+                try:
+                    if not self.dry_run:
+                        self.client.cancel_order(order_id=pos['target_order_id'])
+                    cancelled_orders.append(pos['target_order_id'])
+                    logger.info(f"Cancelled target order: {pos['target_order_id']}")
+                except Exception as e:
+                    logger.error(f"Failed to cancel target {pos['target_order_id']}: {e}")
+
+        # Close net position if not already flat
+        if net_contracts != 0:
+            try:
+                close_side = "SELL" if net_contracts > 0 else "BUY"
+                close_qty = abs(net_contracts)
+
+                logger.info(f"Closing net position: {close_side} {close_qty} contracts")
+
+                if not self.dry_run:
+                    close_order = self.client.place_order(
+                        symbol="MES",
+                        side=close_side,
+                        quantity=close_qty,
+                        order_type="MARKET",
+                        contract_id=self.contract_id,
+                        # NO brackets on flatten order
+                    )
+                    logger.info(f"Flatten order placed: {close_order.order_id}")
+            except Exception as e:
+                logger.error(f"Failed to place flatten order: {e}")
+                return False
+
+        # Calculate PnL for each position and record trades
         for position in self.open_positions[:]:
             pnl = self._calculate_pnl(
                 entry_price=position['entry_price'],
@@ -472,7 +693,98 @@ class LiveExecutionEngine:
                 'order_id': position['order_id'],
             })
 
+        # Clear all tracked positions
         self.open_positions.clear()
+        logger.info(
+            f"All positions flattened. Cancelled {len(cancelled_orders)} bracket orders."
+        )
+
+        return True
+
+    def reconcile_positions_with_broker(self):
+        """
+        Sync self.open_positions with actual broker state.
+
+        - Query broker for open orders
+        - Query broker for open positions
+        - Update local tracking to match
+        - Log any discrepancies
+
+        This method should be called:
+        - Periodically in update_positions()
+        - Before execute_signal() (before placing new order)
+        - On startup (in check_api_connection())
+        """
+        if self.dry_run:
+            return
+
+        try:
+            # Get broker state
+            open_orders = self.client.search_open_orders()
+            open_order_ids = {str(o.order_id) for o in open_orders if o.symbol == "MES"}
+
+            # Check each tracked position
+            orphaned_positions = []
+            for i, pos in enumerate(self.open_positions):
+                entry_exists = str(pos['order_id']) in open_order_ids
+                stop_exists = str(pos.get('stop_order_id', '')) in open_order_ids
+                target_exists = str(pos.get('target_order_id', '')) in open_order_ids
+
+                # If all orders gone from broker, position should be closed
+                if not any([entry_exists, stop_exists, target_exists]):
+                    logger.warning(
+                        f"Position {pos['order_id']} not found at broker, "
+                        f"marking for removal"
+                    )
+                    orphaned_positions.append(i)
+
+            # Remove orphaned positions
+            for i in reversed(orphaned_positions):
+                removed = self.open_positions.pop(i)
+                logger.info(f"Removed orphaned position: {removed['order_id']}")
+
+        except Exception as e:
+            logger.error(f"Position reconciliation failed: {e}")
+
+    def _cancel_order_with_retry(
+        self,
+        order_id: str,
+        max_retries: int = 3
+    ) -> bool:
+        """
+        Cancel order with exponential backoff retry.
+
+        Args:
+            order_id: Order ID to cancel
+            max_retries: Maximum number of retry attempts
+
+        Returns:
+            True if successfully cancelled, False otherwise
+        """
+        import time
+
+        for attempt in range(max_retries):
+            try:
+                self.client.cancel_order(order_id=order_id)
+                logger.info(f"Successfully cancelled order {order_id}")
+                return True
+            except Exception as e:
+                wait_time = 2 ** attempt  # 1s, 2s, 4s
+                logger.warning(
+                    f"Cancel failed (attempt {attempt+1}/{max_retries}): {e}"
+                )
+                if attempt < max_retries - 1:
+                    time.sleep(wait_time)
+                else:
+                    logger.error(
+                        f"FAILED to cancel order {order_id} after "
+                        f"{max_retries} attempts"
+                    )
+                    # Log orphaned order for manual cleanup
+                    logger.critical(
+                        f"ORPHANED ORDER: {order_id} - requires manual cancellation"
+                    )
+                    return False
 
     def _calculate_stops_and_targets(
         self,
@@ -508,9 +820,28 @@ class LiveExecutionEngine:
             # Fallback: use fixed points
             atr = 5.0  # 5 points for MES
 
-        # Get stop/target multiples from label schema
-        stop_multiple = self.label_schema.get('stop_multiple', 1.0)
-        target_multiple = self.label_schema.get('target_multiple', 2.0)
+        # Get stop/target multiples from label schema (prefer triple-barrier snapshot for parity with training/backtests)
+        stop_multiple = None
+        target_multiple = None
+        try:
+            tb = (
+                (self.label_schema.get("config_snapshot", {}) or {})
+                .get("primary_labeling", {})
+                .get("triple_barrier", {})
+            ) or {}
+            pt_list = tb.get("pt_multipliers") or []
+            sl_list = tb.get("sl_multipliers") or []
+            target_multiple = float(pt_list[0]) if pt_list else None
+            stop_multiple = float(sl_list[0]) if sl_list else None
+        except Exception:
+            stop_multiple = None
+            target_multiple = None
+
+        # Backward-compatible fallbacks (older schemas)
+        if stop_multiple is None:
+            stop_multiple = float(self.label_schema.get("stop_multiple", 1.0) or 1.0)
+        if target_multiple is None:
+            target_multiple = float(self.label_schema.get("target_multiple", 2.0) or 2.0)
 
         # Calculate prices
         if direction == "LONG":
@@ -590,6 +921,8 @@ class LiveExecutionEngine:
         Returns:
             Dictionary with status information
         """
+        # FIXED FALLBACK LOGIC (TERTIARY FIX)
+        # Start with local tracking, then try to update from broker
         broker_open_positions = len(self.open_positions)
         broker_daily_pnl = self.get_daily_pnl()
         broker_equity = self.get_equity()
@@ -601,12 +934,26 @@ class LiveExecutionEngine:
                 broker_daily_pnl = acct.daily_pnl
                 broker_open_positions = acct.open_positions
 
-                # Keep risk manager in sync with broker equity to reflect real drawdown.
+                # Keep risk manager in sync with broker equity to reflect real drawdown
                 self.risk_manager.equity = broker_equity
                 self.risk_manager.hwm = max(self.risk_manager.hwm, broker_equity)
                 self.risk_manager.daily_pnl = broker_daily_pnl
+
+                # Trigger reconciliation if mismatch detected
+                if broker_open_positions != len(self.open_positions):
+                    logger.warning(
+                        f"Position count mismatch: broker={broker_open_positions}, "
+                        f"local={len(self.open_positions)}. Triggering reconciliation."
+                    )
+                    self.reconcile_positions_with_broker()
+
             except Exception as exc:
-                logger.warning("Failed to refresh broker account state; using internal metrics: %s", exc)
+                logger.error(
+                    "CRITICAL: Failed to get broker state - continuing with local state",
+                    exc_info=True
+                )
+                # Continue with local tracking values
+                # DO NOT return -1 or error state - risk gates in live_runner depend on this
 
         return {
             'open_positions': broker_open_positions,
@@ -632,7 +979,15 @@ class LiveExecutionEngine:
         try:
             # Try to fetch account info
             account = self.client.get_account_state()
-            logger.info(f"API connection healthy: account={account.account_id}, equity=${account.equity:,.2f}")
+            logger.info(
+                f"API connection healthy: account={account.account_id}, "
+                f"equity=${account.equity:,.2f}"
+            )
+
+            # Reconcile positions on startup (TERTIARY FIX)
+            logger.info("Reconciling positions with broker on startup")
+            self.reconcile_positions_with_broker()
+
             return True
         except Exception as e:
             logger.error(f"API connection failed: {e}")

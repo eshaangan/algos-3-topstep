@@ -1,0 +1,109 @@
+# Strict Topstep 50K combine risk configuration (5m / intraday).
+# Goal: maximize pass probability by preventing rule violations and reducing variance.
+#
+# Notes
+# - Uses REAL-TIME trailing high-water mark updates (more conservative than end_of_day).
+# - Adds pre-breach forced flatten thresholds to reduce overshoot risk on 5m bars.
+# - Caps trade frequency and disables aggressive position scaling via strict limits.
+
+topstep:
+  account_type: "combine"
+  starting_balance: 50000
+
+daily_loss_limit:
+  enabled: true
+  # Use an internal buffer below Topstep's $1,000 limit to reduce overshoot risk.
+  max_daily_loss: 900
+  pnl_calculation: "realized_and_unrealized"
+  reset_time: "17:00"
+  reset_timezone: "America/Chicago"
+  breach_action: "flatten_and_halt"
+
+trailing_drawdown:
+  enabled: true
+  # Use an internal buffer below Topstep's $2,500 limit to reduce overshoot risk.
+  max_drawdown: 2400
+  pnl_calculation: "realized_and_unrealized"
+  hwm_update_policy: "real_time"
+  breach_action: "flatten_and_halt"
+
+position_limits:
+  # Combine-safe: keep sizing simple and avoid stacking positions.
+  max_contracts_per_position: 2
+  max_concurrent_positions: 1
+  max_total_contracts: 2
+  max_notional_exposure: 30000
+
+intraday_controls:
+  # Reduce churn + stop early on drawdown streaks.
+  max_trades_per_day: 12
+  min_seconds_between_trades: 300
+  max_consecutive_losses: 3
+  consecutive_loss_action: "halt_trading"
+  # Optional profit lock (Topstep consistency proxy): stop opening new trades after reaching this daily profit.
+  daily_profit_lock_usd: 1500
+
+margin:
+  initial_margin_per_contract: 1320
+  maintenance_margin_per_contract: 1200
+  margin_buffer: 0.30
+
+forced_flatten:
+  flatten_at_session_close: true
+
+  # Pre-breach flattening to reduce bar-level overshoot risk.
+  # E.g. flatten and stop new trades near -$450 and near $1,800 trailing DD.
+  flatten_at_loss_threshold: 0.50
+  flatten_at_drawdown_threshold: 0.75
+
+monitoring:
+  log_frequency_bars:
+    "1m": 60
+    "5m": 12
+  tracked_metrics:
+    - "current_equity"
+    - "daily_pnl"
+    - "drawdown_from_hwm"
+    - "daily_loss_limit_utilization"
+    - "drawdown_limit_utilization"
+    - "num_trades_today"
+    - "consecutive_losses"
+    - "open_positions"
+    - "margin_utilization"
+
+# Live-only adaptive knobs (used by live_trading.risk_manager)
+risk_management:
+  enabled: true
+
+  # Hard Topstep rule
+  daily_loss_limit_usd: 1000
+  # Start throttling quickly to reduce violation probability on 5m bars.
+  daily_loss_warning_usd: 300
+  daily_loss_critical_usd: 600
+
+  # Position sizing
+  base_position_size: 1
+  reduce_size_on_loss: true
+  size_after_warning: 1.0
+  size_after_critical: 0.0
+
+  # Trailing drawdown
+  max_drawdown_from_hwm: 2500
+  drawdown_warning: 1500
+
+  # Time filters (ET)
+  avoid_first_hour: true
+  avoid_last_hour: true
+
+  # Raise threshold when in a drawdown / negative day.
+  threshold_increase_on_loss: 0.04
+
+  # Optional: lock in profits to reduce give-back and help consistency.
+  # Set to 0 to disable.
+  daily_profit_lock_usd: 1500
+
+output:
+  risk_utilization_path: "runs/{run_id}/bar_size={bar_size}/risk_utilization_daily.csv"
+  breach_log_path: "runs/{run_id}/bar_size={bar_size}/risk_breaches.csv"
+
+risk_spec_version: "1.0.0"

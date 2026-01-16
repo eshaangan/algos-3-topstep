@@ -43,6 +43,14 @@ class RiskManager:
         self.hwm_update_policy = dd_cfg.get("hwm_update_policy", "end_of_day")
         self.dd_breach_action = dd_cfg.get("breach_action", "halt_trading")
 
+        forced = risk_cfg.get("forced_flatten", {}) or {}
+        self.flatten_at_loss_threshold = float(
+            forced.get("flatten_at_loss_threshold", 0.0) or 0.0
+        )
+        self.flatten_at_drawdown_threshold = float(
+            forced.get("flatten_at_drawdown_threshold", 0.0) or 0.0
+        )
+
         intraday = risk_cfg.get("intraday_controls", {})
         self.max_trades_per_day = int(intraday.get("max_trades_per_day", 10**9))
         self.min_seconds_between_trades = int(
@@ -51,10 +59,13 @@ class RiskManager:
         self.max_consecutive_losses = int(
             intraday.get("max_consecutive_losses", 10**9)
         )
+        self.daily_profit_lock_usd = float(intraday.get("daily_profit_lock_usd", 0.0) or 0.0)
+        self.halt_minutes = int(intraday.get("halt_minutes", 0) or 0)
 
         self.current_day = None
         self.daily_pnl = 0.0
         self.halted_today = False
+        self.cooldown_until_ts = None
         self.trades_today = 0
         self.consecutive_losses = 0
         self.last_trade_exit_ts = None
@@ -80,19 +91,80 @@ class RiskManager:
             self.current_day = day
             self.daily_pnl = 0.0
             self.halted_today = False
+            self.cooldown_until_ts = None
             self.trades_today = 0
             self.consecutive_losses = 0
+
+    def _maybe_clear_cooldown(self, now_ts: pd.Timestamp) -> None:
+        if self.cooldown_until_ts is None:
+            return
+        now_ts = self._normalize_ts(now_ts)
+        cooldown_until = self._normalize_ts(self.cooldown_until_ts)
+        if cooldown_until is None:
+            self.cooldown_until_ts = None
+            return
+        if now_ts >= cooldown_until:
+            self.cooldown_until_ts = None
+
+    def _start_cooldown(self, entry_ts: pd.Timestamp) -> None:
+        if not self.halt_minutes:
+            return
+        entry_ts = self._normalize_ts(entry_ts)
+        if entry_ts is None:
+            return
+        self.cooldown_until_ts = entry_ts + pd.Timedelta(minutes=self.halt_minutes)
 
     def can_trade(self, entry_ts: pd.Timestamp) -> tuple[bool, str]:
         entry_ts = self._normalize_ts(entry_ts)
         if entry_ts is None:
             return False, "invalid_timestamp"
         self._maybe_reset_day(entry_ts)
+        self._maybe_clear_cooldown(entry_ts)
+        if self.cooldown_until_ts is not None:
+            return False, "cooldown"
         if self.halted_today:
             return False, "halted"
+        if self.daily_profit_lock_usd and self.daily_pnl >= self.daily_profit_lock_usd:
+            self.halted_today = True
+            return False, "daily_profit_lock"
+
+        # Pre-breach circuit breakers: once we are deep in the red, stop opening
+        # new trades for the session to avoid spiraling beyond Topstep limits.
+        if (
+            self.daily_enabled
+            and self.flatten_at_loss_threshold
+            and 0 < self.flatten_at_loss_threshold < 1.0
+            and self.max_daily_loss > 0
+            and self.daily_pnl <= -self.max_daily_loss * self.flatten_at_loss_threshold
+        ):
+            if self.halt_minutes:
+                self._start_cooldown(entry_ts)
+                return False, "risk_daily_loss_soft"
+            self.halted_today = True
+            return False, "risk_daily_loss_soft"
+
+        if (
+            self.dd_enabled
+            and self.flatten_at_drawdown_threshold
+            and 0 < self.flatten_at_drawdown_threshold < 1.0
+            and self.max_drawdown > 0
+            and (self.hwm - self.equity)
+            >= self.max_drawdown * self.flatten_at_drawdown_threshold
+        ):
+            if self.halt_minutes:
+                self._start_cooldown(entry_ts)
+                return False, "risk_drawdown_soft"
+            self.halted_today = True
+            return False, "risk_drawdown_soft"
+
         if self.trades_today >= self.max_trades_per_day:
             return False, "max_trades"
         if self.consecutive_losses >= self.max_consecutive_losses:
+            if self.halt_minutes:
+                # Cooldown, then allow trading to resume (reset streak breaker).
+                self._start_cooldown(entry_ts)
+                self.consecutive_losses = 0
+                return False, "consecutive_losses"
             return False, "consecutive_losses"
         # Only check min_seconds_between_trades if it's explicitly set (> 0)
         # This allows concurrent positions when min_seconds_between_trades = 0
@@ -110,7 +182,10 @@ class RiskManager:
         return True, ""
 
     def check_breach(
-        self, timestamp: pd.Timestamp, equity_unrealized: float
+        self,
+        timestamp: pd.Timestamp,
+        equity_unrealized: float,
+        equity_best: float | None = None,
     ) -> tuple[bool, str]:
         """
         Check for daily loss or drawdown breach using unrealized equity.
@@ -120,6 +195,20 @@ class RiskManager:
             return False, ""
         self._maybe_reset_day(timestamp)
 
+        # Real-time HWM updates make trailing DD conservative (Topstep-like).
+        # If both best- and worst-case equity are available (e.g., intrabar high/low),
+        # update HWM with best-case and check breaches against worst-case.
+        if self.hwm_update_policy == "real_time":
+            try:
+                update_val = (
+                    float(equity_best)
+                    if equity_best is not None
+                    else float(equity_unrealized)
+                )
+                self.hwm = max(self.hwm, update_val)
+            except Exception:
+                pass
+
         if self.daily_enabled:
             if self.risk_cfg.get("daily_loss_limit", {}).get(
                 "pnl_calculation", "realized_and_unrealized"
@@ -127,6 +216,16 @@ class RiskManager:
                 daily_unrealized = self.daily_pnl + (equity_unrealized - self.equity)
             else:
                 daily_unrealized = self.daily_pnl
+
+            # Pre-breach flattening to reduce overshoot risk on coarser bars.
+            if (
+                self.flatten_at_loss_threshold
+                and 0 < self.flatten_at_loss_threshold < 1.0
+                and self.max_daily_loss > 0
+                and daily_unrealized <= -self.max_daily_loss * self.flatten_at_loss_threshold
+            ):
+                return True, "risk_daily_loss_soft"
+
             if daily_unrealized <= -self.max_daily_loss:
                 self.halted_today = True
                 return True, "risk_daily_loss"
@@ -136,6 +235,15 @@ class RiskManager:
                 dd_equity = equity_unrealized
             else:
                 dd_equity = self.equity
+
+            dd = self.hwm - dd_equity
+            if (
+                self.flatten_at_drawdown_threshold
+                and 0 < self.flatten_at_drawdown_threshold < 1.0
+                and self.max_drawdown > 0
+                and dd >= self.max_drawdown * self.flatten_at_drawdown_threshold
+            ):
+                return True, "risk_drawdown_soft"
             if (self.hwm - dd_equity) >= self.max_drawdown:
                 self.halted_today = True
                 return True, "risk_drawdown"
@@ -186,5 +294,24 @@ class RiskManager:
 
         if self.daily_enabled and self.daily_pnl <= -self.max_daily_loss:
             self.halted_today = True
+        if (
+            self.daily_enabled
+            and self.flatten_at_loss_threshold
+            and 0 < self.flatten_at_loss_threshold < 1.0
+            and self.max_daily_loss > 0
+            and self.daily_pnl <= -self.max_daily_loss * self.flatten_at_loss_threshold
+        ):
+            self.halted_today = True
         if self.dd_enabled and (self.hwm - self.equity) >= self.max_drawdown:
+            self.halted_today = True
+        if (
+            self.dd_enabled
+            and self.flatten_at_drawdown_threshold
+            and 0 < self.flatten_at_drawdown_threshold < 1.0
+            and self.max_drawdown > 0
+            and (self.hwm - self.equity)
+            >= self.max_drawdown * self.flatten_at_drawdown_threshold
+        ):
+            self.halted_today = True
+        if self.daily_profit_lock_usd and self.daily_pnl >= self.daily_profit_lock_usd:
             self.halted_today = True

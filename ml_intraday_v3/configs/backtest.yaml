@@ -7,8 +7,8 @@ decision:
   # Primary decision score (from preds.parquet). For multiclass models, we use:
   # score_ev = p_target - p_stop (expected-value style directional edge).
   primary_score_column: "score_ev"
-  # OPTIMIZED: Raised threshold back to 0.10 (works better with vol filter)
-  primary_threshold: 0.10
+  # LOWERED FOR COMBINE: Aggressive threshold for high trade frequency
+  primary_threshold: 0.03
   meta_threshold: 0.30
   require_meta_for_trade: false
 
@@ -32,16 +32,17 @@ decision:
     vol_window: 20         # Bars for volatility regime computation
     trend_window: 50       # Bars for trend regime computation
 
-    # SHORT TRADING: Use model-predicted sides (CUSUM-based), not regime-based heuristics
-    # The model was trained with CUSUM sides as a feature, so we must use those sides at test time!
-    enable_shorts: false             # DISABLED: Regime-based side selection breaks model's input distribution
-    downtrend_regimes: [0, 3, 6]     # (Unused when disabled)
-    uptrend_regimes: [2, 5, 8]       # (Unused when disabled)
+    # BIDIRECTIONAL TRADING: Model evaluates both LONG and SHORT, picks best EV
+    # trend_scanning labeling adds 'side' feature. At test time, predictor evaluates
+    # both sides (side=1 and side=-1) and chooses the direction with higher EV.
+    enable_shorts: false             # DISABLED: Not regime-based anymore, handled by bidirectional predictor
+    downtrend_regimes: [0, 3, 6]     # (Unused - bidirectional handles this)
+    uptrend_regimes: [2, 5, 8]       # (Unused - bidirectional handles this)
 
-    # With shorts enabled, we don't need to skip downtrends anymore
-    skip_regimes: []                 # No regimes skipped (we trade all of them)
-    threshold_boost_regimes: [1, 4, 7]  # Require higher confidence in sideways regimes
-    threshold_boost: 0.10            # Add this to primary_threshold in sideways regimes
+    # AGGRESSIVE FOR COMBINE: No regime-based filters
+    skip_regimes: []                 # Trade all regimes
+    threshold_boost_regimes: []      # No threshold boosts (removed sideways penalty)
+    threshold_boost: 0.0             # No boost
 
 sizing:
   contracts: 1

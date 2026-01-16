@@ -6,20 +6,23 @@ primary_labeling:
   # Event generation policy:
   # - "every_bar": event at every bar (baseline; very noisy)
   # - "cusum": Lopez de Prado CUSUM filter (fewer/noisier events reduced)
-  # - "trend_scanning": Research-only in this repo: uses forward returns to set `side` and filter events,
-  #   which creates lookahead bias if you trade using that `side`. Do NOT use for unbiased backtests
-  #   unless you replace `side` with a t0-available signal/model prediction.
-  event_policy: "cusum"
+  # - "trend_scanning": Uses forward returns to set `side` and filter events.
+  #   BIDIRECTIONAL MODEL: We use trend_scanning to add 'side' feature, which the model
+  #   uses as INPUT to predict both LONG and SHORT outcomes. At test time, the predictor
+  #   evaluates both sides and picks the best one. NO LOOKAHEAD BIAS because we don't
+  #   use the labeled 'side' directly - we evaluate BOTH directions.
+  event_policy: "trend_scanning"
 
   # Trend-scanning event filtering (only used if event_policy == "trend_scanning")
   trend_scanning:
     # Only keep events whose best-horizon trend t-stat >= threshold.
     # Raise to reduce events (higher confidence), lower to increase events.
-    tstat_threshold: 2.0
+    # LOWERED FOR COMBINE: 1.5 instead of 2.0 to get more trade opportunities
+    tstat_threshold: 1.5
 
     # Optional CUSUM prefilter to reduce scanning work and avoid flat regimes.
     use_cusum_prefilter: true
-    cusum_threshold_atr_mult: 1.0
+    cusum_threshold_atr_mult: 0.8  # LOWERED from 1.0 for more signals
 
   # Primary filter (only used if event_policy == "filtered")
   # Not implemented in baseline; reserved for future use

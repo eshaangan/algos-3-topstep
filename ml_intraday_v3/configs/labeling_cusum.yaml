@@ -1,0 +1,171 @@
+# Labeling configuration - triple barrier + meta-labeling
+# Version: 1.0
+
+# Primary model labeling (directional prediction)
+primary_labeling:
+  # Event generation policy:
+  # - "every_bar": event at every bar (baseline; very noisy)
+  # - "cusum": Lopez de Prado CUSUM filter (fewer/noisier events reduced)
+  # - "trend_scanning": Uses forward returns to set `side` and filter events.
+  # NOTE: This config uses CUSUM to avoid lookahead bias from trend_scanning.
+  event_policy: "cusum"
+
+  # CUSUM event filtering (only used if event_policy == "cusum")
+  cusum:
+    # Event threshold in ATR multiples (lower = more events)
+    threshold_atr_mult: 0.8
+    # Generate events for both long and short sides (t0-available)
+    sides: [1, -1]
+
+  # Trend-scanning event filtering (only used if event_policy == "trend_scanning")
+  trend_scanning:
+    # Only keep events whose best-horizon trend t-stat >= threshold.
+    # Raise to reduce events (higher confidence), lower to increase events.
+    # LOWERED FOR COMBINE: 1.5 instead of 2.0 to get more trade opportunities
+    tstat_threshold: 1.5
+
+    # Optional CUSUM prefilter to reduce scanning work and avoid flat regimes.
+    use_cusum_prefilter: true
+    cusum_threshold_atr_mult: 0.8  # LOWERED from 1.0 for more signals
+
+  # Primary filter (only used if event_policy == "filtered")
+  # Not implemented in baseline; reserved for future use
+  primary_filter: null
+
+  # Triple barrier parameters
+  triple_barrier:
+    # Volatility estimator for barrier scaling
+    # Options: "atr", "std", "parkinson", "ewma_std"
+    volatility_estimator: "atr"
+
+    # Volatility lookback (in bars)
+    volatility_lookback:
+      "1m": 20   # 20 bars for 1m
+      "5m": 20   # 20 bars for 5m
+
+    # Volatility estimator params (ATR period for ATR method)
+    volatility_params:
+      atr_period: 14
+
+    # Profit target multiples
+    # PHASE 2: MAE/MFE analysis showed baseline barriers were too tight.
+    # PHASE 5 FIX: Use optimized barrier only (remove grid search).
+    pt_multipliers:
+      - 2.9    # MAE/MFE optimized (captures MFE p75)
+
+    # Stop loss multiples
+    # PHASE 2: Current barriers caused premature stops before recovery.
+    # PHASE 5 FIX: Use optimized barrier only (remove grid search).
+    sl_multipliers:
+      - 3.4    # MAE/MFE optimized (MAE p75 + 15% buffer)
+
+    # Vertical barrier horizons in bars (grid search over these)
+    # Must match execution_spec.max_holding_bars
+    horizon_bars:
+      "1m": [12, 24]   # 12 min, 24 min
+      "5m": [12, 24]   # 60 min, 120 min
+
+    # First-touch label encoding
+    # +1: profit target hit first
+    # -1: stop loss hit first
+    #  0: vertical barrier hit first (or tie)
+    label_encoding:
+      target_first: 1
+      stop_first: -1
+      vertical: 0
+
+    # Cost accounting in barriers
+    # If true, adjust barriers to account for slippage/commission
+    # Recommended: true (conservative, execution-aligned)
+    account_for_costs: true
+
+    # Cost source: must reference execution_spec.yaml
+    # This ensures label/backtest cost parity
+    use_execution_spec_costs: true
+
+# Meta-labeling (secondary model for position sizing/filtering)
+meta_labeling:
+  # Enable meta-labeling
+  enabled: true  # ENABLED to address high PBO scores via secondary filtering
+
+  # Meta event policy: "on_primary_signals" or "every_bar"
+  # "on_primary_signals": generate meta events only when primary model signals
+  meta_event_policy: "on_primary_signals"
+
+  # Meta label target: "binary_correct" or "magnitude"
+  # "binary_correct": 1 if primary prediction correct, 0 otherwise
+  # "magnitude": signed return magnitude
+  meta_label_target: "binary_correct"
+
+  # Meta barrier (typically same as primary)
+  # Inherits triple_barrier config from primary unless overridden
+  inherit_primary_barriers: true
+
+# Sample weights configuration
+sample_weights:
+  # Uniqueness weighting (event concurrency-based)
+  uniqueness:
+    enabled: true
+
+    # Method: "lopez_de_prado" or "simple_overlap"
+    method: "lopez_de_prado"
+
+  # Magnitude weighting (return-based)
+  magnitude:
+    enabled: false  # Disabled in baseline
+
+    # Clip magnitude weights to prevent outlier domination
+    clip_quantile: 0.95
+
+  # HMM regime weighting (weights samples by regime similarity)
+  # DISABLED: HMM too noisy for intraday (2.9 bar avg duration, 35% transition rate)
+  hmm_regime:
+    enabled: false
+
+    # HMM parameters
+    n_states: 2              # Number of hidden states (2 = bull/bear)
+    covariance_type: "full"  # Covariance type for Gaussian emissions
+    n_iter: 50               # Max EM iterations (reduced from 100 for speed)
+    min_train_samples: 252   # Min bars before HMM fitting starts (~1 year)
+    refit_every: 126         # Refit HMM every N bars (~6 months, 6x speedup)
+
+    # Target regime selection policy
+    # - "recent": Use regime at most recent bar
+    # - "dominant": Use most frequent regime in recent lookback window
+    # - "high_vol": Always weight towards high-volatility state
+    # - "low_vol": Always weight towards low-volatility state
+    target_regime_policy: "recent"
+
+    # Lookback for "dominant" policy (in bars)
+    dominant_lookback_bars: 100
+
+    # Weighting method
+    # - "probability": w = P(target_regime) - smooth weighting based on HMM confidence
+    # - "binary": w = 1.0 if regime matches, else discount_factor
+    similarity_method: "probability"
+
+    # For binary method only: weight for non-matching regime samples
+    discount_factor: 0.5
+
+  # Combined weight formula: w = uniqueness^a * magnitude^b * regime^c
+  weight_formula:
+    uniqueness_exponent: 1.0
+    magnitude_exponent: 0.0  # Disabled
+    regime_exponent: 1.0     # HMM regime weighting
+
+# Output paths
+output:
+  # Primary events
+  events_path: "runs/{run_id}/bar_size={bar_size}/events.parquet"
+
+  # Label schema (persisted for reproducibility)
+  label_schema_path: "runs/{run_id}/bar_size={bar_size}/label_schema.json"
+
+  # Sample weights
+  weights_path: "runs/{run_id}/bar_size={bar_size}/weights.parquet"
+
+  # Meta events (if meta_labeling.enabled)
+  meta_events_path: "runs/{run_id}/bar_size={bar_size}/meta_events.parquet"
+
+# Labeling version
+labeling_spec_version: "1.0.0"

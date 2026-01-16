@@ -42,8 +42,8 @@ data:
   # RTH (Regular Trading Hours) filtering
   # If true, only use bars from 8:30 AM - 3:00 PM CT (matches training data)
   # If false, use all bars including pre-market, post-market, overnight
-  # RECOMMENDATION: Keep this TRUE to match model training distribution
-  enable_rth_filter: true
+  # CHANGED FOR 24-HOUR TRADING: Model trained on all Globex hours
+  enable_rth_filter: false
 
 # Topstep API configuration
 topstep:
@@ -78,7 +78,8 @@ topstep:
 signals:
   # Minimum probability threshold (from backtest config)
   # Only trade signals above this threshold
-  primary_threshold: 0.10
+  # LOWERED FOR COMBINE: More aggressive for faster profit accumulation
+  primary_threshold: 0.03
 
   # Use meta model (if available in bundle)
   use_meta_model: false
@@ -151,6 +152,8 @@ kelly_sizing:
 risk:
   # Use risk.yaml settings
   use_risk_yaml: true
+  # Enable live risk manager (risk.yaml -> risk_management section)
+  use_risk_manager: true
 
   # Emergency stop: halt all trading if equity drops below this
   # Expressed as fraction of starting balance
@@ -241,16 +244,16 @@ startup:
 # Session configuration
 session:
   # Trading sessions (America/Chicago)
-  # Only trade during these times
+  # CHANGED FOR 24-HOUR TRADING: Trade all Globex hours
   sessions:
-    - name: "rth"
-      start_time: "08:30"
-      end_time: "15:00"
+    - name: "all_hours"
+      start_time: "17:00"  # Sunday 5pm CT (Globex open)
+      end_time: "16:00"    # Friday 4pm CT (Globex close)
       timezone: "America/Chicago"
 
   # No entry window before close (minutes)
-  # Don't enter new trades this close to session end
-  no_entry_before_close_minutes: 30
+  # Don't enter new trades this close to weekly session end
+  no_entry_before_close_minutes: 60  # Increased for weekly close
 
 # Version and metadata
 version: "1.0.0"

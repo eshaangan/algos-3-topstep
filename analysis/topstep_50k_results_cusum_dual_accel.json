@@ -1,0 +1,63 @@
+{
+  "model": "cusum_dual_24h_20260114__topstep_accel_t06_dynsigma_c3",
+  "run_dir": "runs/cusum_dual_24h_20260114",
+  "data_source": "runs/cusum_dual_24h_20260114/bar_size=5m/backtests/purged_kfold",
+  "folds_loaded": 6,
+  "total_trades": 357,
+  "trading_days": 192,
+  "date_range": {
+    "start": "2022-01-02",
+    "end": "2025-07-14"
+  },
+  "trade_stats": {
+    "total_pnl": 38607.48568024821,
+    "avg_trade": 108.14421759173167,
+    "win_rate": 0.5770308123249299,
+    "profit_factor": 2.207386776310069
+  },
+  "daily_stats": {
+    "avg_pnl": 201.08065458462613,
+    "std_pnl": 538.4255812515614,
+    "best_day": 2330.0523628212077,
+    "worst_day": -901.21
+  },
+  "topstep_50k": {
+    "rules": {
+      "starting_balance": 50000,
+      "profit_target": 3000,
+      "daily_loss_limit": 1000,
+      "trailing_drawdown": 2500,
+      "consistency_limit": 0.5,
+      "max_days": 252
+    },
+    "monte_carlo_pass_rate": 0.9591,
+    "sequential_passed": false,
+    "sequential_result": {
+      "passed": false,
+      "fail_reason": "trailing_drawdown",
+      "days": 23,
+      "final_balance": 47538.48396410511,
+      "max_drawdown": 2580.3952418176486
+    },
+    "mc_results": {
+      "n_simulations": 10000,
+      "pass_rate": 0.9591,
+      "pass_count": 9591,
+      "fail_count": 409,
+      "fail_reasons": {
+        "trailing_drawdown": 409
+      },
+      "days_to_pass": {
+        "mean": 16.41747471587947,
+        "median": 14.0,
+        "p25": 10.0,
+        "p75": 21.0
+      },
+      "max_drawdown": {
+        "mean": 938.8411081907418,
+        "median": 816.0565365119073,
+        "p95": 2372.4113312931236
+      }
+    }
+  }
+}

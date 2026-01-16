@@ -81,10 +81,45 @@ def train_on_splits(
 
     dataset = dataset.set_index("event_id", drop=False)
 
+    cfg = training_config
+    target_cfg = cfg.get("target", {})
+    target_col = target_cfg.get("column", "y")
+    positive_label = target_cfg.get("positive_label", 1)
+    target_mode = target_cfg.get("mode", "binary")
+    target_classes = target_cfg.get("classes", [-1, 0, 1])
+    flip_sign = bool(target_cfg.get("flip_sign", False))
+    flip_ret_net = bool(target_cfg.get("flip_ret_net", False))
+    side_filter = target_cfg.get("side_filter")
+
     events_path = bar_dir / "events.parquet"
     if not events_path.exists():
         raise FileNotFoundError(f"events.parquet not found: {events_path}")
     events_df = pd.read_parquet(events_path)
+    events_df_for_meta = events_df
+    if flip_sign:
+        if target_mode != "multiclass":
+            raise ValueError("target.flip_sign is only supported for multiclass targets")
+        if target_classes != [-1, 0, 1]:
+            raise ValueError("target.flip_sign expects target.classes == [-1, 0, 1]")
+        dataset = dataset.copy()
+        dataset[target_col] = -dataset[target_col].astype(int)
+        events_df_for_meta = events_df.copy()
+        events_df_for_meta["y"] = -events_df_for_meta["y"].astype(int)
+        if flip_ret_net and "ret_net" in events_df_for_meta.columns:
+            events_df_for_meta["ret_net"] = -events_df_for_meta["ret_net"].astype(float)
+        logger.info(
+            "Applied target.flip_sign to training labels%s",
+            " (ret_net inverted)" if flip_ret_net else "",
+        )
+    if side_filter is not None:
+        if "side" not in dataset.columns:
+            raise ValueError("target.side_filter specified but dataset has no side column")
+        side_filter = int(side_filter)
+        dataset = dataset[dataset["side"] == side_filter].copy()
+        if "side" in events_df_for_meta.columns:
+            events_df_for_meta = events_df_for_meta[
+                events_df_for_meta["side"] == side_filter
+            ].copy()
 
     cv_path = bar_dir / "cv_splits.json"
     if not cv_path.exists():
@@ -106,7 +141,6 @@ def train_on_splits(
     if not splits:
         raise ValueError(f"No splits found for cv_kind={cv_kind}")
 
-    cfg = training_config
     seed = int(cfg.get("seed", 42))
     np.random.seed(seed)
 
@@ -117,12 +151,6 @@ def train_on_splits(
 
     model_params = model_cfg.get("params", {})
     training_config_hash = hash_content(training_config)
-    target_cfg = cfg.get("target", {})
-    target_col = target_cfg.get("column", "y")
-    positive_label = target_cfg.get("positive_label", 1)
-    target_mode = target_cfg.get("mode", "binary")
-    target_classes = target_cfg.get("classes", [-1, 0, 1])
-
     weight_cfg = cfg.get("sample_weight", {})
     weight_enabled = bool(weight_cfg.get("enabled", False))
 
@@ -517,13 +545,13 @@ def train_on_splits(
             meta_train_df, meta_feature_cols = build_meta_dataset(
                 primary_preds_df=primary_train_preds,
                 base_event_dataset_df=dataset.reset_index(drop=True),
-                events_df=events_df,
+                events_df=events_df_for_meta,
                 config=cfg,
             )
             meta_test_df, _ = build_meta_dataset(
                 primary_preds_df=primary_test_preds,
                 base_event_dataset_df=dataset.reset_index(drop=True),
-                events_df=events_df,
+                events_df=events_df_for_meta,
                 config=cfg,
             )
 

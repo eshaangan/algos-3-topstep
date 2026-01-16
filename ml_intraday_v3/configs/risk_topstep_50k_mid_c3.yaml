@@ -1,0 +1,88 @@
+# Mid-strength Topstep 50K risk configuration (5m) that allows up to 3 contracts
+# and supports sigma-based position sizing in the live RiskManager.
+
+topstep:
+  account_type: "combine"
+  starting_balance: 50000
+
+daily_loss_limit:
+  enabled: true
+  max_daily_loss: 900
+  pnl_calculation: "realized_and_unrealized"
+  reset_time: "17:00"
+  reset_timezone: "America/Chicago"
+  breach_action: "flatten_and_halt"
+
+trailing_drawdown:
+  enabled: true
+  max_drawdown: 2400
+  pnl_calculation: "realized_and_unrealized"
+  hwm_update_policy: "real_time"
+  breach_action: "flatten_and_halt"
+
+position_limits:
+  max_contracts_per_position: 3
+  max_concurrent_positions: 30
+  # Hard cap on total open contracts across all positions.
+  # With MES, this keeps exposure bounded even if max_concurrent_positions is high.
+  max_total_contracts: 30
+  max_notional_exposure: 750000
+
+intraday_controls:
+  max_trades_per_day: 30  # Increased from 16 to allow more high-quality signals
+  min_seconds_between_trades: 180  # Increased from 120 to 3 minutes (tighter spacing control)
+  max_consecutive_losses: 3  # Reduced from 4 to 3 (earlier halt on bad streak)
+  consecutive_loss_action: "halt_trading"
+  # When "halt_trading" triggers (e.g., soft risk gates / consecutive losses),
+  # pause new entries for this many minutes (then resume).
+  halt_minutes: 20  # Increased from 15 to 20 minutes (longer cooldown after halt)
+  daily_profit_lock_usd: 0
+
+margin:
+  # Initial margin per MES contract (used by KellySizer, not enforced by Topstep).
+  initial_margin_per_contract: 1320
+  maintenance_margin_per_contract: 1200
+  margin_buffer: 0.20
+
+forced_flatten:
+  flatten_at_session_close: true
+  flatten_at_loss_threshold: 0.65
+  flatten_at_drawdown_threshold: 0.80
+
+risk_management:
+  enabled: true
+  daily_loss_limit_usd: 1000
+  daily_loss_warning_usd: 350
+  daily_loss_critical_usd: 650
+
+  base_position_size: 3
+  reduce_size_on_loss: true
+  size_after_warning: 1.0
+  size_after_critical: 0.0
+
+  # Sigma-based position sizing (uses features['sigma']).
+  sigma_position_sizing:
+    enabled: true
+    sigma_thresholds:
+      - max_sigma: 20.0
+        contracts: 3
+      - max_sigma: 30.0
+        contracts: 2
+      - max_sigma: 45.0
+        contracts: 1
+      - max_sigma: 1.0e9
+        contracts: 0
+
+  # Buffer below Topstep hard limit to reduce overshoot risk.
+  max_drawdown_from_hwm: 2400
+  drawdown_warning: 1800
+
+  avoid_first_hour: true
+  avoid_last_hour: true
+
+  threshold_increase_on_loss: 0.03
+  # If a "halt" condition triggers, stop taking new trades for this long (minutes).
+  halt_cooldown_minutes: 15
+  daily_profit_lock_usd: 0
+
+risk_spec_version: "1.0.0"

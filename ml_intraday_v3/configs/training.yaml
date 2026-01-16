@@ -67,6 +67,8 @@ target:
   mode: "multiclass"
   classes: [-1, 0, 1]
   positive_label: 1  # only used in binary mode
+  flip_sign: false
+  flip_ret_net: false
 
 sample_weight:
   column: "w_final"

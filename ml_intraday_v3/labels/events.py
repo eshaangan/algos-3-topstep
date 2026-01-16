@@ -214,16 +214,28 @@ def generate_events(
 
     n = len(df)
     if event_policy == "every_bar":
-        t0_idx_all = np.arange(n, dtype=int)
-        sides_all = np.ones(n, dtype=int)
-        horizons_all = np.full(n, -1, dtype=int)
+        base_idx = np.arange(n, dtype=int)
+        sides_cfg = primary_cfg.get("sides")
+        if sides_cfg is None:
+            sides_cfg = [1]
+        sides_list = [int(s) for s in sides_cfg if int(s) != 0]
+        if not sides_list:
+            raise ValueError("primary_labeling.sides must include at least one non-zero side")
+        t0_idx_all = np.repeat(base_idx, len(sides_list))
+        sides_all = np.tile(sides_list, len(base_idx))
+        horizons_all = np.full(len(t0_idx_all), -1, dtype=int)
     elif event_policy == "cusum":
         cusum_cfg = primary_cfg.get("cusum", {})
         threshold_atr_mult = float(cusum_cfg.get("threshold_atr_mult", 1.0))
         if threshold_atr_mult <= 0.0:
             raise ValueError("primary_labeling.cusum.threshold_atr_mult must be > 0")
-        t0_idx_all = _cusum_event_indices(df["close"], sigma * threshold_atr_mult)
-        sides_all = np.ones(len(t0_idx_all), dtype=int)
+        base_idx = _cusum_event_indices(df["close"], sigma * threshold_atr_mult)
+        sides_cfg = cusum_cfg.get("sides", primary_cfg.get("sides", [1]))
+        sides_list = [int(s) for s in sides_cfg if int(s) != 0]
+        if not sides_list:
+            raise ValueError("primary_labeling.cusum.sides must include at least one non-zero side")
+        t0_idx_all = np.repeat(base_idx, len(sides_list))
+        sides_all = np.tile(sides_list, len(base_idx))
         horizons_all = np.full(len(t0_idx_all), -1, dtype=int)
     else:
         ts_cfg = primary_cfg.get("trend_scanning", {}) or {}
@@ -290,7 +302,7 @@ def generate_events(
             side_pool = sides_all[select]
         else:
             t0_pool = t0_idx_all
-            side_pool = None
+            side_pool = sides_all
 
         if len(t0_pool) == 0:
             continue
@@ -303,10 +315,11 @@ def generate_events(
 
         t0_idx = t0_pool[feasible]
         t1_idx = t1_idx[feasible]
-        if side_pool is not None:
-            side_vals = side_pool[feasible]
-        else:
-            side_vals = np.ones(len(t0_idx), dtype=int)
+        side_vals = (
+            side_pool[feasible]
+            if side_pool is not None
+            else np.ones(len(t0_idx), dtype=int)
+        )
 
         base_df = pd.DataFrame(
             {
