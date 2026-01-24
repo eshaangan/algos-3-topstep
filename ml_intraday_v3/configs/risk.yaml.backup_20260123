@@ -58,10 +58,10 @@ position_limits:
   max_contracts_per_position: 5  # Was: 1
 
   # Max concurrent positions (user preference: 15 for MES, Topstep allows 50)
-  max_concurrent_positions: 30  # Realistic for paper trading (matches live settings)
+  max_concurrent_positions: 15  # Was: 10
 
   # Max total contracts across all positions
-  max_total_contracts: 150  # 30 positions × 5 contracts max
+  max_total_contracts: 75  # 15 positions × 5 contracts
 
   # Max notional exposure (in dollars)
   # MES @ 5000 points = $25,000 notional per contract

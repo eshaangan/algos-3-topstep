@@ -42,6 +42,7 @@ def minimal_features_config():
                 "1m": [3, 6],
                 "5m": [2, 4],
             },
+            "enable_multi_horizon": False,  # Disable to test bar-size specific features only
         },
         "volatility": {
             "atr_period": 14,

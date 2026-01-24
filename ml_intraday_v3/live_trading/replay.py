@@ -246,7 +246,7 @@ def replay_session(
         dry_run=True,  # offline-safe
         contract_id="MOCK",
         account_id="MOCK",
-        order_type=live_cfg.get("topstep", {}).get("order", {}).get("type", "MARKET"),
+        config=live_cfg,  # Pass live trading config for direction_change settings
     )
 
     # Metrics tracker (optionally persist)

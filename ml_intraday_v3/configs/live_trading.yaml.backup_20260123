@@ -78,7 +78,7 @@ topstep:
 signals:
   # Minimum probability threshold (from backtest config)
   # Only trade signals above this threshold
-  primary_threshold: 0.15
+  primary_threshold: 0.10
 
   # Use meta model (if available in bundle)
   use_meta_model: false
@@ -91,18 +91,8 @@ signals:
 
   # Volatility filter
   volatility_filter:
-    enabled: true
+    enabled: false
     min_sigma: 7.0
-
-# Direction change behavior (when model reverses while positions open)
-direction_change:
-  # Enable direction change exits
-  enabled: true
-
-  # High-confidence threshold: only flatten positions if opposing signal exceeds this
-  # Prevents weak signals from closing winning positions
-  # Recommendation: Set higher than primary_threshold (0.15) to avoid premature exits
-  high_confidence_threshold: 0.20
 
 # Position management
 positions:
@@ -110,7 +100,7 @@ positions:
   contracts_per_trade: 1
 
   # Maximum concurrent positions (from risk.yaml but repeated here)
-  max_concurrent: 30  # Realistic for paper trading (matches live settings)
+  max_concurrent: 30  # Was: 15
 
   # Force flatten at session close
   flatten_at_close: true
@@ -260,7 +250,7 @@ session:
 
   # No entry window before close (minutes)
   # Don't enter new trades this close to session end
-  no_entry_before_close_minutes: 60
+  no_entry_before_close_minutes: 30
 
 # Version and metadata
 version: "1.0.0"

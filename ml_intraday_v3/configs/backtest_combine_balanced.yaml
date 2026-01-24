@@ -1,0 +1,53 @@
+# Backtest config for balanced combine-passing strategy
+# Matches live_trading.yaml filtering logic
+# Version: 1.0
+
+decision:
+  use_meta: false
+  primary_score_column: "score_ev"
+  primary_threshold: 0.06      # Middle ground threshold for 2-3 week combine passage
+  meta_threshold: 0.50
+  require_meta_for_trade: false
+
+  # Volatility filter (matches live)
+  volatility_filter:
+    enabled: true
+    min_sigma: 12.70            # From training data analysis (40% of median ATR - middle ground)
+    max_sigma: 0.0              # No upper limit
+
+  # Regime filter (optional, for comparison)
+  regime_filter:
+    enabled: false              # Start disabled, can enable for testing
+    vol_window: 20
+    trend_window: 50
+    skip_regimes: []
+    threshold_boost_regimes: []
+    threshold_boost: 0.0
+    enable_shorts: true
+
+sizing:
+  contracts: 1
+  max_concurrent_positions: 5   # Moderate concurrency
+
+costs:
+  use_execution_spec: true
+  use_event_ret_net: true       # Costs already in labels
+
+risk:
+  use_risk_yaml: true
+
+session:
+  flatten_time_chicago: "15:55"
+  trade_start_time_chicago: "09:30"
+  trade_end_time_chicago: "16:00"
+
+# Topstep risk constraints
+risk_gates:
+  daily_loss_limit: 1000
+  trailing_max_drawdown: 2500
+  max_trades_per_day: 100
+  max_consecutive_losses: 5
+
+outputs:
+  write_trade_log: true
+  write_equity_curve: true

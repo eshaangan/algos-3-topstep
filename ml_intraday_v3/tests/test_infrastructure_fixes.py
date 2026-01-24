@@ -25,8 +25,8 @@ def test_execution_spec_position_limits():
 
     max_concurrent = exec_spec['position_limits']['max_concurrent_positions']
 
-    assert max_concurrent == 5, f"Expected max_concurrent_positions=5, got {max_concurrent}"
-    print("✅ execution_spec.yaml has correct max_concurrent_positions: 5")
+    assert max_concurrent == 15, f"Expected max_concurrent_positions=15, got {max_concurrent}"
+    print("✅ execution_spec.yaml has correct max_concurrent_positions: 15")
 
 
 def test_feature_generator_no_annualization():
@@ -35,7 +35,7 @@ def test_feature_generator_no_annualization():
 
     # Create fake feature columns
     feature_cols = ['log_return_1', 'vol_20', 'parkinson_vol', 'vol_forecast', 'atr_14']
-    gen = LiveFeatureGenerator(feature_cols)
+    gen = LiveFeatureGenerator(feature_cols, bar_size='1m')
 
     # Create fake bars
     np.random.seed(42)
@@ -117,7 +117,7 @@ def test_feature_calculations_match_training():
         'log_return_1', 'atr_14', 'vol_20', 'trend_strength',
         'autocorr_5', 'volume_imbalance', 'price_vs_vwap', 'large_move'
     ]
-    gen = LiveFeatureGenerator(feature_cols)
+    gen = LiveFeatureGenerator(feature_cols, bar_size='1m')
 
     # Create realistic test bars
     np.random.seed(42)
@@ -181,7 +181,7 @@ def main():
         print("=" * 80)
         print("\nAll infrastructure fixes are working correctly:")
         print("  ✓ Feature calculations match training (no annualization)")
-        print("  ✓ Position limits fixed (max 5 concurrent)")
+        print("  ✓ Position limits fixed (max 15 concurrent)")
         print("  ✓ API polling has validation (OHLC, completeness, duplicates, gaps)")
         print("  ✓ Buffer health monitoring added")
         print()

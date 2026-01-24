@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "alphavantage": {
+      "command": "uvx",
+      "args": [
+        "av-mcp",
+        "3XBV9VY0KQRJ3LO8"
+      ]
+    },
+    "gcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@google-cloud/gcloud-mcp"
+      ],
+      "env": {
+        "CLOUDSDK_CORE_PROJECT": "trading-algo-3"
+      }
+    }
+  }
+}

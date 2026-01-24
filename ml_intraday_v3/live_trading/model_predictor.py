@@ -396,6 +396,7 @@ class LiveModelPredictor:
         primary_threshold: Optional[float] = None,
         meta_threshold: Optional[float] = None,
         require_meta_approval: bool = False,
+        check_negative_edge: bool = True,
     ) -> Tuple[bool, str]:
         """
         Determine if a trade should be executed based on prediction.
@@ -405,6 +406,7 @@ class LiveModelPredictor:
             primary_threshold: Primary model threshold (overrides default)
             meta_threshold: Meta model threshold
             require_meta_approval: Whether meta approval is required
+            check_negative_edge: If True, reject trades where p_stop >= p_target
 
         Returns:
             (should_trade, reason) tuple
@@ -412,6 +414,14 @@ class LiveModelPredictor:
         # Use thresholds from arguments or defaults
         primary_thresh = primary_threshold or self.primary_threshold
         meta_thresh = meta_threshold or 0.5
+
+        # Check for negative edge (sanity filter)
+        if check_negative_edge:
+            p_stop = prediction.get('p_stop', 0.0)
+            p_target = prediction.get('p_target', 0.0)
+
+            if p_stop >= p_target:
+                return False, f"negative_edge (p_stop={p_stop:.3f} >= p_target={p_target:.3f})"
 
         # Check primary threshold
         score = prediction.get('score_ev', prediction.get('y_prob', 0.0))

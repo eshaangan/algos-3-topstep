@@ -1,0 +1,132 @@
+# Multi-Market Live Trading Configuration for GCP
+# Supports trading across US (MES) and Asian (NKD) sessions
+
+# Market Configurations
+markets:
+  mes:
+    symbol: "MES"
+    exchange: "CME"
+    timezone: "America/Chicago"
+    trading_hours:
+      start: "08:30"
+      end: "15:00"
+    model_bundle_path: "runs/mes_production/bar_size=5m/model_bundle.pkl"
+    bar_size: "5m"
+
+  nkd:
+    symbol: "NKD"
+    exchange: "CME"
+    timezone: "Asia/Tokyo"
+    trading_hours:
+      start: "18:00"  # CT
+      end: "03:00"    # CT (next day)
+    model_bundle_path: "runs/nkd_production/bar_size=5m/model_bundle.pkl"
+    bar_size: "5m"
+
+# Global Trading Settings
+trading:
+  environment: "paper"  # Switch to "live" after testing
+  auto_switch_markets: true  # Automatically switch between markets based on time
+  allow_concurrent_positions: false  # Only trade one market at a time initially
+
+# Data Provider Settings
+data:
+  provider: "databento"  # Topstep live data
+  update_frequency_seconds: 60
+  lookback_bars: 100
+  enable_rth_filter: true  # Only trade during RTH hours
+
+# Portfolio-Level Risk Management (CRITICAL for multi-market)
+portfolio_risk:
+  # Topstep 50k Combine Limits
+  max_daily_loss: 1000        # $1000 total across ALL markets
+  max_trailing_drawdown: 2000  # $2000 total across ALL markets
+  enforce_topstep_rules: true
+
+  # Position Limits
+  max_concurrent_positions: 2  # Can hold MES and NKD simultaneously if needed
+  max_total_contracts: 2       # Max 2 contracts total across all markets
+
+  # Correlation-Based Risk Adjustment
+  correlation_monitor:
+    enabled: true
+    lookback_days: 60
+    high_correlation_threshold: 0.80  # If corr > 0.8, reduce sizing
+    adjustment_factor: 0.5            # Reduce to 50% size if highly correlated
+
+# Per-Market Signal Configuration
+signals:
+  mes:
+    primary_threshold: 0.06
+    event_filter:
+      enabled: true
+      min_cusum_threshold: 17.81
+    volatility_filter:
+      enabled: true
+      min_atr: 12.70
+
+  nkd:
+    primary_threshold: 0.06  # Start with same as MES, tune later
+    event_filter:
+      enabled: true
+      min_cusum_threshold: 20.0  # May need different thresholds
+    volatility_filter:
+      enabled: true
+      min_atr: 15.0  # NKD typically more volatile
+
+# Kelly Sizing (Portfolio-Level)
+kelly_sizing:
+  enabled: true
+  kelly_fraction: 0.20  # Reduced from 0.25 for multi-market
+  min_trades_for_kelly: 20
+  max_contracts_per_trade: 1  # Conservative for combine
+  per_market_allocation:
+    mes: 0.60  # 60% of risk budget to MES
+    nkd: 0.40  # 40% of risk budget to NKD
+
+# Monitoring & Logging
+monitoring:
+  log_level: "INFO"
+  log_trades: true
+  log_signals: true
+  log_market_switches: true  # Log when switching between markets
+  metrics_update_frequency_seconds: 300
+
+  # Alert Conditions
+  alerts:
+    portfolio_loss_threshold: 800  # Alert at 80% of daily limit
+    correlation_spike_threshold: 0.85
+    model_error_consecutive_count: 3
+
+# Session Management
+session_management:
+  # Graceful handoff between markets
+  transition_buffer_minutes: 15  # Stop trading 15 min before session end
+
+  # What to do with open positions during transitions
+  eod_position_handling:
+    mes: "close_at_eod"  # Close MES positions at end of US session
+    nkd: "close_at_eod"  # Close NKD positions at end of Asian session
+
+  # Emergency stop conditions
+  emergency_stop:
+    enabled: true
+    triggers:
+      - "daily_loss_threshold_90_percent"
+      - "three_consecutive_losses"
+      - "model_prediction_error"
+
+# GCP-Specific Settings
+gcp:
+  project_id: "trading-algo-3"
+  region: "us-central1"
+  instance_name: "algotrader"
+
+  # State persistence (important for multi-market)
+  state_file_path: "/home/trader/algos/ml_intraday_v3/state/trading_state.json"
+  backup_frequency_minutes: 15
+
+  # Monitoring
+  cloud_logging:
+    enabled: false  # Enable after testing
+    log_name: "algotrader-multimarket"

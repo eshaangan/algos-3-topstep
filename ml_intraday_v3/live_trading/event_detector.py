@@ -26,6 +26,7 @@ class LiveEventDetector:
         self,
         atr_period: int = 14,
         cusum_threshold_atr_mult: float = 0.8,
+        min_cusum_threshold: Optional[float] = None,
     ):
         """
         Initialize event detector.
@@ -33,9 +34,12 @@ class LiveEventDetector:
         Args:
             atr_period: ATR lookback period (matches training)
             cusum_threshold_atr_mult: CUSUM threshold as multiple of ATR (matches labeling.yaml)
+            min_cusum_threshold: Minimum absolute CUSUM threshold in points.
+                If None, uses adaptive calculation based on training data.
         """
         self.atr_period = atr_period
         self.cusum_threshold_atr_mult = cusum_threshold_atr_mult
+        self.min_cusum_threshold = min_cusum_threshold
 
         # CUSUM state (symmetric filter)
         self.s_pos = 0.0  # Positive cumulative sum
@@ -44,7 +48,8 @@ class LiveEventDetector:
 
         logger.info(
             f"LiveEventDetector initialized: atr_period={atr_period}, "
-            f"cusum_mult={cusum_threshold_atr_mult}"
+            f"cusum_mult={cusum_threshold_atr_mult}, "
+            f"min_threshold={min_cusum_threshold}"
         )
 
     def _compute_atr(self, bars_df: pd.DataFrame) -> float:
@@ -100,7 +105,14 @@ class LiveEventDetector:
             self.last_price = current_bar_close
             return False, info
 
+        # Apply minimum threshold floor
         threshold = atr * self.cusum_threshold_atr_mult
+        if self.min_cusum_threshold is not None:
+            threshold = max(threshold, self.min_cusum_threshold)
+            logger.debug(
+                f"Applied min threshold: ATR-based={atr * self.cusum_threshold_atr_mult:.2f}, "
+                f"final={threshold:.2f}"
+            )
         info["threshold"] = threshold
 
         # Need at least one previous price to compute diff

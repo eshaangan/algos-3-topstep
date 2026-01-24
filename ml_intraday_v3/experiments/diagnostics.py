@@ -583,12 +583,13 @@ def compute_pbo_enhanced(
             continue
 
         # Compute percentile ranks (higher rank = better performance)
+        # Lambda is the percentile rank where 1.0 = best, 0.0 = worst
         if higher_is_better:
-            # Rank in descending order: best score gets highest rank
-            ranks = rankdata(-valid_oos.values, method='average') / len(valid_oos)
-        else:
-            # Rank in ascending order: lowest score gets highest rank
+            # Higher values are better: rank in ascending order (best score gets rank 1.0)
             ranks = rankdata(valid_oos.values, method='average') / len(valid_oos)
+        else:
+            # Lower values are better: rank in descending order (best score gets rank 1.0)
+            ranks = rankdata(-valid_oos.values, method='average') / len(valid_oos)
 
         ranks_dict = dict(zip(valid_oos.index, ranks))
         ranks_by_path[path_id] = {

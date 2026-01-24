@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "/Users/eshaanganguly/.local/bin/serena",
+      "args": ["start-mcp-server"],
+      "env": {
+        "SERENA_PROJECT_PATH": "/Users/eshaanganguly/Documents/projects/algos 3 topstep"
+      }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context7/mcp-server"],
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
+}

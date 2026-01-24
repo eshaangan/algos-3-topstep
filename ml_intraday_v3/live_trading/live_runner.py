@@ -219,11 +219,49 @@ class LiveTradingRunner:
                 raise FileNotFoundError(f"No model bundle found in {runs_dir}")
 
         # Load label schema from model run directory
-        run_dir = model_bundle_path.parents[3]  # Go up from window_*/walkforward/bar_size=1m
+        # Robustly find run_dir by looking for label_schema.json
         bar_size = self.live_cfg['trading']['bar_size']
+        current_path = model_bundle_path.parent
+        run_dir = None
+        
+        # Search up to 5 levels up
+        for _ in range(5):
+            candidate = current_path / f"bar_size={bar_size}" / "label_schema.json"
+            if candidate.exists():
+                run_dir = current_path
+                break
+            # Also check if we are already in the bar_size dir
+            if (current_path / "label_schema.json").exists():
+                # If we found it directly, we need to deduce run_dir. 
+                # run_dir is expected to be the parent of bar_size=...
+                # If we are in bar_size=..., then parent is run_dir
+                run_dir = current_path.parent
+                break
+            
+            if current_path == current_path.parent: # Root reached
+                break
+            current_path = current_path.parent
+            
+        if run_dir is None:
+            logger.warning(f"Could not locate label_schema.json relative to {model_bundle_path}. Defaulting run_dir to project root.")
+            run_dir = Path(".")
+
+        # Store run_dir and bar_size for later use (volatility filter, regime adjustment)
+        self.run_dir = run_dir
+        self.bar_size = bar_size
+
         label_schema_path = run_dir / f"bar_size={bar_size}" / "label_schema.json"
-        with open(label_schema_path) as f:
-            self.label_schema = json.load(f)
+        if not label_schema_path.exists():
+             # Fallback: try finding it anywhere in the run_dir or just assume it's where we found it
+             # Attempt to locate it one last time if the loop above found it differently
+             pass
+
+        if label_schema_path.exists():
+            with open(label_schema_path) as f:
+                self.label_schema = json.load(f)
+        else:
+             logger.warning(f"Label schema not found at {label_schema_path}. Using empty schema.")
+             self.label_schema = {}
 
         # Initialize components
         logger.info("Initializing components...")
@@ -276,9 +314,25 @@ class LiveTradingRunner:
         if event_cfg.get('enabled', True):  # Default: enabled
             atr_period = event_cfg.get('atr_period', 14)
             cusum_mult = event_cfg.get('cusum_threshold_atr_mult', 0.8)
+
+            # Load adaptive min threshold from training data analysis
+            min_cusum_threshold = event_cfg.get('min_cusum_threshold', None)
+            if min_cusum_threshold == "adaptive":
+                # Load from training run's atr_analysis.json
+                atr_analysis_path = self.run_dir / f"bar_size={self.bar_size}" / "atr_analysis.json"
+                if atr_analysis_path.exists():
+                    with open(atr_analysis_path) as f:
+                        atr_analysis = json.load(f)
+                    min_cusum_threshold = atr_analysis['recommendations']['min_cusum_threshold']
+                    logger.info(f"Loaded adaptive min_cusum_threshold: {min_cusum_threshold:.2f} from training data")
+                else:
+                    logger.warning(f"Adaptive threshold requested but {atr_analysis_path} not found, using 6.0")
+                    min_cusum_threshold = 6.0
+
             self.event_detector = LiveEventDetector(
                 atr_period=atr_period,
                 cusum_threshold_atr_mult=cusum_mult,
+                min_cusum_threshold=min_cusum_threshold,
             )
             logger.info(f"Event filter enabled: CUSUM with atr_period={atr_period}, mult={cusum_mult}")
         else:
@@ -292,7 +346,7 @@ class LiveTradingRunner:
             dry_run=self.dry_run,
             contract_id=resolved_contract_id,
             account_id=resolved_account_id,
-            order_type=self.live_cfg["topstep"].get("order", {}).get("type", "MARKET"),
+            config=self.live_cfg,  # Pass live trading config for direction_change settings
         )
         if self.live_risk_manager:
             self.live_risk_manager.sync_equity(self.execution_engine.get_equity())
@@ -671,6 +725,34 @@ class LiveTradingRunner:
         # Shutdown
         self._shutdown()
 
+    def _compute_atr_for_filter(self, bars_df: pd.DataFrame, period: int = 14) -> float:
+        """
+        Compute ATR for volatility filtering (matches event detector logic).
+
+        Args:
+            bars_df: DataFrame with OHLC data
+            period: ATR lookback period
+
+        Returns:
+            Current ATR value (or NaN if insufficient data)
+        """
+        import numpy as np
+
+        if len(bars_df) < period + 1:
+            return np.nan
+
+        df = bars_df.tail(period + 1).copy()
+        prev_close = df["close"].shift(1)
+
+        tr1 = df["high"] - df["low"]
+        tr2 = (df["high"] - prev_close).abs()
+        tr3 = (df["low"] - prev_close).abs()
+
+        true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        atr = true_range.ewm(span=period, adjust=False).mean().iloc[-1]
+
+        return float(atr)
+
     def _process_bar(self, bar_time: pd.Timestamp, latest_bar: pd.Series):
         """
         Process a new bar: generate features, predict, and potentially execute.
@@ -681,6 +763,36 @@ class LiveTradingRunner:
         """
         # Get rolling buffer
         bars_df = self.data_fetcher.get_buffer()
+
+        # Volatility filter: check ATR before CUSUM event detection
+        vol_filter_cfg = self.live_cfg['signals'].get('volatility_filter', {})
+        if vol_filter_cfg.get('enabled', False):
+            import numpy as np
+
+            # Compute current ATR
+            atr = self._compute_atr_for_filter(bars_df)
+            min_atr = vol_filter_cfg.get('min_atr', 0.0)
+
+            # Load adaptive min_atr if configured
+            if min_atr == "adaptive":
+                atr_analysis_path = self.run_dir / f"bar_size={self.bar_size}" / "atr_analysis.json"
+                if atr_analysis_path.exists():
+                    with open(atr_analysis_path) as f:
+                        atr_analysis = json.load(f)
+                    min_atr = atr_analysis['recommendations']['min_atr_balanced']
+                else:
+                    min_atr = 10.0  # Fallback
+
+            if np.isfinite(atr) and atr < min_atr:
+                logger.info(f"✗ Volatility filter: ATR={atr:.2f} < min_atr={min_atr:.2f}, skipping bar")
+                self.metrics_tracker.record_signal(
+                    executed=False,
+                    score=0.0,
+                    timestamp=bar_time,
+                    direction=None,
+                    reason=f"volatility_too_low (atr={atr:.2f})",
+                )
+                return
 
         # Event detection: only predict on CUSUM events (matching training)
         if self.event_detector is not None:
@@ -730,6 +842,31 @@ class LiveTradingRunner:
 
         # Risk manager gating before trade decision
         primary_threshold = self.live_cfg['signals']['primary_threshold']
+
+        # Regime-aware threshold adjustment (low volatility = higher bar)
+        regime_cfg = self.live_cfg['signals'].get('regime_adjustment', {})
+        if regime_cfg.get('enabled', False):
+            import numpy as np
+
+            # Check ATR against median (from training data)
+            atr_current = features.get('atr_14', np.nan)
+            if np.isfinite(atr_current):
+                # Load median ATR from training analysis
+                atr_analysis_path = self.run_dir / f"bar_size={self.bar_size}" / "atr_analysis.json"
+                if atr_analysis_path.exists():
+                    with open(atr_analysis_path) as f:
+                        atr_analysis = json.load(f)
+                    atr_median = atr_analysis['atr_stats']['median']
+
+                    # If current ATR is < 70% of median, boost threshold
+                    if atr_current < 0.7 * atr_median:
+                        boost = regime_cfg.get('low_vol_threshold_boost', 0.05)
+                        primary_threshold += boost
+                        logger.info(
+                            f"Low volatility adjustment: ATR={atr_current:.2f} < 70% median, "
+                            f"boosting threshold by +{boost:.3f} -> {primary_threshold:.3f}"
+                        )
+
         if self.live_risk_manager:
             allowed, risk_reason = self.live_risk_manager.check_trading_allowed()
             if not allowed:
