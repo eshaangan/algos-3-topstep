@@ -1,0 +1,17 @@
+================================================================================
+FULL V3 TRAINING PIPELINE - BALANCED BIDIRECTIONAL MODEL
+================================================================================
+Training Period: 2024-01-01 to 2025-11-30 (includes multiple market regimes)
+Test Period: 2025-12-01 to 2025-12-31
+Target: 50% LONG, 50% SHORT event distribution
+================================================================================
+✓ Created run directory: ../runs/balanced_v3_q1_2024_q4_2025
+
+Step 1/4: Generating events with trend_scanning...
+--------------------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/cli.py", line 35, in <module>
+    from ml_intraday_v3.run_manifest import write_multibar_run_manifest, hash_content
+ModuleNotFoundError: No module named 'ml_intraday_v3.run_manifest'

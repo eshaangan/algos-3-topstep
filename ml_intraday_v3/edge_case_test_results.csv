@@ -1,0 +1,7 @@
+test,lag_days,potential_loss,status,recommendation,regime_changes,filtered_trades,consecutive_losses,drawdown_from_losses,regime_changed,risk,worst_day,buffer,buffer_pct,max_drawdown
+regime_transition_lag,0.0,0.0,✅ LOW RISK,"Acceptable lag, monitor in live trading",,,,,,,,,,
+whipsaw_market,,,⚠️  MODERATE WHIPSAW,Monitor filter effectiveness,17.0,85.0,,,,,,,,
+max_consecutive_losses,,,⚠️  WARNING: Close to limits,IMMEDIATE ACTION REQUIRED: Investigate why win rate is so low,,,40.0,854.8000000000001,,,,,,
+gap_events,,,✅ NO ISSUE: Regime unchanged,,,,,,False,Low,,,,
+daily_loss_limit_buffer,,,⚠️  CAUTION: Moderate buffer,Acceptable but watch for consecutive bad days,,,,,,,552.36,447.64,44.763999999999996,
+max_drawdown_buffer,,,❌ CRITICAL: DANGEROUSLY CLOSE TO BREACH,IMMEDIATE ACTION: Reduce size or stop trading,,,,,,,,117.48000000000002,4.6992,2382.52

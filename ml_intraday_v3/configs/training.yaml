@@ -1,22 +1,39 @@
 # Training configuration - primary model
-# Version: 1.0
-# PHASE 5: Upgraded to LightGBM for non-linear pattern capture
+# Version: 2.0 - BALANCED TRAINING FOR BIDIRECTIONAL TRADING
+# Updated: 2026-01-25
+# Changes: Extended date range, balanced LONG/SHORT events, regime-aware training
+
+# Data Selection - EXTENDED TO INCLUDE MULTIPLE MARKET REGIMES
+data_selection:
+  train_start: "2024-01-01"  # Include Q1 2024 bearish period
+  train_end: "2025-11-30"    # Extended to Nov 2025
+  test_start: "2025-12-01"   # Held-out test period
+  test_end: "2025-12-31"
+  
+# Event Generation - BALANCED LONG/SHORT
+# NOTE: Actual event policy and sides come from labeling.yaml (primary_labeling.event_policy).
+# For unbiased bidirectional training use labeling: event_policy: "cusum", cusum.sides: [1, -1].
+event_generation:
+  policy: "cusum"           # Must match labeling.yaml for unbiased bidirectional
+  balance_events: true      # Balance LONG/SHORT distribution
+  target_long_ratio: 0.50   # Target 50% LONG, 50% SHORT
+  balance_method: "undersample"  # Options: undersample, oversample
 
 model:
-  kind: "lgbm"  # Changed from "logreg" - Phase 5 upgrade
+  kind: "lgbm"  # LightGBM for non-linear pattern capture
   params:
-    # LightGBM parameters - BALANCED regularization (class +1 is only 7.4% of data)
-    n_estimators: 300  # Increased from 200 (model needs more capacity for rare class)
+    # LightGBM parameters - BALANCED for bidirectional trading
+    n_estimators: 150  # Reduced from 300 (balanced data needs less capacity)
     learning_rate: 0.05
     num_leaves: 31
-    max_depth: 4  # Increased from 3 (more capacity for imbalanced classes)
-    min_child_samples: 150  # Decreased from 200 (allow smaller leaves for rare class)
+    max_depth: 6  # Increased from 4 for better pattern capture
+    min_child_samples: 100  # Increased from 150 (balanced data allows stricter requirements)
     subsample: 0.8  # Bagging fraction (row sampling)
     subsample_freq: 5
     colsample_bytree: 0.8  # Feature fraction (column sampling)
-    reg_alpha: 0.3  # L1 regularization (decreased from 0.5 for better recall)
-    reg_lambda: 0.3  # L2 regularization (decreased from 0.5 for better recall)
-    class_weight: "balanced"  # AUTO-BALANCE classes (7.4% vs 31.9% vs 60.7%)
+    reg_alpha: 0.1  # L1 regularization - reduced for balanced data
+    reg_lambda: 0.1  # L2 regularization - reduced for balanced data
+    class_weight: null  # Disabled - data is pre-balanced
 
 # Hyperparameter Search with Trial Tracking (for PBO analysis)
 hyperparam_search:
@@ -94,13 +111,9 @@ output:
 
 seed: 42
 
-# Date filtering - train only on recent data
-# NOTE: Disabled because filtering is now done at data.yaml level (more efficient)
-# This addresses regime shift concerns (2020 COVID era patterns don't apply to current markets)
+# Date filtering - DISABLED (filtering done via data_selection above)
 date_filter:
-  enabled: false  # Disabled - filtering done at data ingestion
-  min_date: "2022-01-01"  # Only use data from 2022 onwards
-  max_date: null  # null = use all data up to present
+  enabled: false
 
 # Probability Calibration (Isotonic Regression)
 # Fixes miscalibrated probability estimates from the model
@@ -146,10 +159,9 @@ rare_events:
   correction_method: "king_zeng"
 
 meta:
-  # Meta-model ENABLED to address high PBO scores via two-stage filtering
-  # Primary model has high recall (loose threshold), meta-model filters low-quality signals
+  # Meta-model for signal quality filtering
   enabled: true
-  threshold_primary: 0.20  # Lowered from 0.30 (model max p_target=0.27 due to class imbalance)
+  threshold_primary: 0.20  # Default (best so far in quick OOS checks)
   target:
     kind: "y_positive"  # y_positive | ret_net_positive | y_and_ret_net
   features:
@@ -157,19 +169,18 @@ meta:
     include_primary_logit: true
     include_original_features: true
   model:
-    kind: "lgbm"  # LightGBM for meta-model (handles non-linear interactions)
+    kind: "lgbm"  # LightGBM for meta-model
     params:
-      # LightGBM parameters - REGULARIZED for meta-model to prevent overfitting
-      n_estimators: 150  # Reduced from 300
+      n_estimators: 150
       learning_rate: 0.05
       num_leaves: 15  # Shallower trees for meta-model
-      max_depth: 3  # Reduced from 4 for consistency with primary
-      min_child_samples: 100  # Increased from 50 (stricter leaf requirements)
+      max_depth: 3
+      min_child_samples: 100
       subsample: 0.8
       subsample_freq: 5
       colsample_bytree: 0.8
-      reg_alpha: 0.5  # Increased from 0.1 (consistent with primary)
-      reg_lambda: 0.5  # Increased from 0.1 (consistent with primary)
+      reg_alpha: 0.3
+      reg_lambda: 0.3
   output:
     write_meta_predictions: true
     write_meta_model: true

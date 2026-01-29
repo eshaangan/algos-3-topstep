@@ -249,6 +249,15 @@ def replay_session(
         config=live_cfg,  # Pass live trading config for direction_change settings
     )
 
+    # IMPORTANT:
+    # Replay should match live config by default (no hidden forced filters).
+    execution_engine.regime_filter_enabled = bool((live_cfg.get("regime_filter", {}) or {}).get("enabled", False))
+    execution_engine.volatility_filter_enabled = bool((live_cfg.get("volatility_filter", {}) or {}).get("enabled", False))
+    execution_engine.circuit_breaker_enabled = bool((live_cfg.get("circuit_breaker", {}) or {}).get("enabled", False))
+    logger.info(f"Replay config: execution_engine.regime_filter_enabled = {execution_engine.regime_filter_enabled}")
+    logger.info(f"Replay config: execution_engine.volatility_filter_enabled = {execution_engine.volatility_filter_enabled}")
+    logger.info(f"Replay config: execution_engine.circuit_breaker_enabled = {execution_engine.circuit_breaker_enabled}")
+
     # Metrics tracker (optionally persist)
     output_dir = output_dir or Path("logs")
     tracker = MetricsTracker(output_dir)
@@ -273,19 +282,57 @@ def replay_session(
     use_meta = bool(live_cfg.get("signals", {}).get("use_meta_model", False))
     contracts = int(live_cfg.get("positions", {}).get("contracts_per_trade", 1))
 
-    # Initialize Kelly sizer if enabled
+    # Initialize Kelly sizer if enabled (disabled for replay simplicity)
     kelly_sizer = None
-    if live_cfg.get('kelly_sizing', {}).get('enabled', False):
-        from live_trading.kelly_sizer import KellySizer
-        kelly_sizer = KellySizer(live_cfg['kelly_sizing'])
-        logger.info(f"Kelly sizing enabled for replay: fraction={kelly_sizer.config['kelly_fraction']}")
+    # if live_cfg.get('kelly_sizing', {}).get('enabled', False):
+    #     from live_trading.kelly_sizer import KellySizer
+    #     kelly_sizer = KellySizer(live_cfg['kelly_sizing'])
+    #     logger.info(f"Kelly sizing enabled for replay: fraction={kelly_sizer.config['kelly_fraction']}")
 
     # Replay loop
+    # Pre-calculate SMA 200 (approx 200 days * 12 hours * 12 bars/hour? No, daily bars)
+    # Since we don't have daily bars easily, we'll use a very long SMA on 5m bars.
+    # 200 days * 23 hours/day * 12 bars/hour = 55,200 bars.
+    # This might be too heavy for the buffer.
+    # Alternative: Calculate on the full `bars` dataframe before slicing?
+    # Yes, let's do that if `bars` has enough history.
+    
+    # Calculate Regime (SMA 200 Day approx)
+    # 5m bars per trading day (approx 23h) = 23 * 12 = 276 bars.
+    # 200 days = 200 * 276 = 55,200 bars.
+    # If we don't have enough history, use whatever is available or a shorter period proxy (e.g. 50 day).
+    # 50 days = 50 * 276 = 13,800 bars.
+    
+    # Check if regime is already pre-calculated in bars
+    if 'regime' not in bars.columns:
+        total_bars = len(bars)
+        sma_period = 55200 # 200 days
+        if total_bars < sma_period:
+            logger.warning(f"Not enough data for 200-day SMA ({sma_period} bars). Using 50-day ({13800} bars) or max available.")
+            sma_period = min(13800, total_bars // 2) if total_bars > 2000 else 2000
+        
+        logger.info(f"Calculating Regime SMA ({sma_period} bars)...")
+        bars['sma_long'] = bars['close'].rolling(window=sma_period, min_periods=1).mean()
+        bars['regime'] = 0
+        bars.loc[bars['close'] > bars['sma_long'], 'regime'] = 1  # Bull
+        bars.loc[bars['close'] < bars['sma_long'], 'regime'] = -1 # Bear
+        
+        # Verify regime is not all zeros
+        regime_counts = bars['regime'].value_counts()
+        logger.info(f"Regime counts in slice: {regime_counts.to_dict()}")
+    else:
+        logger.info("Using pre-calculated regime column.")
+        regime_counts = bars['regime'].value_counts()
+        logger.info(f"Regime counts in slice (pre-calc): {regime_counts.to_dict()}")
+
     for ts, row in bars.iterrows():
         row = row.copy()
         row.name = ts
         fetcher.update_buffer(row)
         buffer_df = fetcher.get_buffer()
+        
+        # Get current regime
+        current_regime = int(row['regime']) if 'regime' in row else 0
 
         # Update existing positions first (exit logic)
         latest_bar = buffer_df.iloc[-1]
@@ -304,6 +351,19 @@ def replay_session(
 
         # Generate signal (live parity)
         features = feature_generator.generate_features(buffer_df)
+
+        # Skip if features are empty (insufficient bars during warmup)
+        if features.empty:
+            acct = broker.on_bar(
+                timestamp=pd.Timestamp(ts),
+                open_positions=execution_engine.open_positions,
+                current_close=float(latest_bar["close"]),
+                closed_positions=closed,
+            )
+            tracker.update_equity(acct.equity, acct.daily_pnl)
+            tracker.update_positions(acct.open_positions)
+            continue
+
         quality = feature_generator.check_feature_quality(features)
         if live_cfg.get("health", {}).get("check_feature_quality", True) and not quality.get("healthy", True):
             # Still update broker/metrics, but skip prediction/trade
@@ -321,23 +381,53 @@ def replay_session(
         tracker.signals_generated += 1
         score = prediction.get("score_ev", 0.0)
 
-        should_trade, reason = predictor.should_trade(
-            prediction=prediction,
-            primary_threshold=live_cfg["signals"]["primary_threshold"],
-            meta_threshold=live_cfg["signals"].get("meta_threshold"),
-            require_meta_approval=live_cfg["signals"].get("require_meta_approval", False),
+        base_primary_threshold = live_cfg["signals"]["primary_threshold"]
+        primary_threshold_long = live_cfg["signals"].get(
+            "primary_threshold_long",
+            base_primary_threshold,
+        )
+        primary_threshold_short = live_cfg["signals"].get(
+            "primary_threshold_short",
+            base_primary_threshold,
         )
 
+        should_trade, reason = predictor.should_trade(
+            prediction=prediction,
+            primary_threshold=base_primary_threshold,
+            primary_threshold_long=primary_threshold_long,
+            primary_threshold_short=primary_threshold_short,
+            meta_threshold=live_cfg["signals"].get("meta_threshold"),
+            require_meta_approval=live_cfg["signals"].get("require_meta_approval", False),
+            allowed_directions=(live_cfg.get("signals", {}) or {}).get("allowed_directions"),
+        )
+
+        # FIXED: Use the model's predicted side instead of deriving from score.
+        # The score represents the BEST EV (max of long/short), so it's almost always positive.
+        # The 'side' field contains the actual directional prediction (1=LONG, -1=SHORT, 0=no trade).
+        predicted_side = prediction.get("side", 1)  # 1=LONG, -1=SHORT, 0=no trade
+
+        if predicted_side == 0:
+            # Neither side has positive EV - override should_trade
+            should_trade = False
+            reason = "no_positive_ev_either_side"
+
         if should_trade:
-            direction = "LONG" if score > 0 else "SHORT"
+            # Determine direction from predicted side
+            direction = "LONG" if predicted_side > 0 else "SHORT"
+
+            # Kelly sizing: adjust contracts if enabled
+            trade_contracts = contracts
+            if kelly_sizer is not None and len(tracker.trade_history) >= kelly_sizer.config.get('min_trades_for_kelly', 20):
+                kelly_contracts = kelly_sizer.get_position_size(tracker.trade_history)
+                trade_contracts = max(1, kelly_contracts)  # At least 1 contract
+
             success, exec_reason = execution_engine.execute_signal(
                 timestamp=ts,
                 direction=direction,
                 prediction=prediction,
                 bars_df=buffer_df,
-                contracts=contracts,
-                kelly_sizer=kelly_sizer,
-                trade_history=tracker.trade_history,
+                contracts=trade_contracts,
+                current_regime=current_regime,
             )
             tracker.record_signal(
                 executed=bool(success),

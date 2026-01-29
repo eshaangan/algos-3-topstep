@@ -296,6 +296,87 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             ),
         ])
 
+    # PHASE 4: Momentum indicators (MACD, RSI, Stochastic)
+    # Added based on research findings for regime robustness
+    if config.get("momentum", {}).get("enabled", True):
+        # RSI
+        rsi_period = config.get("momentum", {}).get("rsi_period", 14)
+        registry.append(
+            FeatureSpec(
+                name=f"rsi_{rsi_period}",
+                lookback_bars=rsi_period,
+                uses_rolling_stats=True,
+                requires_scaling=True, # Scale 0-100 to standard
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description=f"Relative Strength Index ({rsi_period} bars)",
+            )
+        )
+
+        # MACD
+        macd_config = config.get("momentum", {}).get("macd", {})
+        if macd_config.get("enabled", True):
+            fast = macd_config.get("fast_period", 12)
+            slow = macd_config.get("slow_period", 26)
+            signal = macd_config.get("signal_period", 9)
+            
+            registry.extend([
+                FeatureSpec(
+                    name="macd",
+                    lookback_bars=slow + signal,
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"MACD line ({fast}-{slow})",
+                ),
+                FeatureSpec(
+                    name="macd_signal",
+                    lookback_bars=slow + signal,
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"MACD signal line ({signal})",
+                ),
+                FeatureSpec(
+                    name="macd_hist",
+                    lookback_bars=slow + signal,
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="MACD histogram (macd - signal)",
+                ),
+            ])
+
+        # Stochastic Oscillator
+        stoch_config = config.get("momentum", {}).get("stochastic", {})
+        if stoch_config.get("enabled", True):
+            k_period = stoch_config.get("k_period", 14)
+            d_period = stoch_config.get("d_period", 3)
+            
+            registry.extend([
+                FeatureSpec(
+                    name=f"stoch_k_{k_period}",
+                    lookback_bars=k_period,
+                    uses_rolling_stats=True,
+                    requires_scaling=True, # Scale 0-100 to standard
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"Stochastic %K ({k_period})",
+                ),
+                FeatureSpec(
+                    name=f"stoch_d_{d_period}",
+                    lookback_bars=k_period + d_period,
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"Stochastic %D ({d_period} SMA of %K)",
+                ),
+            ])
+
     # PHASE 3: Microstructure features (order flow proxies)
     if config.get("microstructure", {}).get("enabled", True):
         registry.extend([

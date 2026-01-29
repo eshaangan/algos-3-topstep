@@ -1,0 +1,7 @@
+{
+  "model": "gpt-oss:20b",
+  "env": {
+    "ANTHROPIC_API_PROVIDER": "ollama",
+    "OLLAMA_BASE_URL": "http://10.1.98.204:11434"
+  }
+}

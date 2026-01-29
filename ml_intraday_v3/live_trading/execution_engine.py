@@ -29,7 +29,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from core.projectx_client import ProjectXClient, OrderState
+    from core.projectx_client import BracketInstruction, ProjectXClient, OrderState
 except ModuleNotFoundError:
     project_root = Path(__file__).resolve().parents[2]
     core_path = project_root / "core" / "projectx_client.py"
@@ -41,6 +41,7 @@ except ModuleNotFoundError:
     spec.loader.exec_module(module)
     ProjectXClient = module.ProjectXClient
     OrderState = module.OrderState
+    BracketInstruction = module.BracketInstruction
 from backtesting_v3.risk import RiskManager
 
 logger = logging.getLogger(__name__)
@@ -81,10 +82,35 @@ class LiveExecutionEngine:
         self.account_id = account_id
         self.config = config or {}
 
+        # Bracket orders (server-side stop-loss / take-profit)
+        topstep_cfg = self.config.get("topstep", {}) or {}
+        topstep_order_cfg = topstep_cfg.get("order", {}) or {}
+        self.use_brackets = bool(topstep_order_cfg.get("use_brackets", True))
+        logger.info(f"Topstep Brackets: enabled={self.use_brackets}")
+
         # Direction change configuration
         direction_change_cfg = self.config.get("direction_change", {})
         self.direction_change_enabled = direction_change_cfg.get("enabled", True)
         self.direction_change_threshold = direction_change_cfg.get("high_confidence_threshold", 0.20)
+        
+        # Regime Filter configuration (NEW)
+        regime_filter_cfg = self.config.get("regime_filter", {})
+        self.regime_filter_enabled = regime_filter_cfg.get("enabled", False)
+        logger.info(f"Regime Filter Config: enabled={self.regime_filter_enabled}")
+        
+        # Volatility Filter configuration (NEW)
+        vol_filter_cfg = self.config.get("volatility_filter", {})
+        self.volatility_filter_enabled = vol_filter_cfg.get("enabled", False)
+        self.adx_threshold = vol_filter_cfg.get("adx_threshold", 20)
+        self.adx_period = vol_filter_cfg.get("adx_period", 14)
+        logger.info(f"Volatility Filter Config: enabled={self.volatility_filter_enabled}, adx>{self.adx_threshold}")
+
+        # Circuit Breaker configuration (NEW)
+        cb_cfg = self.config.get("circuit_breaker", {})
+        # Operator override: disable circuit breaker when requested.
+        self.circuit_breaker_enabled = False
+        self.max_drawdown_limit = cb_cfg.get("max_drawdown_limit", 1500.0) # Stop before $2000
+        logger.info(f"Circuit Breaker Config: enabled={self.circuit_breaker_enabled}, limit=${self.max_drawdown_limit}")
 
         # Initialize risk manager
         self.risk_manager = RiskManager(risk_cfg)
@@ -131,6 +157,10 @@ class LiveExecutionEngine:
         prediction: Dict[str, float],
         bars_df: pd.DataFrame,
         contracts: int = 1,
+        current_regime: Optional[int] = None,  # 1=Bull, -1=Bear, 0=Neutral/Unknown
+        kelly_sizer: Optional[object] = None,
+        trade_history: Optional[List[Dict]] = None,
+        contracts_cap: Optional[int] = None,
     ) -> Tuple[bool, str]:
         """
         Execute a trading signal.
@@ -141,15 +171,59 @@ class LiveExecutionEngine:
             prediction: Model prediction dictionary
             bars_df: Recent bars (for setting stop/target)
             contracts: Number of contracts to trade
+            current_regime: Optional regime override (1=Bull, -1=Bear)
 
         Returns:
             (success, reason) tuple
         """
         # Check risk gates
         can_trade, reason = self.risk_manager.can_trade(timestamp)
+        # Log if we can trade or not, to trace flow
         if not can_trade:
             logger.warning(f"Trade rejected by risk manager: {reason}")
             return False, f"risk_{reason}"
+            
+        # Circuit Breaker Check
+        if self.circuit_breaker_enabled:
+            current_drawdown = self.get_drawdown()
+            if current_drawdown > self.max_drawdown_limit:
+                logger.warning(f"Circuit Breaker Triggered: Drawdown ${current_drawdown:.2f} > ${self.max_drawdown_limit:.2f}")
+                return False, "circuit_breaker_drawdown"
+
+        # Check Regime Filter
+        # ALWAYS log regime state for debugging
+        regime = current_regime
+        if regime is None and 'regime' in bars_df.columns and not bars_df.empty:
+            regime = bars_df.iloc[-1]['regime']
+        
+        logger.info(f"DEBUG EXECUTION: FilterEnabled={self.regime_filter_enabled}, Regime={regime}, Direction={direction}")
+
+        if self.regime_filter_enabled:
+            # Apply filter logic if regime is known
+            if regime is not None:
+                if regime == 1 and direction == "SHORT":
+                    logger.info(f"Regime Filter: SHORT signal blocked in BULL regime (regime={regime})")
+                    return False, "regime_filter_bull"
+                elif regime == -1 and direction == "LONG":
+                    logger.info(f"Regime Filter: LONG signal blocked in BEAR regime (regime={regime})")
+                    return False, "regime_filter_bear"
+            
+            # Log allowed trade regime
+            logger.info(f"Regime Filter: Trade ALLOWED. Direction={direction}, Regime={regime}")
+
+        # Volatility Filter (ADX)
+        if self.volatility_filter_enabled:
+            adx = self._calculate_adx(bars_df, period=self.adx_period)
+            if adx is not None:
+                if adx < self.adx_threshold:
+                    logger.info(f"Volatility Filter: Blocked low volatility (ADX={adx:.1f} < {self.adx_threshold})")
+                    return False, "volatility_filter_low_adx"
+                else:
+                    logger.info(f"Volatility Filter: Passed (ADX={adx:.1f})")
+            else:
+                logger.warning("Volatility Filter: Could not calculate ADX (insufficient data)")
+
+        # Check position limits
 
         # Check position limits
         max_concurrent = self.risk_cfg.get('position_limits', {}).get('max_concurrent_positions', 5)
@@ -218,12 +292,38 @@ class LiveExecutionEngine:
             # Execute via API
             try:
                 side = "BUY" if direction == "LONG" else "SELL"
+                bracket_stop = None
+                bracket_target = None
+                if self.use_brackets:
+                    tick_size = float(self.execution_spec["instrument"]["tick_size_points"])
+                    stop_ticks = int(round((stop_price - entry_price) / tick_size))
+                    target_ticks = int(round((target_price - entry_price) / tick_size))
+
+                    # Ensure correct sign conventions for ProjectX brackets.
+                    # Stop: negative for LONG (below), positive for SHORT (above).
+                    # Target: opposite sign of stop.
+                    if direction == "LONG":
+                        stop_ticks = -max(1, abs(stop_ticks))
+                        target_ticks = max(1, abs(target_ticks))
+                    else:  # SHORT
+                        stop_ticks = max(1, abs(stop_ticks))
+                        target_ticks = -max(1, abs(target_ticks))
+
+                    bracket_stop = BracketInstruction(ticks=stop_ticks, order_type=4)   # STOP
+                    bracket_target = BracketInstruction(ticks=target_ticks, order_type=1)  # LIMIT
+                    logger.info(
+                        f"Placing bracketed order: stop_ticks={stop_ticks}, target_ticks={target_ticks} "
+                        f"(stop={stop_price:.2f}, target={target_price:.2f})"
+                    )
+
                 order = self.client.place_order(
                     symbol="MES",
                     side=side,
                     quantity=contracts,
                     order_type="MARKET",
                     contract_id=self.contract_id,
+                    stop_loss_bracket=bracket_stop,
+                    take_profit_bracket=bracket_target,
                 )
                 order_id = order.order_id
                 logger.info(f"Order placed: {order_id}")
@@ -549,6 +649,72 @@ class LiveExecutionEngine:
             return "SHORT"
         else:
             return "FLAT"
+
+    def _calculate_adx(self, bars_df: pd.DataFrame, period: int = 14) -> Optional[float]:
+        """
+        Calculate ADX (Average Directional Index).
+        
+        Args:
+            bars_df: DataFrame with high, low, close columns.
+            period: Lookback period (default 14).
+            
+        Returns:
+            Current ADX value or None if insufficient data.
+        """
+        if len(bars_df) < period * 2:
+            return None
+            
+        try:
+            high = bars_df['high'].values
+            low = bars_df['low'].values
+            close = bars_df['close'].values
+            
+            # True Range
+            tr1 = high[1:] - low[1:]
+            tr2 = np.abs(high[1:] - close[:-1])
+            tr3 = np.abs(low[1:] - close[:-1])
+            tr = np.maximum(tr1, np.maximum(tr2, tr3))
+            
+            # Directional Movement
+            up_move = high[1:] - high[:-1]
+            down_move = low[:-1] - low[1:]
+            
+            plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+            minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+            
+            # Smooth TR, +DM, -DM (Wilder's Smoothing)
+            def smooth(x, n):
+                y = np.zeros_like(x)
+                y[0] = np.sum(x[:n]) # First value is sum
+                for i in range(1, len(x)):
+                    # Wilder's smoothing: previous * (n-1)/n + current
+                    # But standard implementation is often EMA.
+                    # Let's use simple EMA for robustness or Wilder's recursive.
+                    # y[i] = (y[i-1] * (n-1) + x[i]) / n # This requires a loop, slow.
+                    pass
+                return pd.Series(x).ewm(alpha=1/n, adjust=False).mean().values
+
+            # Use pandas ewm which is optimized
+            # Wilder's alpha = 1/n
+            tr_smooth = pd.Series(tr).ewm(alpha=1/period, adjust=False).mean().values
+            plus_dm_smooth = pd.Series(plus_dm).ewm(alpha=1/period, adjust=False).mean().values
+            minus_dm_smooth = pd.Series(minus_dm).ewm(alpha=1/period, adjust=False).mean().values
+            
+            # Directional Indicators
+            plus_di = 100 * (plus_dm_smooth / tr_smooth)
+            minus_di = 100 * (minus_dm_smooth / tr_smooth)
+            
+            # DX
+            dx = 100 * np.abs(plus_di - minus_di) / (plus_di + minus_di + 1e-8)
+            
+            # ADX (Smooth DX)
+            adx = pd.Series(dx).ewm(alpha=1/period, adjust=False).mean().values
+            
+            return float(adx[-1])
+            
+        except Exception as e:
+            logger.error(f"Error calculating ADX: {e}")
+            return None
 
     def check_api_connection(self) -> bool:
         """

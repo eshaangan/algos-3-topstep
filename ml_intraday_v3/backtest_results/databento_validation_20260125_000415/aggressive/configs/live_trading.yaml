@@ -1,0 +1,97 @@
+trading:
+  environment: paper
+  enabled: true
+  dry_run: false
+  bar_size: 5m
+  model_bundle_path: null
+data:
+  provider: databento
+  symbol: MES
+  schema: ohlcv-1m
+  update_frequency_seconds: 60
+  lookback_bars: 100
+  enable_rth_filter: true
+topstep:
+  base_url: https://api.topstepx.com
+  contract_id: CON.F.US.MES.H26
+  account_id_env_var: TOPSTEPX_ACCOUNT_ID
+  api_key_env_var: TOPSTEPX_PROJECTX_API_KEY
+  session_token_env_var: TOPSTEPX_SESSION_TOKEN
+  order:
+    type: MARKET
+    time_in_force: DAY
+    use_brackets: true
+signals:
+  primary_threshold: 0.15
+  use_meta_model: false
+  meta_threshold: 0.5
+  require_meta_approval: false
+  volatility_filter:
+    enabled: true
+    min_sigma: 7.0
+direction_change:
+  enabled: true
+  high_confidence_threshold: 0.1
+positions:
+  contracts_per_trade: 1
+  max_concurrent: 30
+  flatten_at_close: true
+  session_close_time: '16:00'
+  flatten_buffer_minutes: 5
+kelly_sizing:
+  enabled: true
+  min_trades_for_kelly: 20
+  kelly_fraction: 0.25
+  rolling_window_trades: 50
+  max_contracts_per_trade: 5
+  min_contracts: 1
+  confidence_boost:
+    enabled: true
+    boost_factor: 1.5
+    boost_threshold: 0.15
+  negative_kelly_threshold: 3
+  log_sizing_decisions: true
+risk:
+  use_risk_yaml: true
+  equity_floor: 0.8
+  max_loss_per_trade: 100
+  halt_on_consecutive_losses: 5
+  auto_resume_after_halt: false
+monitoring:
+  log_level: INFO
+  log_file: logs/live_trading_{timestamp}.log
+  trade_log: logs/trades_{timestamp}.csv
+  equity_log: logs/equity_{timestamp}.csv
+  alerts:
+    alert_on_trade: true
+    alert_on_risk_breach: true
+    alert_on_error: true
+    method: log
+health:
+  api_check_interval_seconds: 300
+  model_check_interval_bars: 60
+  check_feature_quality: true
+  halt_on_health_failure: true
+reconciliation:
+  sync_interval_seconds: 60
+  reconcile_pnl: true
+  halt_on_mismatch: true
+  pnl_mismatch_tolerance: 10.0
+startup:
+  checks:
+  - api_connection
+  - model_loaded
+  - risk_config_valid
+  - data_connection
+  - broker_account_valid
+  require_manual_confirmation: true
+  display_account_status: true
+session:
+  sessions:
+  - name: rth
+    start_time: 08:30
+    end_time: '15:00'
+    timezone: America/Chicago
+  no_entry_before_close_minutes: 60
+version: 1.0.0
+last_updated: '2025-12-27'

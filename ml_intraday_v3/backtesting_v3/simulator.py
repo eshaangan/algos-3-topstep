@@ -246,25 +246,29 @@ def run_backtest(
                 elif breach_reason == "risk_drawdown":
                     liquidation_reason = "trailing_dd_breach"
 
+                # If labels encode PnL directly in events (ret_net), prefer that.
+                #
+                # IMPORTANT:
+                # In our triple-barrier implementation, `events.ret_net` is already:
+                # - side-adjusted (signed by event side)
+                # - net of costs if labeling.triple_barrier.account_for_costs = true
+                #
+                # Therefore we MUST NOT multiply by `side` again or subtract costs again.
+                # We still compute `costs_usd` for reporting, but we don't subtract it.
                 costs_usd = cost_points * contract_multiplier * contracts
                 if cost_mode == "net_in_events" and exit_reason == "event_exit":
                     if "ret_net" not in row or pd.isna(row["ret_net"]):
                         raise ValueError(
                             "label_schema.cost_mode=net_in_events but ret_net missing"
                         )
-                    # ret_net from events is computed for LONG position
-                    # For SHORT, flip the sign: side=-1 gives negative of long return
-                    gross_points = side * (float(row["ret_net"]) + cost_points)
-                    pnl_points = gross_points
+                    pnl_points = float(row["ret_net"])
+                    pnl_usd = pnl_points * contract_multiplier * contracts
                     trade_cost_mode = "event_ret_net"
                 else:
                     gross_points = side * (exit_px - entry_px)
                     pnl_points = gross_points
+                    pnl_usd = pnl_points * contract_multiplier * contracts - costs_usd
                     trade_cost_mode = "price_minus_costs"
-
-                pnl_usd = (
-                    pnl_points * contract_multiplier * contracts - costs_usd
-                )
 
                 if liquidation_reason:
                     exit_source = "mtm_risk"

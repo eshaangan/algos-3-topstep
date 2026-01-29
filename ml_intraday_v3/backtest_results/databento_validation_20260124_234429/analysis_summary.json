@@ -1,0 +1,41 @@
+{
+  "baseline": {
+    "total_trades": 129,
+    "win_rate": 3.10077519379845,
+    "profit_factor": 0.028221538461538468,
+    "stop_hit_rate": 96.89922480620154,
+    "target_hit_rate": 3.10077519379845,
+    "median_duration_min": 40.0,
+    "total_pnl": -2368.71,
+    "avg_win": 17.197499999999998,
+    "avg_loss": -19.499999999999993,
+    "long_pct": 100.0,
+    "short_pct": 0.0
+  },
+  "high_confidence": {
+    "total_trades": 129,
+    "win_rate": 3.10077519379845,
+    "profit_factor": 0.028221538461538468,
+    "stop_hit_rate": 96.89922480620154,
+    "target_hit_rate": 3.10077519379845,
+    "median_duration_min": 40.0,
+    "total_pnl": -2368.71,
+    "avg_win": 17.197499999999998,
+    "avg_loss": -19.499999999999993,
+    "long_pct": 100.0,
+    "short_pct": 0.0
+  },
+  "aggressive": {
+    "total_trades": 129,
+    "win_rate": 3.10077519379845,
+    "profit_factor": 0.028221538461538468,
+    "stop_hit_rate": 96.89922480620154,
+    "target_hit_rate": 3.10077519379845,
+    "median_duration_min": 40.0,
+    "total_pnl": -2368.71,
+    "avg_win": 17.197499999999998,
+    "avg_loss": -19.499999999999993,
+    "long_pct": 100.0,
+    "short_pct": 0.0
+  }
+}

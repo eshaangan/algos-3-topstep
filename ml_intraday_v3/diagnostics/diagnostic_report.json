@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-01-24T20:28:23.072409",
+  "task1_directional_bias": {
+    "direction_counts": {
+      "LONG": 3742
+    },
+    "direction_pct": {
+      "LONG": 100.0
+    },
+    "score_stats": {
+      "min": 0.0,
+      "q25": 0.5489051284618213,
+      "median": 0.653543655406677,
+      "q75": 0.7334264556522848,
+      "max": 0.919067908809001,
+      "mean": 0.6302788709403626,
+      "std": 0.13939967334089387
+    },
+    "daily_distribution": {
+      "LONG": {
+        

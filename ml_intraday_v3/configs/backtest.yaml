@@ -7,8 +7,8 @@ decision:
   # Primary decision score (from preds.parquet). For multiclass models, we use:
   # score_ev = p_target - p_stop (expected-value style directional edge).
   primary_score_column: "score_ev"
-  # LOWERED FOR COMBINE: Aggressive threshold for high trade frequency
-  primary_threshold: 0.03
+  # Raise threshold to reduce low-edge trades (lower churn, better expectancy).
+  primary_threshold: 0.15
   meta_threshold: 0.30
   require_meta_for_trade: false
 
@@ -46,7 +46,8 @@ decision:
 
 sizing:
   contracts: 1
-  max_concurrent_positions: 15  # Max 15 concurrent MES positions (for consistency)
+  # Cap concurrency to prevent pyramiding/stacking dominating P&L.
+  max_concurrent_positions: 1
 
 costs:
   use_execution_spec: true

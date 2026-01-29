@@ -48,7 +48,7 @@ def build_features(
     if not isinstance(bars_df.index, pd.DatetimeIndex):
         raise ValueError("bars_df must have DatetimeIndex")
 
-    logger.info(f"Building features for {len(bars_df)} bars (bar_size={bar_size})")
+    logger.debug(f"Building features for {len(bars_df)} bars (bar_size={bar_size})")
 
     # Get epsilon from config
     eps = config.get("computation", {}).get("eps", 1e-8)
@@ -62,7 +62,7 @@ def build_features(
     full_registry = get_feature_registry(config)
     registry = filter_registry_for_bar_size(full_registry, bar_size)
 
-    logger.info(f"Computing {len(registry)} features for bar_size={bar_size}")
+    logger.debug(f"Computing {len(registry)} features for bar_size={bar_size}")
 
     # Sort bars by timestamp to ensure causal computation
     df = bars_df.sort_index()
@@ -195,7 +195,50 @@ def build_features(
         features["bb_position"] = (df["close"] - bb_lower) / (bb_upper - bb_lower + eps)
 
     # -------------------------------------------------------------------------
-    # 4. VOLUME & MICROSTRUCTURE (Order flow proxies)
+    # 4. MOMENTUM (MACD, RSI, Stochastic)
+    # -------------------------------------------------------------------------
+    if config.get("momentum", {}).get("enabled", True):
+        logger.debug("Computing momentum features")
+        
+        # RSI
+        rsi_period = config.get("momentum", {}).get("rsi_period", 14)
+        delta = df["close"].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=rsi_period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=rsi_period).mean()
+        rs = gain / (loss + eps)
+        features[f"rsi_{rsi_period}"] = 100 - (100 / (1 + rs))
+        
+        # MACD
+        macd_config = config.get("momentum", {}).get("macd", {})
+        if macd_config.get("enabled", True):
+            fast = macd_config.get("fast_period", 12)
+            slow = macd_config.get("slow_period", 26)
+            signal = macd_config.get("signal_period", 9)
+            
+            ema_fast_macd = df["close"].ewm(span=fast, adjust=False).mean()
+            ema_slow_macd = df["close"].ewm(span=slow, adjust=False).mean()
+            
+            features["macd"] = ema_fast_macd - ema_slow_macd
+            features["macd_signal"] = features["macd"].ewm(span=signal, adjust=False).mean()
+            features["macd_hist"] = features["macd"] - features["macd_signal"]
+            
+        # Stochastic Oscillator
+        stoch_config = config.get("momentum", {}).get("stochastic", {})
+        if stoch_config.get("enabled", True):
+            k_period = stoch_config.get("k_period", 14)
+            d_period = stoch_config.get("d_period", 3)
+            
+            low_min = df["low"].rolling(window=k_period).min()
+            high_max = df["high"].rolling(window=k_period).max()
+            
+            # %K = (Current Close - Lowest Low) / (Highest High - Lowest Low) * 100
+            features[f"stoch_k_{k_period}"] = 100 * ((df["close"] - low_min) / (high_max - low_min + eps))
+            
+            # %D = SMA of %K
+            features[f"stoch_d_{d_period}"] = features[f"stoch_k_{k_period}"].rolling(window=d_period).mean()
+
+    # -------------------------------------------------------------------------
+    # 5. VOLUME & MICROSTRUCTURE (Order flow proxies)
     # -------------------------------------------------------------------------
     if config.get("microstructure", {}).get("enabled", True) and "volume" in df.columns:
         logger.debug("Computing microstructure features")
@@ -324,19 +367,19 @@ def build_features(
         f"Expected: {ordered_columns}, Got: {list(features_df.columns)}"
     )
 
-    logger.info(f"Built {len(features_df.columns)} features")
-    logger.info(f"Feature columns: {list(features_df.columns)}")
+    logger.debug(f"Built {len(features_df.columns)} features")
+    logger.debug(f"Feature columns: {list(features_df.columns)}")
 
     # Log NaN statistics
     nan_counts = features_df.isna().sum()
     if nan_counts.any():
-        logger.info(f"NaN counts per feature:\n{nan_counts[nan_counts > 0]}")
+        logger.debug(f"NaN counts per feature:\n{nan_counts[nan_counts > 0]}")
 
     if "usable_for_training" in features_df.columns:
         n_usable = features_df["usable_for_training"].sum()
         n_total = len(features_df)
         pct_usable = 100 * n_usable / n_total if n_total > 0 else 0
-        logger.info(
+        logger.debug(
             f"Usable for training: {n_usable}/{n_total} ({pct_usable:.2f}%)"
         )
 

@@ -6,23 +6,33 @@ primary_labeling:
   # Event generation policy:
   # - "every_bar": event at every bar (baseline; very noisy)
   # - "cusum": Lopez de Prado CUSUM filter (fewer/noisier events reduced)
-  # - "trend_scanning": Uses forward returns to set `side` and filter events.
-  #   BIDIRECTIONAL MODEL: We use trend_scanning to add 'side' feature, which the model
-  #   uses as INPUT to predict both LONG and SHORT outcomes. At test time, the predictor
-  #   evaluates both sides and picks the best one. NO LOOKAHEAD BIAS because we don't
-  #   use the labeled 'side' directly - we evaluate BOTH directions.
-  event_policy: "trend_scanning"
+  # - "trend_scanning": Uses forward returns to set `side` and filter events (LOOKAHEAD).
+  #
+  # IMPORTANT:
+  # For unbiased backtests and stable OOS behavior, we prefer `cusum` with explicit
+  # `sides: [1, -1]`. This creates separate LONG and SHORT events without using any
+  # future information to decide direction.
+  event_policy: "cusum"
+
+  # CUSUM event generation (only used if event_policy == "cusum")
+  cusum:
+    # Symmetric CUSUM threshold in ATR multiples:
+    # - lower => more events (more trades, more noise)
+    # - higher => fewer events (higher selectivity)
+    threshold_atr_mult: 1.0
+    # Generate both sides (bidirectional) without lookahead.
+    sides: [1, -1]
 
   # Trend-scanning event filtering (only used if event_policy == "trend_scanning")
   trend_scanning:
     # Only keep events whose best-horizon trend t-stat >= threshold.
     # Raise to reduce events (higher confidence), lower to increase events.
-    # LOWERED FOR COMBINE: 1.5 instead of 2.0 to get more trade opportunities
-    tstat_threshold: 1.5
+    # Raised back to 2.0 to reduce noisy/low-edge events (lower overfit risk).
+    tstat_threshold: 2.0
 
     # Optional CUSUM prefilter to reduce scanning work and avoid flat regimes.
     use_cusum_prefilter: true
-    cusum_threshold_atr_mult: 0.8  # LOWERED from 1.0 for more signals
+    cusum_threshold_atr_mult: 1.0  # Less noisy event set
 
   # Primary filter (only used if event_policy == "filtered")
   # Not implemented in baseline; reserved for future use
@@ -44,16 +54,13 @@ primary_labeling:
       atr_period: 14
 
     # Profit target multiples
-    # PHASE 2: MAE/MFE analysis showed baseline barriers were too tight.
-    # PHASE 5 FIX: Use optimized barrier only (remove grid search).
+    # IMPORTANT: Keep PT > SL to avoid structurally negative R:R.
     pt_multipliers:
-      - 2.9    # MAE/MFE optimized (captures MFE p75)
+      - 2.5
 
     # Stop loss multiples
-    # PHASE 2: Current barriers caused premature stops before recovery.
-    # PHASE 5 FIX: Use optimized barrier only (remove grid search).
     sl_multipliers:
-      - 3.4    # MAE/MFE optimized (MAE p75 + 15% buffer)
+      - 1.5
 
     # Vertical barrier horizons in bars (grid search over these)
     # Must match execution_spec.max_holding_bars

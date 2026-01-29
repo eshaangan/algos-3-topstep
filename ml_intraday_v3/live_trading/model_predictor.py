@@ -394,9 +394,12 @@ class LiveModelPredictor:
         self,
         prediction: Dict[str, float],
         primary_threshold: Optional[float] = None,
+        primary_threshold_long: Optional[float] = None,
+        primary_threshold_short: Optional[float] = None,
         meta_threshold: Optional[float] = None,
         require_meta_approval: bool = False,
         check_negative_edge: bool = True,
+        allowed_directions: Optional[list[str]] = None,
     ) -> Tuple[bool, str]:
         """
         Determine if a trade should be executed based on prediction.
@@ -404,15 +407,33 @@ class LiveModelPredictor:
         Args:
             prediction: Prediction dictionary from predict()
             primary_threshold: Primary model threshold (overrides default)
+            primary_threshold_long: Optional LONG-only override threshold
+            primary_threshold_short: Optional SHORT-only override threshold
             meta_threshold: Meta model threshold
             require_meta_approval: Whether meta approval is required
             check_negative_edge: If True, reject trades where p_stop >= p_target
+            allowed_directions: Optional allow-list (e.g., ["SHORT"] or ["LONG"]).
 
         Returns:
             (should_trade, reason) tuple
         """
+        # Optional direction allow-list (useful for quickly disabling a losing side).
+        if allowed_directions:
+            allowed = {str(d).strip().upper() for d in allowed_directions if str(d).strip()}
+            # Infer direction from prediction['side'] when available.
+            side = prediction.get("side", 0.0)
+            try:
+                side_i = int(side)
+            except Exception:
+                side_i = 0
+
+            if side_i > 0 and "LONG" not in allowed:
+                return False, "direction_blocked (LONG)"
+            if side_i < 0 and "SHORT" not in allowed:
+                return False, "direction_blocked (SHORT)"
+
         # Use thresholds from arguments or defaults
-        primary_thresh = primary_threshold or self.primary_threshold
+        base_primary_thresh = primary_threshold or self.primary_threshold
         meta_thresh = meta_threshold or 0.5
 
         # Check for negative edge (sanity filter)
@@ -423,8 +444,21 @@ class LiveModelPredictor:
             if p_stop >= p_target:
                 return False, f"negative_edge (p_stop={p_stop:.3f} >= p_target={p_target:.3f})"
 
+        # Determine which directional threshold to apply (if configured)
+        score = prediction.get("score_ev", prediction.get("y_prob", 0.0))
+        side = prediction.get("side", 0.0)
+        try:
+            side_i = int(side)
+        except Exception:
+            side_i = 0
+
+        primary_thresh = base_primary_thresh
+        if side_i > 0 and primary_threshold_long is not None:
+            primary_thresh = float(primary_threshold_long)
+        elif side_i < 0 and primary_threshold_short is not None:
+            primary_thresh = float(primary_threshold_short)
+
         # Check primary threshold
-        score = prediction.get('score_ev', prediction.get('y_prob', 0.0))
         if score < primary_thresh:
             return False, f"primary_threshold (score={score:.3f} < {primary_thresh:.3f})"
 

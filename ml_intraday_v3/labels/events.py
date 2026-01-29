@@ -358,3 +358,113 @@ def generate_events(
     events_df.insert(0, "event_id", np.arange(len(events_df), dtype=int))
 
     return events_df
+
+
+def balance_events(
+    events: pd.DataFrame,
+    target_long_ratio: float = 0.5,
+    method: str = 'undersample',
+    random_state: int = 42,
+) -> pd.DataFrame:
+    """
+    Balance LONG/SHORT event distribution.
+    
+    Args:
+        events: Events DataFrame with 'side' column
+        target_long_ratio: Target ratio of LONG events (0.5 = 50/50 split)
+        method: Balancing method ('undersample' or 'oversample')
+        random_state: Random seed for reproducibility
+    
+    Returns:
+        Balanced events DataFrame with approximately target_long_ratio LONG events
+    
+    Example:
+        >>> events = generate_events(bars, "5m", config, spec)
+        >>> balanced = balance_events(events, target_long_ratio=0.5)
+        >>> # Result: 50% LONG, 50% SHORT
+    """
+    if 'side' not in events.columns:
+        raise ValueError("Events DataFrame must have 'side' column")
+    
+    long_events = events[events['side'] == 1].copy()
+    short_events = events[events['side'] == -1].copy()
+    
+    long_count = len(long_events)
+    short_count = len(short_events)
+    total_count = long_count + short_count
+    
+    if total_count == 0:
+        logger.warning("No events to balance (empty DataFrame)")
+        return events
+    
+    current_long_ratio = long_count / total_count
+    
+    logger.info(f"Original event distribution: {long_count:,} LONG ({current_long_ratio*100:.1f}%), {short_count:,} SHORT ({(1-current_long_ratio)*100:.1f}%)")
+    
+    # Check if already balanced (within 5%)
+    if abs(current_long_ratio - target_long_ratio) < 0.05:
+        logger.info("Events already balanced within 5% of target - no resampling needed")
+        return events
+    
+    if method == 'undersample':
+        # Reduce majority class to achieve target ratio
+        if current_long_ratio > target_long_ratio:
+            # Too many LONG events, undersample LONG
+            target_long_count = int(short_count * target_long_ratio / (1 - target_long_ratio))
+            target_long_count = min(target_long_count, long_count)  # Can't sample more than we have
+            
+            long_sampled = long_events.sample(n=target_long_count, random_state=random_state)
+            balanced = pd.concat([long_sampled, short_events])
+        else:
+            # Too many SHORT events, undersample SHORT
+            target_short_count = int(long_count * (1 - target_long_ratio) / target_long_ratio)
+            target_short_count = min(target_short_count, short_count)
+            
+            short_sampled = short_events.sample(n=target_short_count, random_state=random_state)
+            balanced = pd.concat([long_events, short_sampled])
+    
+    elif method == 'oversample':
+        # Increase minority class to achieve target ratio
+        if current_long_ratio < target_long_ratio:
+            # Too few LONG events, oversample LONG
+            target_long_count = int(short_count * target_long_ratio / (1 - target_long_ratio))
+            
+            if target_long_count > long_count:
+                # Need to oversample (sample with replacement)
+                long_sampled = long_events.sample(n=target_long_count, replace=True, random_state=random_state)
+                balanced = pd.concat([long_sampled, short_events])
+            else:
+                # Just use undersample approach
+                long_sampled = long_events.sample(n=target_long_count, random_state=random_state)
+                balanced = pd.concat([long_sampled, short_events])
+        else:
+            # Too few SHORT events, oversample SHORT
+            target_short_count = int(long_count * (1 - target_long_ratio) / target_long_ratio)
+            
+            if target_short_count > short_count:
+                short_sampled = short_events.sample(n=target_short_count, replace=True, random_state=random_state)
+                balanced = pd.concat([long_events, short_sampled])
+            else:
+                short_sampled = short_events.sample(n=target_short_count, random_state=random_state)
+                balanced = pd.concat([long_events, short_sampled])
+    
+    else:
+        raise ValueError(f"Unsupported balancing method: {method}. Use 'undersample' or 'oversample'")
+    
+    # Sort by original index to maintain temporal order
+    balanced = balanced.sort_index()
+    
+    # Reassign event_ids sequentially
+    if 'event_id' in balanced.columns:
+        balanced['event_id'] = np.arange(len(balanced), dtype=int)
+    
+    # Log final distribution
+    new_long_count = (balanced['side'] == 1).sum()
+    new_short_count = (balanced['side'] == -1).sum()
+    new_total = len(balanced)
+    new_long_ratio = new_long_count / new_total if new_total > 0 else 0
+    
+    logger.info(f"Balanced event distribution: {new_long_count:,} LONG ({new_long_ratio*100:.1f}%), {new_short_count:,} SHORT ({(1-new_long_ratio)*100:.1f}%)")
+    logger.info(f"Total events: {total_count:,} → {new_total:,} ({method})")
+    
+    return balanced

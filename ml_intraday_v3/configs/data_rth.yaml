@@ -1,0 +1,156 @@
+# Data configuration - ingestion, continuization, and reindexing (RTH-aligned)
+# Version: 1.0
+#
+# Purpose:
+# - Build bars on an RTH session grid so training/backtests match live trading
+#   when `live_trading.yaml:data.enable_rth_filter: true`.
+#
+# This file is intentionally a near-copy of `configs/data.yaml` with only the
+# session-grid settings changed.
+
+# Raw data sources
+raw_data:
+  # Path to raw data files (relative to project root)
+  # Expected format: HDF5, Parquet, or CSV with OHLCV columns
+  input_path: "data/raw/GLBX-20251220-LWFB9HCEL5/glbx-mdp3-20100606-20251219.ohlcv-1m.csv"
+
+  # Expected columns in raw data
+  required_columns:
+    - "open"
+    - "high"
+    - "low"
+    - "close"
+    - "volume"
+
+# Data filtering and cleaning
+filtering:
+  # Enable filtering
+  enabled: true
+
+  # Date filtering - 2022+ only for cleaner market regime
+  date_filter:
+    enabled: true
+    min_date: "2022-01-01"
+    max_date: null
+
+  # Symbol filtering (for raw CSV data with symbol column)
+  symbol_filter:
+    enabled: true
+    mode: "exclude_patterns"
+    exclude_patterns:
+      - ".*-.*"  # Exclude spread contracts (symbols containing "-")
+
+  # Price validation (ES/MES futures typically 100-10000)
+  price_validation:
+    enabled: true
+    min_price: 100.0
+    max_price: 10000.0
+    violation_action: "drop_bar"
+
+  # Logging
+  log_filtered_stats: true
+
+# Ingestion configuration
+ingestion:
+  format: "csv"
+  hdf_key: "/bars_5min"
+  timestamp_col: "ts_event"
+
+# Canonical bar size for raw data (source resolution)
+canonical_bar_size: "1m"
+
+# Bar sizes to write
+bar_sizes_to_write:
+  - "1m"
+  - "5m"
+
+# Contract continuization
+continuization:
+  mode: "already_continuous"
+  roll_schedule_path: null
+  roll_day_policy: "exclude"
+
+# Reindexing configuration
+reindexing:
+  bar_sizes:
+    - "5m"
+
+  resample_policy: "build_1m_resample_5m"
+
+  # IMPORTANT DIFFERENCE (vs data.yaml):
+  # Use RTH grid to match live trading distribution.
+  grid_mode: "session"
+  session_grid: "rth"
+  exclude_weekends: true
+  day_selection_mode: "data_present"
+  min_rows_per_day: 1
+
+  drop_sparse_days: true
+  # Keep conservative-but-not-fail-fast coverage threshold.
+  min_day_coverage_pct: 0.10
+  coverage_session: "rth"
+
+  missing_bars:
+    missing_fill_mode: "nan"
+    forward_fill_max_consecutive: 0
+    add_synthetic_flag: true
+
+  output_timezone: "UTC"
+
+  session_labeling:
+    timezone: "America/Chicago"
+    sessions:
+      - name: "rth"
+        start_time: "08:30"
+        end_time: "15:00"
+      - name: "eth"
+        start_time: "17:00"
+        end_time: "16:00"
+      - name: "all_hours"
+        start_time: "17:00"
+        end_time: "16:00"
+
+# Quality assurance
+qa:
+  qa_report_path: "runs/{run_id}/bar_size={bar_size}/qa_report.json"
+  qa_fail_fast: false
+  checks:
+    - "monotonic_index"
+    - "no_duplicates"
+    - "no_duplicates_after_merge"
+    - "missing_bar_pct"
+    - "ohlc_validity"
+    - "volume_sanity"
+  thresholds:
+    max_missing_bar_pct_per_day: 95.0
+    max_ohlc_violations: 0
+    max_duplicate_timestamps: 0
+
+output:
+  bars_path: "runs/{run_id}/bar_size={bar_size}/bars.parquet"
+  metadata_path: "runs/{run_id}/bar_size={bar_size}/data_metadata.json"
+
+# Feature scaling and regime-aware normalization
+feature_scaling:
+  method: "regime_aware"
+  regime_detection:
+    enabled: true
+    volatility:
+      window: 20
+      n_regimes: 3
+      method: "quantile"
+    trend:
+      window: 50
+      n_regimes: 3
+      method: "slope"
+    use_combined: true
+    min_samples_per_regime: 10
+    fallback_to_global: true
+  calibration:
+    enabled: true
+    method: "isotonic"
+    n_bins: 10
+    compute_metrics: true
+
+data_spec_version: "1.0.0"
+

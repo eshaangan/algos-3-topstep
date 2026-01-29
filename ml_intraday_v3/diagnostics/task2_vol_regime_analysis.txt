@@ -1,0 +1,93 @@
+================================================================================
+TASK #2: VOL_REGIME FEATURE NaN ISSUE - ROOT CAUSE ANALYSIS
+================================================================================
+
+PROBLEM:
+--------
+vol_regime feature is 100% NaN in Jan 2026 backtest (69 usable bars)
+
+ROOT CAUSE FOUND:
+-----------------
+File: ml_intraday_v3/features/build.py (lines 132-138)
+
+Step 1: Compute vol_20 (rolling 20-bar std dev)
+  features["vol_20"] = returns_1.rolling(20).std()
+  → Requires: 20 bars warmup
+  → First valid value at bar 20
+
+Step 2: Compute vol_regime (ratio to rolling median)
+  vol_regime_lookback = config.get("volatility", {}).get("vol_regime_lookback", 50)
+  features["vol_regime"] = features["vol_20"] / (
+      features["vol_20"].rolling(vol_regime_lookback).median() + eps
+  )
+  → Requires: 50 MORE bars after vol_20 is valid
+  → First valid value at bar 20 + 50 = 70
+
+TOTAL WARMUP REQUIRED: 70 bars
+
+ACTUAL DATA AVAILABLE:
+----------------------
+Jan 2026 backtest: Only 69 usable bars
+Result: vol_regime is 100% NaN (needs 70, only has 69)
+
+IMPACT:
+-------
+- Model trained with vol_regime feature
+- At inference time, vol_regime is always NaN
+- Model may not perform as expected without this feature
+- Unknown impact on predictions (could be causing 100% LONG bias)
+
+SOLUTIONS:
+==========
+
+Solution 1: Reduce vol_regime_lookback (RECOMMENDED)
+-----------------------------------------------------
+Change vol_regime_lookback from 50 to 20 or 30:
+  - With lookback=20: Total warmup = 20 + 20 = 40 bars
+  - With lookback=30: Total warmup = 20 + 30 = 50 bars
+  - Either works with 69 bars available
+
+File to edit: ml_intraday_v3/configs/features.yaml
+Change:
+  volatility:
+    vol_regime_lookback: 50  # ← Change to 20 or 30
+
+Solution 2: Increase warmup data
+---------------------------------
+Fetch more historical data before Jan 2026:
+  - Current: Start at Jan 4, 2026
+  - New: Start at Dec 1, 2025 (1 month earlier)
+  - Provides ~6,000 5-min bars (plenty for warmup)
+
+Solution 3: Use alternative vol regime calculation
+---------------------------------------------------
+Replace rolling median with simpler metric:
+  - Use quantile-based classification (low/med/high)
+  - Or use rolling mean instead of median
+  - Example:
+      vol_regime = (vol_20 > vol_20.rolling(20).quantile(0.67)).astype(int)
+
+RECOMMENDATION:
+===============
+Use Solution 1 (reduce lookback to 30):
+  ✓ Quick fix (config change only)
+  ✓ Still captures regime shifts (30 bars = 150 min = 2.5 hours)
+  ✓ Works with current data
+  ✓ No code changes needed
+
+VALIDATION STEPS:
+=================
+1. Change vol_regime_lookback to 30 in features.yaml
+2. Regenerate features for Jan 2026
+3. Check NaN count: should be 50 instead of 69
+4. Re-run backtest and compare results
+5. If vol_regime still shows as important feature, this fix may improve predictions
+
+POTENTIAL IMPACT ON MODEL DEGRADATION:
+=======================================
+- Missing vol_regime could explain poor performance
+- Model relies on this feature but gets NaN at inference
+- May contribute to directional bias if vol_regime helps identify SHORT setups
+- Should test both with and without fix to measure impact
+
+================================================================================

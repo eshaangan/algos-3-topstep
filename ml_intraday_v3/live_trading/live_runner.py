@@ -841,7 +841,18 @@ class LiveTradingRunner:
         self.signals_generated += 1
 
         # Risk manager gating before trade decision
-        primary_threshold = self.live_cfg['signals']['primary_threshold']
+        base_primary_threshold = self.live_cfg['signals']['primary_threshold']
+        base_primary_threshold_long = self.live_cfg['signals'].get(
+            'primary_threshold_long',
+            base_primary_threshold,
+        )
+        base_primary_threshold_short = self.live_cfg['signals'].get(
+            'primary_threshold_short',
+            base_primary_threshold,
+        )
+        primary_threshold = base_primary_threshold
+        primary_threshold_long = base_primary_threshold_long
+        primary_threshold_short = base_primary_threshold_short
 
         # Regime-aware threshold adjustment (low volatility = higher bar)
         regime_cfg = self.live_cfg['signals'].get('regime_adjustment', {})
@@ -862,6 +873,8 @@ class LiveTradingRunner:
                     if atr_current < 0.7 * atr_median:
                         boost = regime_cfg.get('low_vol_threshold_boost', 0.05)
                         primary_threshold += boost
+                        primary_threshold_long += boost
+                        primary_threshold_short += boost
                         logger.info(
                             f"Low volatility adjustment: ATR={atr_current:.2f} < 70% median, "
                             f"boosting threshold by +{boost:.3f} -> {primary_threshold:.3f}"
@@ -883,6 +896,8 @@ class LiveTradingRunner:
             threshold_adjustment = self.live_risk_manager.get_threshold_adjustment()
             if threshold_adjustment > 0:
                 primary_threshold += threshold_adjustment
+                primary_threshold_long += threshold_adjustment
+                primary_threshold_short += threshold_adjustment
                 logger.info(
                     "Risk manager threshold adjustment: +%.3f -> %.3f",
                     threshold_adjustment,
@@ -893,8 +908,11 @@ class LiveTradingRunner:
         should_trade, reason = self.predictor.should_trade(
             prediction=prediction,
             primary_threshold=primary_threshold,
+            primary_threshold_long=primary_threshold_long,
+            primary_threshold_short=primary_threshold_short,
             meta_threshold=self.live_cfg['signals'].get('meta_threshold'),
             require_meta_approval=self.live_cfg['signals'].get('require_meta_approval', False),
+            allowed_directions=self.live_cfg.get('signals', {}).get('allowed_directions'),
         )
 
         if not should_trade:

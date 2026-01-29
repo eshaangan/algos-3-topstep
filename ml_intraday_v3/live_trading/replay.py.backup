@@ -1,0 +1,402 @@
+"""
+Offline live-runner replay utilities.
+
+Goal: replay historical bars through the *same* live trading stack
+(features -> model -> execution engine -> metrics) without touching broker APIs.
+
+This is intentionally "live-like" rather than a full backtest engine:
+- It uses `LiveFeatureGenerator` for feature parity with training
+- It uses `LiveModelPredictor` for inference from the saved bundle
+- It uses `LiveExecutionEngine` for stop/target sizing and position lifecycle
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import pandas as pd
+import yaml
+
+from core.projectx_client import AccountState
+from ml_intraday_v3.backtesting_v3.risk import _session_day
+from ml_intraday_v3.live_trading.execution_engine import LiveExecutionEngine
+from ml_intraday_v3.live_trading.feature_generator import LiveFeatureGenerator
+from ml_intraday_v3.live_trading.model_predictor import LiveModelPredictor
+from ml_intraday_v3.monitoring.metrics_tracker import MetricsTracker
+
+logger = logging.getLogger(__name__)
+
+
+def _load_yaml(path: Path) -> dict:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def _to_utc(ts_like: Optional[str | pd.Timestamp]) -> Optional[pd.Timestamp]:
+    if ts_like is None:
+        return None
+    ts = pd.Timestamp(ts_like)
+    if ts.tzinfo is None:
+        return ts.tz_localize("UTC")
+    return ts.tz_convert("UTC")
+
+
+def _find_latest_model_bundle_in_run(run_dir: Path, bar_size: str) -> Path:
+    wf_dir = Path(run_dir) / "walkforward" / f"bar_size={bar_size}"
+    windows = sorted(
+        wf_dir.glob("window_*"),
+        key=lambda p: int(p.name.split("_")[1]) if p.name.split("_")[1].isdigit() else -1,
+    )
+    if not windows:
+        raise FileNotFoundError(f"No walkforward windows found under {wf_dir}")
+    bundle_path = windows[-1] / "model_bundle.pkl"
+    if not bundle_path.exists():
+        raise FileNotFoundError(f"Model bundle not found: {bundle_path}")
+    return bundle_path
+
+
+@dataclass
+class ReplayArtifacts:
+    """Outputs of an offline replay run."""
+
+    metrics: pd.DataFrame
+    trade_log: pd.DataFrame
+    closed_positions: pd.DataFrame
+
+
+class HistoricalReplayDataFetcher:
+    """
+    Minimal in-memory buffer to mimic the live runner's buffer API.
+    """
+
+    def __init__(self, lookback_bars: int):
+        self.lookback_bars = int(lookback_bars)
+        self._buffer = pd.DataFrame()
+
+    def update_buffer(self, bar: pd.Series) -> None:
+        if bar is None or bar.empty:
+            return
+        # Bar is expected to have name as timestamp.
+        df = bar.to_frame().T
+        df.index = pd.DatetimeIndex([bar.name])
+        self._buffer = pd.concat([self._buffer, df]).sort_index()
+        if len(self._buffer) > self.lookback_bars:
+            self._buffer = self._buffer.iloc[-self.lookback_bars :]
+
+    def get_buffer(self) -> pd.DataFrame:
+        return self._buffer.copy()
+
+    def get_latest_bar(self) -> Optional[pd.Series]:
+        if self._buffer.empty:
+            return None
+        return self._buffer.iloc[-1]
+
+
+class MockBroker:
+    """
+    Offline broker model used to populate dashboard metrics.
+
+    Computes:
+    - realized pnl from closed positions (already cost-adjusted by execution engine)
+    - open pnl mark-to-market from current close
+    - equity = starting_equity + realized + open
+    - daily pnl reset using risk.yaml reset rules (same as RiskManager)
+    """
+
+    def __init__(
+        self,
+        starting_equity: float,
+        reset_time: str = "17:00",
+        reset_timezone: str = "America/Chicago",
+        contract_multiplier_usd_per_point: float = 5.0,
+    ):
+        self.starting_equity = float(starting_equity)
+        self.reset_time = reset_time
+        self.reset_timezone = reset_timezone
+        self.multiplier = float(contract_multiplier_usd_per_point)
+
+        self.realized_pnl = 0.0
+        self.open_pnl = 0.0
+        self.equity = self.starting_equity
+
+        self._current_day = None
+        self._day_start_equity = self.starting_equity
+        self.daily_pnl = 0.0
+
+    def _maybe_reset_day(self, timestamp: pd.Timestamp) -> None:
+        day = _session_day(timestamp, self.reset_time, self.reset_timezone)
+        if self._current_day != day:
+            self._current_day = day
+            self._day_start_equity = self.equity
+            self.daily_pnl = 0.0
+
+    @staticmethod
+    def _direction_sign(direction: str) -> int:
+        return 1 if direction.upper() == "LONG" else -1
+
+    def on_bar(
+        self,
+        timestamp: pd.Timestamp,
+        open_positions: list[dict],
+        current_close: float,
+        closed_positions: list[dict],
+    ) -> AccountState:
+        # Reset daily window first
+        self._maybe_reset_day(timestamp)
+
+        # Realized updates from closed positions (pnl_usd already net of costs)
+        for pos in closed_positions:
+            self.realized_pnl += float(pos.get("pnl_usd", 0.0))
+
+        # Mark-to-market open positions
+        open_pnl = 0.0
+        for pos in open_positions:
+            entry = float(pos["entry_price"])
+            direction = pos["direction"]
+            contracts = int(pos.get("contracts", 1))
+            points = (float(current_close) - entry) * self._direction_sign(direction)
+            open_pnl += points * self.multiplier * contracts
+
+        self.open_pnl = open_pnl
+        self.equity = self.starting_equity + self.realized_pnl + self.open_pnl
+        self.daily_pnl = self.equity - self._day_start_equity
+
+        return AccountState(
+            account_id="MOCK",
+            equity=float(self.equity),
+            balance=float(self.starting_equity + self.realized_pnl),
+            open_pnl=float(self.open_pnl),
+            realized_pnl=float(self.realized_pnl),
+            daily_pnl=float(self.daily_pnl),
+            open_positions=len(open_positions),
+        )
+
+
+def replay_session(
+    *,
+    run_dir: Path = Path("runs/v3_2022_5m"),
+    config_dir: Path = Path("ml_intraday_v3/configs"),
+    bar_size: str = "5m",
+    model_bundle_path: Optional[Path] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    max_bars: Optional[int] = None,
+    output_dir: Optional[Path] = None,
+) -> ReplayArtifacts:
+    """
+    Replay historical bars through the live trading stack (offline).
+
+    Args:
+        run_dir: Run directory containing bars + label_schema + walkforward bundles
+        config_dir: Config directory for risk/execution/live configs
+        bar_size: Bar size string (e.g., "5m")
+        model_bundle_path: Optional explicit model bundle path; if None, choose last walkforward window
+        start/end: Optional ISO timestamps for slicing the bars (inclusive start, exclusive end)
+        max_bars: Optional cap on number of bars processed (after slicing)
+        output_dir: Optional output dir for MetricsTracker artifacts (defaults to a temp-like in-memory path)
+
+    Returns:
+        ReplayArtifacts with metrics/trade logs.
+    """
+    run_dir = Path(run_dir)
+    config_dir = Path(config_dir)
+
+    live_cfg = _load_yaml(config_dir / "live_trading.yaml")
+    risk_cfg = _load_yaml(config_dir / "risk.yaml")
+    execution_spec = _load_yaml(config_dir / "execution_spec.yaml")
+
+    label_schema_path = run_dir / f"bar_size={bar_size}" / "label_schema.json"
+    with open(label_schema_path, "r") as f:
+        label_schema = json.load(f)
+
+    bars_path = run_dir / f"bar_size={bar_size}" / "bars.parquet"
+    bars = pd.read_parquet(bars_path)
+    bars = bars.sort_index()
+
+    start_utc = _to_utc(start)
+    end_utc = _to_utc(end)
+    if start_utc is not None:
+        bars = bars[bars.index >= start_utc]
+    if end_utc is not None:
+        bars = bars[bars.index < end_utc]
+    if max_bars is not None:
+        bars = bars.iloc[: int(max_bars)]
+
+    if bars.empty:
+        raise ValueError("No bars available after slicing; adjust start/end/max_bars.")
+
+    if model_bundle_path is None:
+        model_bundle_path = _find_latest_model_bundle_in_run(run_dir, bar_size)
+
+    predictor = LiveModelPredictor(Path(model_bundle_path))
+    feature_generator = LiveFeatureGenerator(
+        feature_columns=predictor.feature_columns,
+        bar_size=bar_size,
+        features_config_path=config_dir / "features.yaml",
+    )
+
+    execution_engine = LiveExecutionEngine(
+        risk_cfg=risk_cfg,
+        execution_spec=execution_spec,
+        label_schema=label_schema,
+        dry_run=True,  # offline-safe
+        contract_id="MOCK",
+        account_id="MOCK",
+        config=live_cfg,  # Pass live trading config for direction_change settings
+    )
+
+    # Metrics tracker (optionally persist)
+    output_dir = output_dir or Path("logs")
+    tracker = MetricsTracker(output_dir)
+
+    starting_equity = float(risk_cfg.get("topstep", {}).get("starting_balance", 0.0)) or 50000.0
+    tracker.set_starting_equity(starting_equity)
+
+    # Broker model for mark-to-market metrics
+    daily_cfg = risk_cfg.get("daily_loss_limit", {})
+    reset_time = daily_cfg.get("reset_time", "17:00")
+    reset_tz = daily_cfg.get("reset_timezone", "America/Chicago")
+    multiplier = float(execution_spec["instrument"]["contract_multiplier_usd_per_point"])
+    broker = MockBroker(
+        starting_equity=starting_equity,
+        reset_time=reset_time,
+        reset_timezone=reset_tz,
+        contract_multiplier_usd_per_point=multiplier,
+    )
+
+    fetcher = HistoricalReplayDataFetcher(lookback_bars=int(live_cfg["data"]["lookback_bars"]))
+
+    use_meta = bool(live_cfg.get("signals", {}).get("use_meta_model", False))
+    contracts = int(live_cfg.get("positions", {}).get("contracts_per_trade", 1))
+
+    # Initialize Kelly sizer if enabled (disabled for replay simplicity)
+    kelly_sizer = None
+    # if live_cfg.get('kelly_sizing', {}).get('enabled', False):
+    #     from live_trading.kelly_sizer import KellySizer
+    #     kelly_sizer = KellySizer(live_cfg['kelly_sizing'])
+    #     logger.info(f"Kelly sizing enabled for replay: fraction={kelly_sizer.config['kelly_fraction']}")
+
+    # Replay loop
+    for ts, row in bars.iterrows():
+        row = row.copy()
+        row.name = ts
+        fetcher.update_buffer(row)
+        buffer_df = fetcher.get_buffer()
+
+        # Update existing positions first (exit logic)
+        latest_bar = buffer_df.iloc[-1]
+        closed = execution_engine.update_positions(current_time=ts, current_bar=latest_bar)
+        for pos in closed:
+            tracker.record_trade(
+                entry_time=pos["entry_ts"],
+                exit_time=pos["exit_ts"],
+                direction=pos["direction"],
+                contracts=pos["contracts"],
+                entry_price=pos["entry_price"],
+                exit_price=pos["exit_price"],
+                pnl=pos["pnl_usd"],
+                exit_reason=pos["exit_reason"],
+            )
+
+        # Generate signal (live parity)
+        features = feature_generator.generate_features(buffer_df)
+
+        # Skip if features are empty (insufficient bars during warmup)
+        if features.empty:
+            acct = broker.on_bar(
+                timestamp=pd.Timestamp(ts),
+                open_positions=execution_engine.open_positions,
+                current_close=float(latest_bar["close"]),
+                closed_positions=closed,
+            )
+            tracker.update_equity(acct.equity, acct.daily_pnl)
+            tracker.update_positions(acct.open_positions)
+            continue
+
+        quality = feature_generator.check_feature_quality(features)
+        if live_cfg.get("health", {}).get("check_feature_quality", True) and not quality.get("healthy", True):
+            # Still update broker/metrics, but skip prediction/trade
+            acct = broker.on_bar(
+                timestamp=pd.Timestamp(ts),
+                open_positions=execution_engine.open_positions,
+                current_close=float(latest_bar["close"]),
+                closed_positions=closed,
+            )
+            tracker.update_equity(acct.equity, acct.daily_pnl)
+            tracker.update_positions(acct.open_positions)
+            continue
+
+        prediction = predictor.predict(features, use_meta=use_meta)
+        tracker.signals_generated += 1
+        score = prediction.get("score_ev", 0.0)
+
+        should_trade, reason = predictor.should_trade(
+            prediction=prediction,
+            primary_threshold=live_cfg["signals"]["primary_threshold"],
+            meta_threshold=live_cfg["signals"].get("meta_threshold"),
+            require_meta_approval=live_cfg["signals"].get("require_meta_approval", False),
+        )
+
+        if should_trade:
+            direction = "LONG" if score > 0 else "SHORT"
+            # Kelly sizing: adjust contracts if enabled
+            trade_contracts = contracts
+            if kelly_sizer is not None and len(tracker.trade_history) >= kelly_sizer.config.get('min_trades_for_kelly', 20):
+                kelly_contracts = kelly_sizer.get_position_size(tracker.trade_history)
+                trade_contracts = max(1, kelly_contracts)  # At least 1 contract
+
+            success, exec_reason = execution_engine.execute_signal(
+                timestamp=ts,
+                direction=direction,
+                prediction=prediction,
+                bars_df=buffer_df,
+                contracts=trade_contracts,
+            )
+            tracker.record_signal(
+                executed=bool(success),
+                score=score,
+                timestamp=ts,
+                direction=direction,
+                reason="executed" if success else exec_reason,
+            )
+        else:
+            # Signal rejected by threshold filter
+            tracker.record_signal(
+                executed=False,
+                score=score,
+                timestamp=ts,
+                direction=None,
+                reason=reason,
+            )
+
+        # Update broker-derived metrics every bar (like live poll)
+        acct = broker.on_bar(
+            timestamp=pd.Timestamp(ts),
+            open_positions=execution_engine.open_positions,
+            current_close=float(latest_bar["close"]),
+            closed_positions=closed,
+        )
+        tracker.update_equity(acct.equity, acct.daily_pnl)
+        tracker.update_positions(acct.open_positions)
+
+        # Store snapshot in-memory history
+        tracker.metrics_history.append(tracker.snapshot())
+
+    # Save metrics and logs
+    tracker.save_snapshot()
+    tracker.save_trades()
+    tracker.save_signal_log()
+    if kelly_sizer:
+        tracker.save_kelly_log()
+        logger.info(f"Kelly log saved to: {output_dir}")
+
+    metrics_df = pd.DataFrame(tracker.metrics_history)
+    trade_log_df = pd.DataFrame(execution_engine.trade_log)
+    closed_df = pd.DataFrame([t for t in trade_log_df.to_dict("records") if t.get("action") == "EXIT"])
+
+    return ReplayArtifacts(metrics=metrics_df, trade_log=trade_log_df, closed_positions=closed_df)
+

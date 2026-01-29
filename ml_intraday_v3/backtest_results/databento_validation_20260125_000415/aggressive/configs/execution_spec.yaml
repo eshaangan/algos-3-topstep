@@ -1,0 +1,97 @@
+# Execution specification - single source of truth for fills, costs, and constraints
+# Used by: labels, backtesting, and live trading
+# Version: 1.0
+
+# Instrument economics (single source of truth)
+instrument:
+  symbol: "MES"
+  tick_size_points: 0.25
+  contract_multiplier_usd_per_point: 5.0
+
+# Fill model parameters
+fill_model:
+  # Where orders get filled: "next_bar_open" or "next_bar_close"
+  fill_price: "next_bar_open"
+
+  # Intrabar touch ordering for stop/target detection
+  # Options: "stop_first", "target_first", "ohlc_path"
+  # "ohlc_path" uses OHLC sequence to determine first touch
+  touch_ordering: "ohlc_path"
+
+# Cost model - applied per contract per side
+costs:
+  # Slippage in ticks (per bar size)
+  slippage_ticks:
+    "1m": 1.0   # 1 tick = $1.25 for MES, $12.50 for ES
+    "5m": 1.5   # Wider spread assumption for 5m bars
+
+  # Commission per contract per side (in dollars)
+  commission_per_contract: 0.62  # Typical futures commission
+
+  # Round-trip cost summary (for reference, not used in calculation):
+  # 1m: 2 * (1.0 tick + commission) = 2 * (1.25 + 0.62) = $3.74 per contract RT (MES)
+  # 5m: 2 * (1.5 tick + commission) = 2 * (1.875 + 0.62) = $4.99 per contract RT (MES)
+
+# Position sizing and risk limits
+position_limits:
+  # Maximum contracts per position (increased to allow Kelly scaling)
+  max_contracts_per_position: 5  # Was: 1
+
+  # Maximum concurrent positions (15 = allow multiple positions)
+  max_concurrent_positions: 15  # FIXED: Match risk.yaml and live_trading.yaml
+
+  # Contract rounding (always round down for safety)
+  rounding: "floor"
+
+# Session constraints
+session_rules:
+  # Trading sessions (America/Chicago timezone)
+  # CHANGED FOR 24-HOUR TRADING: Trade all Globex hours
+  allowed_sessions:
+    - name: "all_hours"  # 24-hour Globex trading
+      start_time: "17:00"  # Sunday open
+      end_time: "16:00"    # Friday close
+      timezone: "America/Chicago"
+
+  # Entry restrictions
+  # No new entries within this many bars of weekly session end
+  no_entry_before_close_bars:
+    "1m": 60   # Don't enter in last 60 min before Friday close
+    "5m": 12   # Don't enter in last 60 min before Friday close
+
+  # Exit policy
+  # Force flatten all positions at weekly session close (Friday 4pm CT)
+  force_flatten_at_close: true
+
+# Holding period constraints
+holding_constraints:
+  # Maximum bars to hold (must match labeling vertical barrier)
+  max_holding_bars:
+    "1m": 24  # Max 24 min hold
+    "5m": 24  # Max 2 hours hold (5*24 = 120 min)
+
+  # Whether to force exit at max_holding_bars
+  force_exit_at_max: true
+
+# Decision thresholds for trading signals
+decision:
+  # Use meta-labeling model (set to false to bypass meta-model entirely)
+  use_meta: true
+
+  # Primary model probability threshold (0.0-1.0)
+  # Lower values = more trades, higher values = fewer but higher quality trades
+  # LOWERED FOR COMBINE: Aggressive threshold for high trade frequency
+  primary_threshold: 0.03
+
+  # Meta-model probability threshold (0.0-1.0)
+  # Only applies if use_meta is true
+  # Baseline: 0.5 (standard), Emergency triage: 0.30
+  meta_threshold: 0.30
+
+  # Require meta-model approval for trades (only if use_meta is true)
+  # If false, meta-model is used as a bonus filter but not required
+  require_meta_for_trade: true
+
+# Execution alignment contract version
+# Increment this if any execution assumptions change
+spec_version: "1.0.0"

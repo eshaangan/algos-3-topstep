@@ -1,0 +1,6 @@
+{
+  "stop_multiple": 1.5,
+  "target_multiple": 2.5,
+  "atr_period": 14,
+  "atr_bar_size": "5m"
+}

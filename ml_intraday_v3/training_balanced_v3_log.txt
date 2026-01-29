@@ -1,0 +1,155 @@
+2026-01-25 17:43:47,232 [INFO] ================================================================================
+2026-01-25 17:43:47,232 [INFO] BALANCED BIDIRECTIONAL MODEL TRAINING
+2026-01-25 17:43:47,232 [INFO] ================================================================================
+2026-01-25 17:43:47,232 [INFO] 
+📊 Loading data from: data/processed/mes_bars_databento_rth.h5
+2026-01-25 17:43:47,320 [INFO]    Full dataset: 131,336 bars (2019-05-06 to 2025-12-18)
+2026-01-25 17:43:47,321 [INFO] 
+📅 Train period: 2024-01-02 to 2025-11-28 (37,883 bars)
+2026-01-25 17:43:47,321 [INFO] 📅 Test period:  2025-12-01 to 2025-12-18 (1,092 bars)
+2026-01-25 17:43:47,321 [INFO] ✅ No 2026 data in training set
+2026-01-25 17:43:47,321 [INFO] 
+⚙️  Loading configurations...
+2026-01-25 17:43:47,331 [INFO] 
+🎯 Generating events (trend_scanning)...
+2026-01-25 17:43:47,472 [INFO]    Train events: 11,096
+2026-01-25 17:43:47,472 [INFO] 
+🏷️  Applying triple-barrier labeling...
+/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/labels/triple_barrier.py:161: UserWarning: no explicit representation of timezones available for np.datetime64
+  entry_times[valid_entry] = index[entry_idx[valid_entry]].to_numpy()
+2026-01-25 17:43:47,788 [INFO]    Labeled events: 11,096
+2026-01-25 17:43:47,789 [INFO]    Label distribution: {1.0: 5737, 0.0: 4928, -1.0: 431}
+2026-01-25 17:43:47,789 [INFO]    Side distribution (before balance): 55.0% LONG
+2026-01-25 17:43:47,789 [INFO] 
+⚖️  Balancing LONG/SHORT events...
+2026-01-25 17:43:47,790 [INFO] Original event distribution: 6,103 LONG (55.0%), 4,993 SHORT (45.0%)
+2026-01-25 17:43:47,793 [INFO] Balanced event distribution: 4,993 LONG (50.0%), 4,993 SHORT (50.0%)
+2026-01-25 17:43:47,793 [INFO] Total events: 11,096 → 9,986 (undersample)
+2026-01-25 17:43:47,793 [INFO] 
+🎯 Generating test events...
+/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/labels/triple_barrier.py:161: UserWarning: no explicit representation of timezones available for np.datetime64
+  entry_times[valid_entry] = index[entry_idx[valid_entry]].to_numpy()
+2026-01-25 17:43:47,813 [INFO]    Test events: 313, y distribution: {0.0: 164, 1.0: 136, -1.0: 13}
+2026-01-25 17:43:47,813 [INFO] 
+🔧 Building features...
+2026-01-25 17:43:47,813 [INFO] Building features for 37883 bars (bar_size=5m)
+2026-01-25 17:43:47,813 [INFO] Computing 35 features for bar_size=5m
+2026-01-25 17:43:50,924 [INFO] Built 35 features
+2026-01-25 17:43:50,924 [INFO] Feature columns: ['log_return_1', 'log_return_2', 'log_return_4', 'log_return_6', 'log_return_12', 'log_return_24', 'true_range', 'atr_14', 'vol_20', 'vol_regime', 'parkinson_vol', 'vol_forecast', 'ema_13', 'ema_21', 'ema_spread', 'ema_ratio', 'sma_20', 'sma_30', 'trend_strength', 'autocorr_5', 'bb_position', 'volume_imbalance', 'price_vs_vwap', 'relative_volume', 'large_move', 'candle_body', 'candle_range', 'body_pct', 'upper_wick', 'lower_wick', 'minute_of_day_sin', 'minute_of_day_cos', 'day_of_week', 'is_synthetic', 'usable_for_training']
+2026-01-25 17:43:50,925 [INFO] NaN counts per feature:
+log_return_1        1
+log_return_2        2
+log_return_4        4
+log_return_6        6
+log_return_12      12
+log_return_24      24
+vol_20             20
+vol_regime         49
+parkinson_vol      19
+vol_forecast        2
+sma_20             19
+sma_30             29
+trend_strength     29
+autocorr_5         19
+bb_position        19
+price_vs_vwap      49
+relative_volume    19
+dtype: int64
+2026-01-25 17:43:50,925 [INFO] Usable for training: 37834/37883 (99.87%)
+2026-01-25 17:43:50,926 [INFO] Building features for 1092 bars (bar_size=5m)
+2026-01-25 17:43:50,926 [INFO] Computing 35 features for bar_size=5m
+2026-01-25 17:43:51,017 [INFO] Built 35 features
+2026-01-25 17:43:51,017 [INFO] Feature columns: ['log_return_1', 'log_return_2', 'log_return_4', 'log_return_6', 'log_return_12', 'log_return_24', 'true_range', 'atr_14', 'vol_20', 'vol_regime', 'parkinson_vol', 'vol_forecast', 'ema_13', 'ema_21', 'ema_spread', 'ema_ratio', 'sma_20', 'sma_30', 'trend_strength', 'autocorr_5', 'bb_position', 'volume_imbalance', 'price_vs_vwap', 'relative_volume', 'large_move', 'candle_body', 'candle_range', 'body_pct', 'upper_wick', 'lower_wick', 'minute_of_day_sin', 'minute_of_day_cos', 'day_of_week', 'is_synthetic', 'usable_for_training']
+2026-01-25 17:43:51,018 [INFO] NaN counts per feature:
+log_return_1        1
+log_return_2        2
+log_return_4        4
+log_return_6        6
+log_return_12      12
+log_return_24      24
+vol_20             20
+vol_regime         49
+parkinson_vol      19
+vol_forecast        2
+sma_20             19
+sma_30             29
+trend_strength     29
+autocorr_5         19
+bb_position        19
+price_vs_vwap      49
+relative_volume    19
+dtype: int64
+2026-01-25 17:43:51,018 [INFO] Usable for training: 1043/1092 (95.51%)
+2026-01-25 17:43:51,018 [INFO]    Train features: 37,883 bars, 35 features
+2026-01-25 17:43:51,018 [INFO]    Test features:  1,092 bars
+2026-01-25 17:43:51,018 [INFO] 
+🔗 Merging events with features...
+2026-01-25 17:43:51,032 [INFO]    Final train set: 9,973 events
+2026-01-25 17:43:51,032 [INFO]    Final test set:  299 events
+2026-01-25 17:43:51,033 [INFO]    Features: 35
+2026-01-25 17:43:51,033 [INFO]    Includes 'side' feature: False
+2026-01-25 17:43:51,033 [INFO] 
+🤖 Training LightGBM model...
+2026-01-25 17:43:51,033 [INFO]    Model parameters: {'n_estimators': 150, 'learning_rate': 0.05, 'num_leaves': 31, 'max_depth': 6, 'min_child_samples': 100, 'subsample': 0.8, 'subsample_freq': 5, 'colsample_bytree': 0.8, 'reg_alpha': 0.1, 'reg_lambda': 0.1, 'class_weight': None}
+2026-01-25 17:43:51,033 [INFO]    No sample weights (column 'w_final' not found)
+2026-01-25 17:43:52,278 [INFO]    ✅ Model trained
+2026-01-25 17:43:52,278 [INFO] 
+📊 Evaluating model...
+2026-01-25 17:43:52,278 [INFO]    Unique labels: [np.int64(-1), np.int64(0), np.int64(1)]
+2026-01-25 17:43:52,336 [INFO] 
+   Train AUC: 0.8860, Accuracy: 0.7371
+2026-01-25 17:43:52,336 [INFO]    Test AUC:  0.7090, Accuracy: 0.6154
+2026-01-25 17:43:52,336 [INFO] 
+   Test Classification Report:
+/Users/eshaanganguly/Library/Python/3.11/lib/python/site-packages/sklearn/metrics/_classification.py:1531: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, f"{metric.capitalize()} is", len(result))
+/Users/eshaanganguly/Library/Python/3.11/lib/python/site-packages/sklearn/metrics/_classification.py:1531: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, f"{metric.capitalize()} is", len(result))
+/Users/eshaanganguly/Library/Python/3.11/lib/python/site-packages/sklearn/metrics/_classification.py:1531: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 in labels with no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, f"{metric.capitalize()} is", len(result))
+2026-01-25 17:43:52,339 [INFO] 
+              precision    recall  f1-score   support
+
+        Stop       0.00      0.00      0.00        13
+    Vertical       0.70      0.56      0.62       153
+      Target       0.56      0.74      0.64       133
+
+    accuracy                           0.62       299
+   macro avg       0.42      0.43      0.42       299
+weighted avg       0.61      0.62      0.60       299
+
+2026-01-25 17:43:52,339 [INFO] 
+🔧 Creating preprocessor...
+/Users/eshaanganguly/Library/Python/3.11/lib/python/site-packages/sklearn/base.py:376: InconsistentVersionWarning: Trying to unpickle estimator LabelEncoder from version 1.8.0 when using version 1.5.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+2026-01-25 17:43:52,344 [INFO]    Copied preprocessor from OLD_BASELINE
+2026-01-25 17:43:52,344 [INFO] 
+💾 Saving model bundle...
+2026-01-25 17:43:52,349 [INFO]    Saved to: ml_intraday_v3/models/saved/model_bundle_balanced_v3.pkl
+2026-01-25 17:43:52,349 [INFO] 
+   Bundle metadata:
+2026-01-25 17:43:52,349 [INFO]      created: 2026-01-25T17:43:52.344188
+2026-01-25 17:43:52,349 [INFO]      training_method: Balanced_V3_Q1_2024_Q4_2025
+2026-01-25 17:43:52,349 [INFO]      train_period: 2024-01-01 to 2025-11-30
+2026-01-25 17:43:52,349 [INFO]      test_period: 2025-12-01 to 2025-12-31
+2026-01-25 17:43:52,349 [INFO]      train_events: 9973
+2026-01-25 17:43:52,349 [INFO]      train_long_pct: 50.00501353654868
+2026-01-25 17:43:52,349 [INFO]      train_short_pct: 49.99498646345132
+2026-01-25 17:43:52,349 [INFO]      test_events: 299
+2026-01-25 17:43:52,349 [INFO]      test_auc: 0.7089956535436309
+2026-01-25 17:43:52,349 [INFO]      test_accuracy: 0.6153846153846154
+2026-01-25 17:43:52,349 [INFO]      feature_count: 35
+2026-01-25 17:43:52,349 [INFO] 
+================================================================================
+2026-01-25 17:43:52,349 [INFO] ✅ TRAINING COMPLETE!
+2026-01-25 17:43:52,349 [INFO] ================================================================================
+2026-01-25 17:43:52,349 [INFO] 
+Model: ml_intraday_v3/models/saved/model_bundle_balanced_v3.pkl
+2026-01-25 17:43:52,349 [INFO] Train events: 9,973 (balanced 50/50)
+2026-01-25 17:43:52,349 [INFO] Test AUC: 0.7090
+2026-01-25 17:43:52,349 [INFO] Test Accuracy: 0.6154
+2026-01-25 17:43:52,349 [INFO] Has 'side' feature: False
+2026-01-25 17:43:52,349 [INFO] 
+Next: Test on January 2026 data
+2026-01-25 17:43:52,349 [INFO] ================================================================================

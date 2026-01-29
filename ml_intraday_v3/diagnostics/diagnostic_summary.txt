@@ -1,0 +1,158 @@
+================================================================================
+MODEL DEGRADATION DIAGNOSTIC REPORT
+Jan 2026 Out-of-Sample Performance Analysis
+Generated: 2026-01-24
+================================================================================
+
+CRITICAL FINDINGS:
+==================
+
+1. SEVERE DIRECTIONAL BIAS
+   - LONG signals: 3,742 (100.0%)
+   - SHORT signals: 0 (0.0%)
+   - Issue: Model only predicts one direction for entire 3-week period
+
+2. CATASTROPHIC STOP-LOSS WIN RATE
+   - Stop-loss exits: 145/168 trades (86.3%)
+   - Stop-loss win rate: 0/145 = 0.0% 
+   - Average stop-loss PnL: -$19.57
+   - Issue: ALL stop-loss trades are losers
+
+3. TARGET HITS PERFORMING WELL
+   - Target exits: 23/168 trades (13.7%)
+   - Target win rate: 23/23 = 100.0%
+   - Average target PnL: +$23.27
+   - Observation: When trades work, they hit targets
+
+SCORE DISTRIBUTION:
+===================
+- Min:    0.0000
+- 25%:    0.5489
+- Median: 0.6535
+- 75%:    0.7334
+- Max:    0.9191
+- Mean:   0.6303
+- Std:    0.1394
+
+Observation: Wide score range (0.0 to 0.92), but no correlation with SHORT signals
+
+TRADE DURATION ANALYSIS:
+========================
+Stop-loss trades:
+  - Median: 15 minutes (hit quickly)
+  - Mean:   25.1 minutes
+  - Std:    24.0 minutes
+
+Target trades:
+  - Median: 40 minutes (takes longer)
+  - Mean:   67.8 minutes
+  - Std:    105.9 minutes
+
+Observation: Stops hit 2-3x faster than targets, suggesting entries are poor
+
+DATA QUALITY:
+=============
+- Total bars: 4,092
+- Date range: 2026-01-04 to 2026-01-23 (3 weeks)
+- OHLC violations: 0 ✓
+- Duplicate timestamps: 0 ✓
+- Zero volume bars: 0 ✓
+- Statistical outliers: 10 (0.24%)
+- Large gaps: 14 (weekends/overnight expected)
+
+Quality Assessment: GOOD - Data is clean and usable
+
+ROOT CAUSE HYPOTHESES:
+======================
+
+Hypothesis 1: Model trained on bullish regime, Jan 2026 is different
+  - Training data (Dec 2024) may have been uptrending
+  - Model learned to only predict LONG
+  - Jan 2026 market conditions don't match training distribution
+
+Hypothesis 2: Feature engineering favors LONG direction
+  - Features may be asymmetric (e.g., only positive momentum matters)
+  - Need to investigate feature distributions by direction
+
+Hypothesis 3: Class imbalance in training labels
+  - Training data may have had more LONG labels than SHORT
+  - Model learned to ignore SHORT opportunities
+
+Hypothesis 4: Stops too tight for Jan 2026 volatility
+  - 1x ATR stop may be insufficient for current market
+  - Median hit time of 15 min suggests immediate adverse movement
+
+RECOMMENDED ACTIONS:
+====================
+
+Priority 1 (CRITICAL):
+1. Investigate model prediction logic
+   - Why does model never predict SHORT (score < 0.5)?
+   - Check if prediction threshold is biased
+   - Examine feature values for would-be SHORT signals
+
+2. Analyze training data distribution
+   - LONG/SHORT label balance in Dec 2024 training set
+   - Compare feature distributions: training vs Jan 2026
+   - Check if Dec 2024 was strongly trending upward
+
+Priority 2 (HIGH):
+3. Optimize stop-loss parameters
+   - Test 1.5x ATR stop instead of 1x
+   - Simulate: 1.2x stop, 2.5x target
+   - Simulate: 1.5x stop, 3.0x target
+
+4. Implement distribution shift detection
+   - Add Kolmogorov-Smirnov test for feature drift
+   - Alert when test data diverges from training
+   - Consider walk-forward validation
+
+Priority 3 (MEDIUM):
+5. Retrain model on recent data
+   - Include Q4 2024 + Jan 2026 data
+   - Ensure balanced LONG/SHORT labels
+   - Validate with walk-forward testing
+
+6. Consider separate LONG/SHORT models
+   - Train dedicated model for each direction
+   - May improve prediction accuracy
+
+7. Add regime detection
+   - Detect trending/ranging/volatile regimes
+   - Only trade in favorable conditions
+   - Reduce exposure during unfavorable regimes
+
+NEXT STEPS:
+===========
+
+1. Read Task #2: Investigate vol_regime feature (100% NaN)
+   - File: ml_intraday_v3/features/build.py
+   - Check why volatility regime calculation failed
+
+2. Read Task #4: Compare training vs test distributions
+   - Load Dec 2024 training data
+   - Statistical comparison of feature distributions
+   - Identify drift magnitude
+
+3. Analyze model predictions in detail
+   - Why no scores < 0.5 (SHORT threshold)?
+   - Are features consistently predicting upside?
+   - Is there a bug in SHORT signal logic?
+
+4. Test alternative stop/target combinations
+   - Backtest engine already exists
+   - Quick parameter sweep on Jan 2026 data
+
+5. Review triple-barrier labeling logic
+   - File: ml_intraday_v3/features/labels.py
+   - Ensure symmetric barriers for LONG/SHORT
+   - Check if training labels were balanced
+
+================================================================================
+ARTIFACTS GENERATED:
+================================================================================
+- task1_directional_bias.png (score distributions, temporal analysis)
+- task3_stop_loss_analysis.png (exit reason breakdown, duration, win rates)
+- diagnostic_summary.txt (this file)
+
+================================================================================

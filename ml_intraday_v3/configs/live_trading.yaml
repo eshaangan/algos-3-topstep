@@ -74,11 +74,29 @@ topstep:
     # Use brackets (stop-loss and take-profit)
     use_brackets: true
 
+# Operator override: disable circuit breaker for now
+circuit_breaker:
+  enabled: false
+  max_drawdown_limit: 1500.0
+
+# Execution-time filters (used by `LiveExecutionEngine`)
+# NOTE: These are separate from `signals.volatility_filter` which is a pre-trade gating input.
+regime_filter:
+  enabled: true
+
+volatility_filter:
+  enabled: true
+  adx_threshold: 25
+
 # Signal generation
 signals:
+  # For long-term bidirectional: do NOT set allowed_directions.
+  # For directional tests only: set to ["LONG"] or ["SHORT"].
+
   # Minimum probability threshold (from backtest config)
   # Only trade signals above this threshold
-  primary_threshold: 0.15
+  # Raise threshold to reduce low-edge trades.
+  primary_threshold: 0.20
 
   # Use meta model (if available in bundle)
   use_meta_model: false
@@ -110,7 +128,8 @@ positions:
   contracts_per_trade: 1
 
   # Maximum concurrent positions (from risk.yaml but repeated here)
-  max_concurrent: 30  # Realistic for paper trading (matches live settings)
+  # Prevent stacking/pyramiding from dominating P&L.
+  max_concurrent: 1
 
   # Force flatten at session close
   flatten_at_close: true
@@ -125,7 +144,7 @@ positions:
 # Kelly Criterion Dynamic Position Sizing
 kelly_sizing:
   # MASTER KILL SWITCH: Set to false to immediately revert to fixed sizing
-  enabled: true  # ENABLED FOR PAPER TRADING - Starting Monday
+  enabled: false  # Disabled until we see positive expectancy out-of-sample
 
   # Learning phase: Fixed 1 contract until this many trades complete
   min_trades_for_kelly: 20
