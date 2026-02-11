@@ -17,8 +17,8 @@ trading:
   # Bar size for live trading
   bar_size: "5m"
 
-  # Model path - relative to working directory /app/ml_intraday_v3
-  model_bundle_path: "model_bundle_retrained_oct2024_nov2025.pkl"  # Jan 2026 $654/day model (in root dir)
+  # Model path (automatically uses latest walk-forward model if not specified)
+  model_bundle_path: null  # null = auto-detect latest from runs/
 
 # Data source configuration
 data:
@@ -109,7 +109,7 @@ signals:
 
   # Minimum probability threshold
   # Conservative with binary calibrated model; confidence filter at 0.55 gates quality
-  primary_threshold: 0.03  # Jan 2026 baseline
+  primary_threshold: 0.10
 
   # Cap to prevent threshold stacking beyond achievable range
   max_primary_threshold: 0.15

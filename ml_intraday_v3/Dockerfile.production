@@ -23,8 +23,8 @@ COPY ml_intraday_v3 /app/ml_intraday_v3
 # Copy the parent core directory (has projectx_client.py)
 COPY core /app/core
 
-# Explicitly copy the validated model
-COPY ml_intraday_v3/model_bundle_retrained_oct2024_nov2025.pkl /app/ml_intraday_v3/models/saved/model_bundle_retrained_oct2024_nov2025.pkl
+# Model file is already included in the ml_intraday_v3 directory copy above
+# No need to copy again - the config points to the root-level model file
 
 # Set Python path
 ENV PYTHONPATH=/app:/app/ml_intraday_v3
@@ -36,6 +36,7 @@ WORKDIR /app/ml_intraday_v3
 RUN mkdir -p /app/ml_intraday_v3/logs
 
 # Set entry point to live trading runner with validated model
+# Model path matches config: model_bundle_retrained_oct2024_nov2025.pkl (in ml_intraday_v3 root)
 CMD ["python", "live_trading/live_runner.py", \
-     "--model-bundle", "models/saved/model_bundle_retrained_oct2024_nov2025.pkl", \
+     "--model-bundle", "model_bundle_retrained_oct2024_nov2025.pkl", \
      "--no-confirm"]

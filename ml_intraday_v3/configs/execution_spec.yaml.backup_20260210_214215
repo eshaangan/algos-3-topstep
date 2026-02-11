@@ -106,7 +106,7 @@ filters:
 
   # Volatility regime filter (Moreira & Muir 2017) - Quick Win #4
   volatility:
-    enabled: false  # DISABLED - wasn't in Jan 2026 validation
+    enabled: true  # ENABLED for Topstep combine
     min_percentile: 30  # Avoid dead markets (low vol)
     max_percentile: 70  # Avoid chaos (high vol)
     lookback_bars: 100  # Rolling window for percentile calculation
