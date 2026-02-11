@@ -1,0 +1,43 @@
+{
+  "baseline": {
+    "label": "BASELINE (Dec 2025 - No Filters)",
+    "total_trades": 180,
+    "wins": "94",
+    "losses": "86",
+    "win_rate": 0.5222222222222223,
+    "total_pnl": 2347.7094301488833,
+    "avg_trade": 13.042830167493795,
+    "unique_days": 19,
+    "trades_per_day": 9.473684210526315,
+    "daily_pnl": 123.56365421836227,
+    "days_to_3000": 24.27898413151804
+  },
+  "with_confidence_filter": {
+    "label": "WITH CONFIDENCE FILTER (0.55)",
+    "total_trades": 148,
+    "wins": "81",
+    "losses": "67",
+    "win_rate": 0.5472972972972973,
+    "total_pnl": 2179.1254275582032,
+    "avg_trade": 14.723820456474346,
+    "unique_days": 19,
+    "trades_per_day": 7.7894736842105265,
+    "daily_pnl": 114.69081197674754,
+    "days_to_3000": 26.15728277002888
+  },
+  "with_all_filters": {
+    "label": "WITH CONFIDENCE + CIRCUIT BREAKER",
+    "total_trades": 148,
+    "wins": "81",
+    "losses": "67",
+    "win_rate": 0.5472972972972973,
+    "total_pnl": 2179.1254275582032,
+    "avg_trade": 14.723820456474346,
+    "unique_days": 19,
+    "trades_per_day": 7.7894736842105265,
+    "daily_pnl": 114.69081197674754,
+    "days_to_3000": 26.15728277002888
+  },
+  "validation_passed": true,
+  "timestamp": "2026-01-29T21:44:14.191096"
+}

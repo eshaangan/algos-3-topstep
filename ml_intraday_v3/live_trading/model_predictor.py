@@ -140,9 +140,23 @@ class LiveModelPredictor:
                 stop_idx, vertical_idx, target_idx = 0, 1, 2
             else:
                 # Try to find actual outcome values in classes
-                target_idx = classes.index(1) if 1 in classes else 2
-                stop_idx = classes.index(-1) if -1 in classes else 0
-                vertical_idx = classes.index(0) if 0 in classes else 1
+                try:
+                    target_idx = classes.index(1)
+                    stop_idx = classes.index(-1)
+                    vertical_idx = classes.index(0)
+                except ValueError as e:
+                    raise ValueError(
+                        f"Model has unexpected class encoding: {classes}. "
+                        f"Expected to find -1, 0, 1 for stop/vertical/target outcomes. "
+                        f"Error: {e}"
+                    )
+
+                # Validate indices are sane
+                if not (0 <= stop_idx < 3 and 0 <= vertical_idx < 3 and 0 <= target_idx < 3):
+                    raise ValueError(
+                        f"Invalid class indices after mapping: "
+                        f"stop={stop_idx}, vertical={vertical_idx}, target={target_idx}"
+                    )
 
             score_ev_long = float(proba_long[0, target_idx] - proba_long[0, stop_idx])
             score_ev_short = float(proba_short[0, target_idx] - proba_short[0, stop_idx])
@@ -188,28 +202,35 @@ class LiveModelPredictor:
         # For bidirectional models with side feature, evaluate both LONG and SHORT
         elif self.has_side_feature and side is None:
             side_idx = self.feature_columns.index('side')
-            
+
             # Evaluate LONG (side=1)
             X_long = X_scaled.copy()
             X_long[0, side_idx] = 1.0
             proba_long = self.model.predict_proba(X_long)
-            
+
             # Evaluate SHORT (side=-1)
             X_short = X_scaled.copy()
             X_short[0, side_idx] = -1.0
             proba_short = self.model.predict_proba(X_short)
-            
-            # Calculate EV for both sides (assumes classes are [0=stop, 1=vertical, 2=target])
-            if hasattr(self.model, 'classes_'):
-                target_idx = list(self.model.classes_).index(1) if 1 in self.model.classes_ else 2
-                stop_idx = list(self.model.classes_).index(-1) if -1 in self.model.classes_ else 0
+
+            n_classes = proba_long.shape[1]
+
+            if n_classes == 2:
+                # Binary model: class 0 = stop, class 1 = target
+                stop_idx_l, target_idx_l = 0, 1
+                vertical_idx_l = None
             else:
-                # Default indices for [stop, vertical, target]
-                stop_idx, target_idx = 0, 2
-            
-            score_ev_long = float(proba_long[0, target_idx] - proba_long[0, stop_idx])
-            score_ev_short = float(proba_short[0, target_idx] - proba_short[0, stop_idx])
-            
+                # Multiclass: resolve indices from model classes
+                if hasattr(self.model, 'classes_'):
+                    target_idx_l = list(self.model.classes_).index(1) if 1 in self.model.classes_ else 2
+                    stop_idx_l = list(self.model.classes_).index(-1) if -1 in self.model.classes_ else 0
+                    vertical_idx_l = list(self.model.classes_).index(0) if 0 in self.model.classes_ else 1
+                else:
+                    stop_idx_l, vertical_idx_l, target_idx_l = 0, 1, 2
+
+            score_ev_long = float(proba_long[0, target_idx_l] - proba_long[0, stop_idx_l])
+            score_ev_short = float(proba_short[0, target_idx_l] - proba_short[0, stop_idx_l])
+
             # Choose the side with better positive EV
             if score_ev_long > score_ev_short and score_ev_long > 0:
                 chosen_side = 1
@@ -224,12 +245,12 @@ class LiveModelPredictor:
                 chosen_side = 0
                 proba = proba_long  # Use LONG for reporting
                 chosen_score_ev = 0.0
-            
+
             pred = {
-                'p_stop': float(proba[0, stop_idx]),
-                'p_target': float(proba[0, target_idx]),
-                'p_vertical': float(proba[0, 1]),  # Middle class is always vertical
-                'y_prob': float(proba[0, target_idx]),
+                'p_stop': float(proba[0, stop_idx_l]),
+                'p_target': float(proba[0, target_idx_l]),
+                'p_vertical': float(proba[0, vertical_idx_l]) if vertical_idx_l is not None else 0.0,
+                'y_prob': float(proba[0, target_idx_l]),
                 'score_ev': chosen_score_ev,
                 'side': chosen_side,
                 'score_ev_long': score_ev_long,
@@ -280,13 +301,34 @@ class LiveModelPredictor:
                     }
                 else:
                     # Binary classification
-                    # Assumes class 1 is positive outcome
-                    p_pos = float(proba[0, 1] if proba.shape[1] > 1 else proba[0, 0])
+                    # Assumes class 0 = negative outcome (stop), class 1 = positive outcome (target)
+                    if proba.shape[1] > 1:
+                        p_stop = float(proba[0, 0])  # Probability of class 0 (negative)
+                        p_target = float(proba[0, 1])  # Probability of class 1 (positive)
+                    else:
+                        # Single column - treat as probability of positive class
+                        p_target = float(proba[0, 0])
+                        p_stop = 1.0 - p_target
+                    
+                    # Calculate EV score
+                    score_ev = p_target - p_stop
+                    
+                    # Determine side based on which class is more likely
+                    if score_ev > 0:
+                        side = 1  # LONG
+                        final_score = score_ev
+                    else:
+                        side = -1  # SHORT
+                        final_score = abs(score_ev)
+                    
                     pred = {
-                        'y_prob': p_pos,
-                        'score_ev': p_pos,
-                        'raw_score_ev': p_pos,
-                        'side': 1  # Default to Long for binary if meaning ambiguous
+                        'p_stop': p_stop,
+                        'p_target': p_target,
+                        'p_vertical': 0.0,  # No vertical exit in binary classification
+                        'y_prob': p_target if side == 1 else p_stop,
+                        'score_ev': final_score,
+                        'raw_score_ev': score_ev,
+                        'side': side
                     }
             else:
                 # Regression model
@@ -436,13 +478,30 @@ class LiveModelPredictor:
         base_primary_thresh = primary_threshold or self.primary_threshold
         meta_thresh = meta_threshold or 0.5
 
-        # Check for negative edge (sanity filter)
+        # Check for negative edge (sanity filter) - direction-aware
         if check_negative_edge:
             p_stop = prediction.get('p_stop', 0.0)
             p_target = prediction.get('p_target', 0.0)
+            side = prediction.get('side', 0)
 
-            if p_stop >= p_target:
-                return False, f"negative_edge (p_stop={p_stop:.3f} >= p_target={p_target:.3f})"
+            if side == 0:
+                return False, "no_direction"
+
+            # With bidirectional evaluation (has_side_feature), p_stop/p_target
+            # come from the chosen side's perspective. For both LONG and SHORT,
+            # p_stop >= p_target means negative edge.
+            # Without bidirectional (non-side models), p_stop/p_target are from
+            # LONG perspective: SHORT signals naturally have p_stop > p_target.
+            if self.has_side_feature:
+                # Bidirectional: both sides use same check
+                if p_stop >= p_target:
+                    return False, f"negative_edge (side={side}: p_stop={p_stop:.3f} >= p_target={p_target:.3f})"
+            else:
+                # Non-bidirectional: LONG perspective probabilities
+                if side == 1 and p_stop >= p_target:
+                    return False, f"negative_edge (LONG: p_stop={p_stop:.3f} >= p_target={p_target:.3f})"
+                elif side == -1 and p_target >= p_stop:
+                    return False, f"negative_edge (SHORT: p_target={p_target:.3f} >= p_stop={p_stop:.3f})"
 
         # Determine which directional threshold to apply (if configured)
         score = prediction.get("score_ev", prediction.get("y_prob", 0.0))

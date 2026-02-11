@@ -1,0 +1,16 @@
+# Live Execution Configuration
+
+connection:
+  # TopstepX API settings (reuses ml_intraday_v3 infrastructure)
+  api_base_url: "https://api.topstepx.com"
+
+execution:
+  order_type: "market"        # Market orders for immediate fills
+  max_retries: 3
+  retry_delay_seconds: 2
+
+monitoring:
+  log_level: "INFO"
+  log_to_file: true
+  log_dir: "logs/"
+  heartbeat_interval_seconds: 60

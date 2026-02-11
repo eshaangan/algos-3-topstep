@@ -1,0 +1,26 @@
+{
+  "comparison_results": [
+    {
+      "model": "Logistic Regression",
+      "accuracy": 0.85,
+      "balanced_accuracy": 0.8333333333333334,
+      "auc": 0.8033333333333335,
+      "precision": 0.8630952380952381,
+      "recall": 0.85,
+      "f1": 0.85423197492163
+    },
+    {
+      "model": "Shallow LightGBM",
+      "accuracy": 0.8,
+      "balanced_accuracy": 0.6666666666666667,
+      "auc": 0.7333333333333334,
+      "precision": 0.784313725490196,
+      "recall": 0.8,
+      "f1": 0.78125
+    }
+  ],
+  "best_model": "Logistic Regression",
+  "chosen_model": "Logistic Regression",
+  "reason": "LogReg within 2% of best (0.0%) - simplicity wins",
+  "auc_difference_pct": 0.0
+}

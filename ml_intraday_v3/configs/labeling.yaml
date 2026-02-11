@@ -3,6 +3,9 @@
 
 # Primary model labeling (directional prediction)
 primary_labeling:
+  # SIMPLIFIED: Binary directional mode - focus on actionable signals (stop/target only)
+  label_mode: "binary_directional"
+
   # Event generation policy:
   # - "every_bar": event at every bar (baseline; very noisy)
   # - "cusum": Lopez de Prado CUSUM filter (fewer/noisier events reduced)
@@ -54,19 +57,21 @@ primary_labeling:
       atr_period: 14
 
     # Profit target multiples
-    # IMPORTANT: Keep PT > SL to avoid structurally negative R:R.
+    # OPTIMIZED via barrier_optimizer.py (Feb 10, 2026): PT=3.0 for Sharpe=5.8
     pt_multipliers:
-      - 2.5
+      - 3.0
 
     # Stop loss multiples
+    # OPTIMIZED via barrier_optimizer.py (Feb 10, 2026): SL=2.5 for Sharpe=5.8
     sl_multipliers:
-      - 1.5
+      - 2.5
 
     # Vertical barrier horizons in bars (grid search over these)
+    # OPTIMIZED via barrier_optimizer.py (Feb 10, 2026): Hz=12 for Sharpe=5.8
     # Must match execution_spec.max_holding_bars
     horizon_bars:
-      "1m": [12, 24]   # 12 min, 24 min
-      "5m": [12, 24]   # 60 min, 120 min
+      "1m": [12]   # 12 min optimal
+      "5m": [12]   # 60 min optimal
 
     # First-touch label encoding
     # +1: profit target hit first
@@ -76,6 +81,9 @@ primary_labeling:
       target_first: 1
       stop_first: -1
       vertical: 0
+
+    # DROP vertical barriers before training (focus on 23% actionable signals)
+    drop_vertical_barrier: true
 
     # Cost accounting in barriers
     # If true, adjust barriers to account for slippage/commission

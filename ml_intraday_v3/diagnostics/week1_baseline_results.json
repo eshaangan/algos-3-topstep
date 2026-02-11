@@ -1,0 +1,107 @@
+{
+  "train": {
+    "accuracy": 0.6886726893676164,
+    "balanced_accuracy": 0.6870986296521036,
+    "auc": 0.7983498516720604,
+    "precision": 0.7096172103567152,
+    "recall": 0.6886726893676164,
+    "f1": 0.6942794519426666
+  },
+  "test": {
+    "accuracy": 0.85,
+    "balanced_accuracy": 0.8333333333333334,
+    "auc": 0.8033333333333335,
+    "precision": 0.8630952380952381,
+    "recall": 0.85,
+    "f1": 0.85423197492163
+  },
+  "confusion_matrix": [
+    [
+      8,
+      2
+    ],
+    [
+      4,
+      26
+    ]
+  ],
+  "classification_report": {
+    "-1.0": {
+      "precision": 0.6666666666666666,
+      "recall": 0.8,
+      "f1-score": 0.7272727272727273,
+      "support": 10.0
+    },
+    "1.0": {
+      "precision": 0.9285714285714286,
+      "recall": 0.8666666666666667,
+      "f1-score": 0.896551724137931,
+      "support": 30.0
+    },
+    "accuracy": 0.85,
+    "macro avg": {
+      "precision": 0.7976190476190477,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.8119122257053292,
+      "support": 40.0
+    },
+    "weighted avg": {
+      "precision": 0.8630952380952381,
+      "recall": 0.85,
+      "f1-score": 0.85423197492163,
+      "support": 40.0
+    }
+  },
+  "feature_importance": [
+    {
+      "feature": "log_return_1",
+      "coefficient": 1.1014423445225303,
+      "abs_coef": 1.1014423445225303
+    },
+    {
+      "feature": "log_return_4",
+      "coefficient": 0.3323466199238159,
+      "abs_coef": 0.3323466199238159
+    },
+    {
+      "feature": "atr_14",
+      "coefficient": -0.1945101078483366,
+      "abs_coef": 0.1945101078483366
+    },
+    {
+      "feature": "minute_of_day_cos",
+      "coefficient": -0.16534447009994852,
+      "abs_coef": 0.16534447009994852
+    },
+    {
+      "feature": "ema_spread",
+      "coefficient": -0.15609721646675273,
+      "abs_coef": 0.15609721646675273
+    },
+    {
+      "feature": "vol_20",
+      "coefficient": 0.09758944029066115,
+      "abs_coef": 0.09758944029066115
+    },
+    {
+      "feature": "vol_regime",
+      "coefficient": 0.06513516689506926,
+      "abs_coef": 0.06513516689506926
+    },
+    {
+      "feature": "ema_21",
+      "coefficient": 0.05527193844268074,
+      "abs_coef": 0.05527193844268074
+    },
+    {
+      "feature": "ema_13",
+      "coefficient": 0.054556573209122765,
+      "abs_coef": 0.054556573209122765
+    },
+    {
+      "feature": "minute_of_day_sin",
+      "coefficient": 0.052062206470352014,
+      "abs_coef": 0.052062206470352014
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+# Risk Management Configuration
+# Designed for Topstep 50k Combine
+
+position:
+  contracts: 1              # Fixed 1 MES contract for combine
+  instrument: "MES"
+  tick_size: 0.25
+  tick_value: 1.25          # $1.25 per tick for MES
+  point_value: 5.0          # $5.00 per point for MES
+
+daily_limits:
+  max_daily_loss: -400.0    # Hard stop, buffer vs $500 Topstep limit
+  per_trade_max_loss: 100.0 # Max $100 loss per trade (20 MES points)
+
+circuit_breaker:
+  max_consecutive_losses: 3
+  cooldown_bars: 5          # Bars to wait after losing trade
+
+session:
+  # Force flatten N minutes before session close
+  flatten_minutes_before_close: 5
+  session_close: "16:00"    # ET
+
+drawdown:
+  # Stop trading if within this amount of trailing max drawdown
+  buffer_from_max: 500.0

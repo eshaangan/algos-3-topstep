@@ -1,0 +1,116 @@
+# Features configuration for V3 pipeline
+# Defines minimal, leakage-safe feature set for both 1m and 5m bars
+
+# Feature computation settings
+computation:
+  # How to handle rows where features cannot be computed
+  # "drop": Drop rows with NaN features (reduces dataset size)
+  # "keep_with_mask": Keep rows, set features to NaN, add usable_for_training mask
+  nan_policy: "keep_with_mask"
+
+  # Epsilon for numerical stability in ratios
+  eps: 1e-8
+
+# Returns features
+returns:
+  # Single-bar log return (always computed)
+  single_bar: true
+
+  # Multi-bar log returns (bar-size specific)
+  # For 1m: compute log returns over [3] bars (6 is in multi_horizon_bars)
+  # For 5m: compute log returns over [4] bars ONLY (simplified)
+  lookback_bars:
+    1m: [3]
+    5m: [4]  # Keep only 4-bar (20-min momentum)
+
+  # PHASE 3: Multi-horizon returns (match 12-24 bar label horizons)
+  # Critical for predicting multi-bar outcomes
+  # DISABLED for simplification - focus on core 12 features
+  enable_multi_horizon: false
+  multi_horizon_bars: [6, 12, 24]  # Match label horizons (6 also used for 1m)
+
+# Volatility features
+volatility:
+  # True range and ATR
+  atr_period: 14  # Standard ATR lookback
+
+  # PHASE 3: Volatility regime indicators
+  # Detect high/low vol regimes for adaptive barrier sizing
+  enable_regime_features: true
+  # Features: vol_20, vol_regime, parkinson_vol, vol_forecast
+  # OPTIMIZED: Reduced regime lookback from 100 to 50 bars to increase usable events
+  # DIAGNOSTIC FIX: Reduced from 50 to 30 to fix warmup issue (69 bars available, 70 needed)
+  vol_regime_lookback: 30  # Lookback for vol_regime median calculation (reduced from 50)
+
+# Trend features (EMA-based)
+trend:
+  ema_fast_period: 13   # Fast EMA
+  ema_slow_period: 21   # Slow EMA (reduced from 34 to minimize NaN values)
+  # Derived: ema_spread = ema_fast - ema_slow
+  # Derived: ema_ratio = ema_fast / (ema_slow + eps)
+
+  # PHASE 3: Advanced trend and mean reversion features
+  # DISABLED for simplification - SMA/Bollinger redundant with EMA
+  enable_advanced_features: false
+  # Features: sma_20, sma_30, trend_strength, autocorr_5, bb_position
+  # OPTIMIZED: Reduced SMA from 50 to 30 bars for intraday data
+  sma_long_period: 30  # Long SMA (reduced from 50 to increase usable events)
+
+# Momentum features (added for regime robustness)
+momentum:
+  enabled: true
+  rsi_period: 14
+  macd:
+    enabled: true
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+  stochastic:
+    enabled: false  # Disabled - redundant with RSI
+    k_period: 14
+    d_period: 3
+
+# Microstructure features (order flow proxies)
+microstructure:
+  # PHASE 3: Volume and order flow indicators
+  # Proxy for buying/selling pressure and institutional activity
+  # DISABLED for simplification - too noisy for initial baseline
+  enabled: false
+  # Features: volume_imbalance, price_vs_vwap, relative_volume, large_move
+
+# Candle structure features
+structure:
+  # All derived from OHLC:
+  # - candle_body = close - open
+  # - candle_range = high - low
+  # - body_pct = body / max(range, eps)
+  # - upper_wick = high - max(open, close)
+  # - lower_wick = min(open, close) - low
+  # DISABLED for simplification - candle patterns overfit
+  enabled: false
+
+# Time features (cyclical encoding)
+time:
+  # Minutes per session for cyclical encoding
+  # 1440 = 24 hours (full day)
+  # If sessions are shorter, this could be adjusted
+  minutes_per_session: 1440
+
+  # Features derived:
+  # - minute_of_day_sin = sin(2π * minute_of_day / minutes_per_session)
+  # - minute_of_day_cos = cos(2π * minute_of_day / minutes_per_session)
+  # - day_of_week (0-6, Monday=0)
+  enabled: true
+
+# Feature output settings
+output:
+  # Column ordering strategy
+  # "registry": Use feature registry order (deterministic)
+  column_order: "registry"
+
+  # Include original session features from bars.parquet
+  # (minute_of_day, day_of_week, is_rth, etc.)
+  include_session_features: true
+
+  # Include is_synthetic flag from bars
+  include_synthetic_flag: true

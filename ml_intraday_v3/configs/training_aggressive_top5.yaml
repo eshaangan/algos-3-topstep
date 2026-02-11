@@ -1,0 +1,151 @@
+# Training configuration - AGGRESSIVE TOP5 MODEL
+# Version: 4.0 - Anti-overfitting config from experiment grid
+# Updated: 2026-02-10
+# Changes: Minimal features (top-5) + aggressive regularization
+# Results: Median test AUC 0.5513, train-test gap 0.009 (vs baseline 0.509/0.22)
+
+# Data Selection - SHORTENED TO RECENT 6 MONTHS
+data_selection:
+  train_start: "2025-06-01"  # Recent 6 months only
+  train_end: "2025-11-30"    # End of training period
+  test_start: "2025-12-01"   # Held-out test period
+  test_end: "2025-12-31"
+
+# Event Generation - BALANCED LONG/SHORT
+event_generation:
+  policy: "cusum"
+  balance_events: true
+  target_long_ratio: 0.50
+  balance_method: "undersample"
+
+# AGGRESSIVE MODEL: Heavy regularization, shallow trees
+model:
+  kind: "lgbm"
+  params:
+    objective: "binary"
+    n_estimators: 50         # Reduced from 150 (less memorization)
+    learning_rate: 0.05
+    num_leaves: 7            # Reduced from 31 (simpler trees)
+    max_depth: 3             # Reduced from 6 (shallow trees)
+    min_child_samples: 300   # Increased from 100 (more regularization)
+    subsample: 0.8
+    subsample_freq: 5
+    colsample_bytree: 0.8
+    reg_alpha: 0.5           # Increased from 0.1 (L1 penalty)
+    reg_lambda: 0.5          # Increased from 0.1 (L2 penalty)
+    class_weight: "balanced"
+
+# Hyperparameter Search - DISABLED for production
+hyperparam_search:
+  enabled: false
+
+# TOP-5 FEATURES ONLY (from feature importance gain)
+# This dramatically reduces overfitting by eliminating 29 weak/noisy features
+features:
+  use_columns: "selected"
+  selected_features:
+    - side            # Gain: 149 (directional bias, bidirectional model)
+    - autocorr_5      # Gain: 104 (mean reversion signal)
+    - vol_regime      # Gain: 91  (volatility state)
+    - vol_20          # Gain: 90  (short-term volatility)
+    - ema_ratio       # Gain: 86  (trend strength)
+  drop_meta_columns:
+    - "is_synthetic"
+    - "usable_for_training"
+
+target:
+  column: "y"
+  mode: "binary"
+  classes: [-1, 1]
+  positive_label: 1
+  flip_sign: false
+  flip_ret_net: false
+
+sample_weight:
+  column: "w_final"
+  enabled: true
+
+# Sample decay weighting (unchanged)
+sample_decay:
+  enabled: true
+  lambda: 0.005  # half-life ~140 days
+  reference_date: null
+
+preprocessing:
+  scaler: "standard"
+  impute: "median"
+
+eval:
+  metrics:
+    - "accuracy"
+    - "balanced_accuracy"
+    - "log_loss"
+    - "f1_macro"
+    - "f1_weighted"
+    - "roc_auc_target_vs_rest"
+  threshold: 0.5
+
+output:
+  write_predictions: true
+  write_model: true
+
+seed: 42
+
+date_filter:
+  enabled: false
+
+# Probability Calibration - PLATT SCALING (Option 3)
+# Changed from isotonic to sigmoid to avoid probability collapse
+# Isotonic creates discrete bins with small cal sets → sigmoid produces smooth probabilities
+calibration:
+  enabled: true
+  method: "sigmoid"  # Changed from "isotonic" (Platt scaling)
+  calibration_fraction: 0.20
+  recalibrate_score_ev: true
+  save_calibrator: true
+  calibration_seed: 42
+
+# Rare events corrections - only applies to logreg
+rare_events:
+  enabled: true
+  tau: null
+  use_sample_weights: true
+  weight_method: "king_zeng"
+  correction_method: "king_zeng"
+
+# Meta model - DISABLED for this experiment
+# The primary model is now much simpler, meta may not be needed
+meta:
+  enabled: false
+  threshold_primary: 0.20
+  target:
+    kind: "y_positive"
+  features:
+    include_primary_prob: true
+    include_primary_logit: true
+    include_original_features: true
+  model:
+    kind: "lgbm"
+    params:
+      n_estimators: 150
+      learning_rate: 0.05
+      num_leaves: 15
+      max_depth: 3
+      min_child_samples: 100
+      subsample: 0.8
+      subsample_freq: 5
+      colsample_bytree: 0.8
+      reg_alpha: 0.3
+      reg_lambda: 0.3
+  output:
+    write_meta_predictions: true
+    write_meta_model: true
+
+# Walkforward schedule
+walkforward:
+  schedule:
+    train_window_days: 180  # 6 months
+    test_window_days: 21    # 1 month test
+    step_days: 21           # Step forward 1 month
+    expanding: false        # Fixed rolling window
+    min_train_events: 500

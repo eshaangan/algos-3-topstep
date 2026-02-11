@@ -107,8 +107,8 @@ class LiveExecutionEngine:
 
         # Circuit Breaker configuration (NEW)
         cb_cfg = self.config.get("circuit_breaker", {})
-        # Operator override: disable circuit breaker when requested.
-        self.circuit_breaker_enabled = False
+        # Load circuit breaker enabled state from config
+        self.circuit_breaker_enabled = cb_cfg.get("enabled", False)
         self.max_drawdown_limit = cb_cfg.get("max_drawdown_limit", 1500.0) # Stop before $2000
         logger.info(f"Circuit Breaker Config: enabled={self.circuit_breaker_enabled}, limit=${self.max_drawdown_limit}")
 

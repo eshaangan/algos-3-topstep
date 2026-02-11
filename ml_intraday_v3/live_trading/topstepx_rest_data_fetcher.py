@@ -17,7 +17,16 @@ import pytz
 # Import ProjectX client with a robust fallback for test environments
 import sys
 from pathlib import Path
+# Try to find project root (different structure in Docker vs local)
+# Local: algos 3 topstep/ml_intraday_v3/live_trading/ -> parents[2]
+# Docker: /app/live_trading/ -> parents[1]
 project_root = Path(__file__).resolve().parents[2]
+docker_root = Path(__file__).resolve().parents[1]
+
+# Check if core exists at parents[1] (Docker) or parents[2] (local)
+if (docker_root / "core").exists():
+    project_root = docker_root
+
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
@@ -121,11 +130,11 @@ class TopstepXRestDataFetcher:
             else:
                 logger.warning("DataFrame index has no timezone, assuming Chicago time")
 
-        # RTH mask: 8:30 AM - 3:00 PM CT
-        # hour > 8 OR (hour == 8 AND minute >= 30)
-        # AND hour < 15
+        # RTH mask: 8:30 AM - 3:00 PM CT (9:30 AM - 4:00 PM ET)
+        # Start: hour > 8 OR (hour == 8 AND minute >= 30)
+        # End: hour < 15 OR (hour == 15 AND minute == 0)  # Include 3:00 PM bar (market close)
         rth_mask = (df_ct.index.hour > 8) | ((df_ct.index.hour == 8) & (df_ct.index.minute >= 30))
-        rth_mask &= (df_ct.index.hour < 15)
+        rth_mask &= ((df_ct.index.hour < 15) | ((df_ct.index.hour == 15) & (df_ct.index.minute == 0)))
 
         df_rth = df[rth_mask]
 

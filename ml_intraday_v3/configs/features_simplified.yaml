@@ -1,0 +1,60 @@
+# Simplified Feature Configuration - Diagnostic Baseline
+# This reverts to pre-Phase-1 state to test if normalization broke the model
+
+computation:
+  eps: 1.0e-8
+
+# DISABLED: Normalization layer that may have destroyed signal
+normalization:
+  enabled: false
+
+returns:
+  enabled: true
+  periods: [1, 2, 4, 6, 12, 24]
+
+candles:
+  enabled: true
+  wicks: true
+  body_metrics: true
+
+volatility:
+  enabled: true
+  atr_period: 14
+  vol_window: 20
+  parkinson: true
+  forecast_horizon: 5
+  regime_threshold: 1.5
+
+trend:
+  enabled: true
+  ema_fast: 13
+  ema_slow: 34
+  sma_short: 20
+  sma_long: 30
+
+bolling_bands:
+  enabled: true
+  window: 20
+  num_std: 2.0
+
+# DISABLED: Momentum features that showed negative importance
+momentum:
+  enabled: false
+
+volume:
+  enabled: true
+  relative_volume_window: 20
+  vwap: true
+  imbalance: true
+
+temporal:
+  enabled: true
+  cyclical_encoding: true
+
+microstructure:
+  enabled: true
+  autocorr_lags: [5]
+  large_move_threshold: 2.0
+
+metadata:
+  enabled: true

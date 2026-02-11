@@ -18,14 +18,15 @@ returns:
 
   # Multi-bar log returns (bar-size specific)
   # For 1m: compute log returns over [3] bars (6 is in multi_horizon_bars)
-  # For 5m: compute log returns over [2, 4] bars
+  # For 5m: compute log returns over [4] bars ONLY (simplified)
   lookback_bars:
     1m: [3]
-    5m: [2, 4]
+    5m: [4]  # Keep only 4-bar (20-min momentum)
 
   # PHASE 3: Multi-horizon returns (match 12-24 bar label horizons)
   # Critical for predicting multi-bar outcomes
-  enable_multi_horizon: true
+  # DISABLED for simplification - focus on core 12 features
+  enable_multi_horizon: false
   multi_horizon_bars: [6, 12, 24]  # Match label horizons (6 also used for 1m)
 
 # Volatility features
@@ -38,7 +39,8 @@ volatility:
   enable_regime_features: true
   # Features: vol_20, vol_regime, parkinson_vol, vol_forecast
   # OPTIMIZED: Reduced regime lookback from 100 to 50 bars to increase usable events
-  vol_regime_lookback: 50  # Lookback for vol_regime median calculation (reduced from 100)
+  # DIAGNOSTIC FIX: Reduced from 50 to 30 to fix warmup issue (69 bars available, 70 needed)
+  vol_regime_lookback: 30  # Lookback for vol_regime median calculation (reduced from 50)
 
 # Trend features (EMA-based)
 trend:
@@ -48,16 +50,32 @@ trend:
   # Derived: ema_ratio = ema_fast / (ema_slow + eps)
 
   # PHASE 3: Advanced trend and mean reversion features
-  enable_advanced_features: true
+  # DISABLED for simplification - SMA/Bollinger redundant with EMA
+  enable_advanced_features: false
   # Features: sma_20, sma_30, trend_strength, autocorr_5, bb_position
   # OPTIMIZED: Reduced SMA from 50 to 30 bars for intraday data
   sma_long_period: 30  # Long SMA (reduced from 50 to increase usable events)
+
+# Momentum features (added for regime robustness)
+momentum:
+  enabled: true
+  rsi_period: 14
+  macd:
+    enabled: true
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+  stochastic:
+    enabled: false  # Disabled - redundant with RSI
+    k_period: 14
+    d_period: 3
 
 # Microstructure features (order flow proxies)
 microstructure:
   # PHASE 3: Volume and order flow indicators
   # Proxy for buying/selling pressure and institutional activity
-  enabled: true
+  # DISABLED for simplification - too noisy for initial baseline
+  enabled: false
   # Features: volume_imbalance, price_vs_vwap, relative_volume, large_move
 
 # Candle structure features
@@ -68,7 +86,8 @@ structure:
   # - body_pct = body / max(range, eps)
   # - upper_wick = high - max(open, close)
   # - lower_wick = min(open, close) - low
-  enabled: true
+  # DISABLED for simplification - candle patterns overfit
+  enabled: false
 
 # Time features (cyclical encoding)
 time:

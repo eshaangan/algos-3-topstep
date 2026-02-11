@@ -92,6 +92,10 @@ from live_trading.event_detector import LiveEventDetector
 from monitoring.metrics_tracker import MetricsTracker
 from monitoring.alerts import AlertManager, AlertLevel
 from monitoring.dashboard import TerminalDashboard
+# Phase 2a Filter Integrations
+from filters.confidence_filter import apply_confidence_filter
+from filters.regime_filter import RegimeDetector
+from monitoring.adaptive_circuit_breaker import AdaptiveCircuitBreaker
 try:
     from core.projectx_client import ProjectXClient
 except ModuleNotFoundError:
@@ -351,6 +355,39 @@ class LiveTradingRunner:
         if self.live_risk_manager:
             self.live_risk_manager.sync_equity(self.execution_engine.get_equity())
 
+        # Phase 2a: Initialize filters
+        logger.info("Initializing Phase 2a safety filters...")
+        
+        # Confidence filter configuration
+        self.confidence_cfg = self.execution_spec['filters'].get('confidence', {})
+        self.confidence_enabled = self.confidence_cfg.get('enabled', False)
+        self.confidence_threshold = self.confidence_cfg.get('min_probability_distance', 0.55)
+        if self.confidence_enabled:
+            logger.info(f"✓ Confidence filter enabled: threshold={self.confidence_threshold:.2f}")
+        
+        # Adaptive circuit breaker configuration  
+        self.circuit_breaker_cfg = self.live_cfg.get('circuit_breaker', {})
+        self.circuit_breaker_enabled = self.circuit_breaker_cfg.get('enabled', False)
+        self.circuit_breaker = None
+        if self.circuit_breaker_enabled:
+            self.circuit_breaker = AdaptiveCircuitBreaker(
+                consecutive_losses_limit=self.circuit_breaker_cfg.get('consecutive_losses', 3),
+                cooling_off_minutes=self.circuit_breaker_cfg.get('cooling_off_minutes', 30),
+                temp_confidence_boost=self.circuit_breaker_cfg.get('temp_confidence_boost', 0.10),
+                temp_position_reduction=self.circuit_breaker_cfg.get('temp_position_reduction', 0.5),
+                daily_loss_limit=self.circuit_breaker_cfg.get('daily_loss_limit', -500.0),
+                base_confidence_threshold=self.confidence_threshold
+            )
+            logger.info(f"✓ Adaptive circuit breaker enabled: daily_loss_limit=${self.circuit_breaker_cfg.get('daily_loss_limit', -500.0):.0f}")
+        
+        # Regime detector configuration (will be initialized in run() after loading training data)
+        self.regime_detector_cfg = self.live_cfg.get('regime_detector', {})
+        self.regime_detector_enabled = self.regime_detector_cfg.get('enabled', False)
+        self.regime_detector = None
+        self.regime_safe = True  # Assume safe until proven otherwise
+        if self.regime_detector_enabled:
+            logger.info(f"✓ Regime detector will be initialized after loading training data")
+        
         # State tracking
         self.last_bar_time = None
         self.signals_generated = 0
@@ -577,6 +614,32 @@ class LiveTradingRunner:
 
         # Buffer already initialized in startup checks
         logger.info("TopstepX REST API ready for polling")
+        
+        # Phase 2a: Initialize regime detector with training data
+        if self.regime_detector_enabled:
+            logger.info("Initializing regime detector with training data...")
+            try:
+                # Get buffer for feature calculation
+                bars_df = self.data_fetcher.get_buffer()
+                
+                # Generate features on historical data
+                historical_features = self.feature_generator.generate_features(bars_df)
+                
+                # Initialize regime detector
+                self.regime_detector = RegimeDetector(
+                    feature_cols=self.predictor.feature_columns,
+                    reference_window_days=self.regime_detector_cfg.get('reference_window_days', 90),
+                    current_window_bars=self.regime_detector_cfg.get('current_window_bars', 100),
+                    max_shifted_features_pct=self.regime_detector_cfg.get('max_shifted_pct', 0.30)
+                )
+                
+                # Fit on historical features (buffer contains last N days)
+                self.regime_detector.fit(historical_features)
+                logger.info("✅ Regime detector initialized and fitted on training data")
+            except Exception as e:
+                logger.error(f"Failed to initialize regime detector: {e}", exc_info=True)
+                logger.warning("Continuing without regime detection")
+                self.regime_detector_enabled = False
 
         # Register signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -657,6 +720,47 @@ class LiveTradingRunner:
                                 pnl=pos['pnl_usd'],
                                 exit_reason=pos['exit_reason']
                             )
+                            
+                            # Phase 2a: Check adaptive circuit breaker after each trade
+                            if self.circuit_breaker_enabled and self.circuit_breaker is not None:
+                                # Get current status for daily P&L
+                                status = self.execution_engine.get_status()
+                                daily_pnl = status['daily_pnl']
+                                
+                                # Create trade result dict
+                                trade_result = {
+                                    'pnl': pos['pnl_usd'],
+                                    'timestamp': pos['exit_ts'],
+                                    'symbol': 'MES'
+                                }
+                                
+                                # Check and adapt
+                                action = self.circuit_breaker.check_and_adapt(
+                                    trade_result=trade_result,
+                                    daily_pnl=daily_pnl,
+                                    current_time=pd.Timestamp.now()
+                                )
+                                
+                                if action == 'stop_today':
+                                    logger.critical("🚨 CIRCUIT BREAKER: Stopping trading for today")
+                                    self.running = False
+                                    # Send critical alert
+                                    self.alert_manager.alert(
+                                        level=AlertLevel.CRITICAL,
+                                        message=f"Circuit breaker stopped trading: Daily P&L ${daily_pnl:.2f}",
+                                        category="circuit_breaker"
+                                    )
+                                    return
+                                elif action == 'cooling_off':
+                                    logger.warning("⚠️ Circuit breaker: Entering cooling-off period")
+                                    cb_status = self.circuit_breaker.get_status()
+                                    logger.warning(f"   Will resume at {cb_status['cooling_off_until']}")
+                                    logger.warning(f"   New threshold: {cb_status['current_threshold']:.2f}")
+                                elif action == 'adapted':
+                                    cb_status = self.circuit_breaker.get_status()
+                                    logger.info(f"📊 Circuit breaker adapted:")
+                                    logger.info(f"   Threshold: {cb_status['current_threshold']:.2f}")
+                                    logger.info(f"   Position multiplier: {cb_status['current_position_multiplier']:.2f}")
 
                     # Generate signal
                     self._process_bar(bar_time, latest_bar)
@@ -763,6 +867,44 @@ class LiveTradingRunner:
         """
         # Get rolling buffer
         bars_df = self.data_fetcher.get_buffer()
+        
+        # Phase 2a: Check regime detector FIRST (before generating features)
+        # Check every 100 bars to avoid excessive computation
+        if self.regime_detector_enabled and self.regime_detector is not None:
+            bar_count = len(bars_df)
+            if bar_count % 100 == 0:  # Periodic check
+                try:
+                    # Get recent features for regime check
+                    current_features = self.feature_generator.generate_features(bars_df)
+                    
+                    is_safe, shift_pct, shifted = self.regime_detector.detect_shift(current_features)
+                    
+                    if not is_safe:
+                        self.regime_safe = False
+                        logger.warning(f"⚠️ REGIME SHIFT DETECTED: {shift_pct:.1%} of features shifted")
+                        logger.warning(f"   PAUSING TRADING until regime stabilizes")
+                        logger.warning(f"   Top shifted features: {[f['feature'] for f in shifted[:5]]}")
+                        
+                        # Record regime shift event
+                        self.metrics_tracker.record_signal(
+                            executed=False,
+                            score=0.0,
+                            timestamp=bar_time,
+                            direction=None,
+                            reason=f"regime_shift_{shift_pct:.1%}",
+                        )
+                        return
+                    else:
+                        if not self.regime_safe:
+                            logger.info(f"✅ Regime stabilized: {shift_pct:.1%} features shifted (below {self.regime_detector.max_shifted_features_pct:.1%} threshold)")
+                        self.regime_safe = True
+                except Exception as e:
+                    logger.error(f"Regime detector error: {e}", exc_info=True)
+        
+        # Skip if regime unsafe
+        if self.regime_detector_enabled and not self.regime_safe:
+            logger.debug("Skipping bar due to regime shift")
+            return
 
         # Volatility filter: check ATR before CUSUM event detection
         vol_filter_cfg = self.live_cfg['signals'].get('volatility_filter', {})
@@ -839,6 +981,50 @@ class LiveTradingRunner:
         )
 
         self.signals_generated += 1
+        
+        # Phase 2a: Apply confidence filter (QUICK WIN #1)
+        if self.confidence_enabled:
+            # Get prediction probability
+            prediction_probability = prediction.get('p_target', 0.5)
+            
+            # Determine direction from prediction
+            if 'side' in prediction and prediction['side'] != 0:
+                predicted_side = prediction['side']
+            else:
+                predicted_side = 1 if score > 0 else -1
+            
+            # Check confidence threshold
+            # With bidirectional models (side feature), p_target is from the chosen
+            # side's perspective. Both LONG and SHORT require P(target) > threshold.
+            # Without bidirectional, p_target is from LONG perspective:
+            #   LONG: P(target) > threshold
+            #   SHORT: P(target) < (1 - threshold), i.e., P(stop) > threshold
+            is_confident = False
+            if self.predictor.has_side_feature:
+                # Bidirectional: p_target is from chosen side's perspective
+                is_confident = prediction_probability > self.confidence_threshold
+            elif predicted_side == 1:  # LONG (non-bidirectional)
+                is_confident = prediction_probability > self.confidence_threshold
+            else:  # SHORT (non-bidirectional, LONG perspective probabilities)
+                is_confident = prediction_probability < (1 - self.confidence_threshold)
+            
+            if not is_confident:
+                logger.info(
+                    f"✗ Confidence filter rejected signal: "
+                    f"side={'LONG' if predicted_side == 1 else 'SHORT'}, "
+                    f"P={prediction_probability:.3f}, "
+                    f"threshold={self.confidence_threshold:.2f}"
+                )
+                
+                # Record filtered signal
+                self.metrics_tracker.record_signal(
+                    executed=False,
+                    score=score,
+                    timestamp=bar_time,
+                    direction="LONG" if predicted_side == 1 else "SHORT",
+                    reason=f"confidence_filter_P={prediction_probability:.3f}",
+                )
+                return
 
         # Risk manager gating before trade decision
         base_primary_threshold = self.live_cfg['signals']['primary_threshold']
@@ -853,6 +1039,31 @@ class LiveTradingRunner:
         primary_threshold = base_primary_threshold
         primary_threshold_long = base_primary_threshold_long
         primary_threshold_short = base_primary_threshold_short
+        
+        # Phase 2a: Apply circuit breaker threshold adjustment
+        if self.circuit_breaker_enabled and self.circuit_breaker is not None:
+            # Check if in cooling-off period
+            if self.circuit_breaker.is_in_cooling_off():
+                logger.info("⏸️ Circuit breaker: In cooling-off period, skipping signal")
+                self.metrics_tracker.record_signal(
+                    executed=False,
+                    score=score,
+                    timestamp=bar_time,
+                    direction=None,
+                    reason="circuit_breaker_cooling_off",
+                )
+                return
+            
+            # Apply threshold adjustment if adapted
+            cb_threshold = self.circuit_breaker.get_current_threshold()
+            if cb_threshold > self.confidence_threshold:
+                logger.info(f"📊 Circuit breaker raised threshold: {self.confidence_threshold:.2f} → {cb_threshold:.2f}")
+                # Override confidence threshold with circuit breaker's adaptive threshold
+                # This affects the primary threshold used for trading decisions
+                threshold_boost = cb_threshold - self.confidence_threshold
+                primary_threshold += threshold_boost
+                primary_threshold_long += threshold_boost
+                primary_threshold_short += threshold_boost
 
         # Regime-aware threshold adjustment (low volatility = higher bar)
         regime_cfg = self.live_cfg['signals'].get('regime_adjustment', {})
@@ -904,6 +1115,12 @@ class LiveTradingRunner:
                     primary_threshold,
                 )
 
+        # FIX 5: Cap threshold to prevent stacking beyond achievable range
+        max_thresh = self.live_cfg['signals'].get('max_primary_threshold', 0.15)
+        primary_threshold = min(primary_threshold, max_thresh)
+        primary_threshold_long = min(primary_threshold_long, max_thresh)
+        primary_threshold_short = min(primary_threshold_short, max_thresh)
+
         # Check if we should trade
         should_trade, reason = self.predictor.should_trade(
             prediction=prediction,
@@ -947,6 +1164,15 @@ class LiveTradingRunner:
         # Execute trade (Kelly sizer will override contracts if enabled)
         contracts = self.live_cfg['positions']['contracts_per_trade']
         contracts_cap = None
+        
+        # Phase 2a: Apply circuit breaker position size adjustment
+        if self.circuit_breaker_enabled and self.circuit_breaker is not None:
+            position_multiplier = self.circuit_breaker.get_current_position_multiplier()
+            if position_multiplier < 1.0:
+                original_contracts = contracts
+                contracts = max(1, int(contracts * position_multiplier))
+                logger.info(f"📊 Circuit breaker reduced position size: {original_contracts} → {contracts} contracts ({position_multiplier:.0%})")
+        
         if self.live_risk_manager:
             sigma_val = None
             try:

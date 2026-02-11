@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-02-04T13:28:36.942225",
+  "results_100bar": {
+    "buffer_size": 100,
+    "total_trades": 0,
+    "win_rate": 0,
+    "total_pnl": 0,
+    "error": "No trades"
+  },
+  "results_300bar": {
+    "buffer_size": 300,
+    "total_trades": 0,
+    "win_rate": 0,
+    "total_pnl": 0,
+    "error": "No trades"
+  }
+}

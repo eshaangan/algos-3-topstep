@@ -1,0 +1,150 @@
+{
+  "timestamp": "2026-02-10T11:59:32.974636",
+  "windows": [
+    {
+      "status": "success",
+      "train_start": "2024-07-01T00:00:00+00:00",
+      "train_end": "2024-12-31T23:59:59+00:00",
+      "test_start": "2025-01-01T00:00:00+00:00",
+      "test_end": "2025-01-31T23:59:59+00:00",
+      "train_auc": 0.738,
+      "test_auc": 0.5259,
+      "train_events": 6277,
+      "test_events": 887,
+      "target_rate_train": 0.4255,
+      "target_rate_test": 0.4239,
+      "prob_stats": {
+        "min": 0.11042378555384165,
+        "p25": 0.34444444444444444,
+        "p50": 0.43556701030927836,
+        "p75": 0.44906444906444914,
+        "max": 0.4838709677419355,
+        "range": 0.37344718218809386,
+        "signals_gt_055": 0
+      },
+      "feature_count": 35
+    },
+    {
+      "status": "success",
+      "train_start": "2024-08-01T00:00:00+00:00",
+      "train_end": "2025-01-31T23:59:59+00:00",
+      "test_start": "2025-02-01T00:00:00+00:00",
+      "test_end": "2025-02-28T23:59:59+00:00",
+      "train_auc": 0.6848,
+      "test_auc": 0.5078,
+      "train_events": 6063,
+      "test_events": 959,
+      "target_rate_train": 0.4229,
+      "target_rate_test": 0.438,
+      "prob_stats": {
+        "min": 0.0,
+        "p25": 0.4218958611481976,
+        "p50": 0.4218958611481976,
+        "p75": 0.42748091603053434,
+        "max": 0.43217665615141954,
+        "range": 0.43217665615141954,
+        "signals_gt_055": 0
+      },
+      "feature_count": 35
+    },
+    {
+      "status": "success",
+      "train_start": "2024-09-01T00:00:00+00:00",
+      "train_end": "2025-02-28T23:59:59+00:00",
+      "test_start": "2025-03-01T00:00:00+00:00",
+      "test_end": "2025-03-31T23:59:59+00:00",
+      "train_auc": 0.7611,
+      "test_auc": 0.5063,
+      "train_events": 5955,
+      "test_events": 1030,
+      "target_rate_train": 0.4269,
+      "target_rate_test": 0.4291,
+      "prob_stats": {
+        "min": 0.3333333333333333,
+        "p25": 0.3783231083844581,
+        "p50": 0.4,
+        "p75": 0.481981981981982,
+        "max": 1.0,
+        "range": 0.6666666666666667,
+        "signals_gt_055": 1
+      },
+      "feature_count": 35
+    },
+    {
+      "status": "success",
+      "train_start": "2024-10-01T00:00:00+00:00",
+      "train_end": "2025-03-31T23:59:59+00:00",
+      "test_start": "2025-04-01T00:00:00+00:00",
+      "test_end": "2025-04-30T23:59:59+00:00",
+      "train_auc": 0.7503,
+      "test_auc": 0.5499,
+      "train_events": 6114,
+      "test_events": 1047,
+      "target_rate_train": 0.4261,
+      "target_rate_test": 0.4288,
+      "prob_stats": {
+        "min": 0.3125,
+        "p25": 0.3755656108597285,
+        "p50": 0.3869346733668342,
+        "p75": 0.4618320610687023,
+        "max": 0.4657534246575342,
+        "range": 0.15325342465753422,
+        "signals_gt_055": 0
+      },
+      "feature_count": 35
+    },
+    {
+      "status": "success",
+      "train_start": "2024-11-01T00:00:00+00:00",
+      "train_end": "2025-04-30T23:59:59+00:00",
+      "test_start": "2025-05-01T00:00:00+00:00",
+      "test_end": "2025-05-31T23:59:59+00:00",
+      "train_auc": 0.5692,
+      "test_auc": 0.4705,
+      "train_events": 6065,
+      "test_events": 1001,
+      "target_rate_train": 0.4267,
+      "target_rate_test": 0.4176,
+      "prob_stats": {
+        "min": 0.4032258064516129,
+        "p25": 0.43014705882352944,
+        "p50": 0.43014705882352944,
+        "p75": 0.43014705882352944,
+        "max": 0.43014705882352944,
+        "range": 0.02692125237191656,
+        "signals_gt_055": 0
+      },
+      "feature_count": 35
+    },
+    {
+      "status": "success",
+      "train_start": "2024-12-01T00:00:00+00:00",
+      "train_end": "2025-05-31T23:59:59+00:00",
+      "test_start": "2025-06-01T00:00:00+00:00",
+      "test_end": "2025-06-30T23:59:59+00:00",
+      "train_auc": 0.6899,
+      "test_auc": 0.5109,
+      "train_events": 6214,
+      "test_events": 909,
+      "target_rate_train": 0.4265,
+      "target_rate_test": 0.4367,
+      "prob_stats": {
+        "min": 0.4253246753246753,
+        "p25": 0.4253246753246753,
+        "p50": 0.4253246753246753,
+        "p75": 0.42788461538461536,
+        "max": 0.42788461538461536,
+        "range": 0.0025599400599400357,
+        "signals_gt_055": 0
+      },
+      "feature_count": 35
+    }
+  ],
+  "summary": {
+    "total_windows": 6,
+    "successful": 6,
+    "median_test_auc": 0.50935,
+    "mean_test_auc": 0.5118833333333334,
+    "std_test_auc": 0.023815710267711034
+  }
+}

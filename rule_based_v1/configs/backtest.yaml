@@ -1,0 +1,21 @@
+# Backtest Configuration
+
+data:
+  path: "../data/processed/mes_bars_databento_rth.h5"
+  key: "bars_5min"
+
+dates:
+  start: "2024-10-01"
+  end: "2025-11-30"
+
+costs:
+  commission_per_side: 0.62   # MES commission per side
+  slippage_ticks: 1           # 1 tick slippage per side
+
+walk_forward:
+  train_months: 6
+  test_months: 1
+  step_months: 1
+
+parameter_sweep:
+  variation_pct: 20           # Test ±20% parameter changes

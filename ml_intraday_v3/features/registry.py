@@ -50,9 +50,11 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
     1. Returns (single-bar, then multi-bar)
     2. Volatility (true_range, ATR)
     3. Trend (EMAs and derived)
-    4. Structure (candle features)
-    5. Time (cyclical encodings)
-    6. Meta (is_synthetic, usable_for_training)
+    4. Momentum (RSI, MACD, derived)
+    5. Microstructure (volume, VWAP)
+    6. Structure (candle features)
+    7. Time (cyclical encodings)
+    8. Meta (is_synthetic, usable_for_training)
     """
     registry = []
 
@@ -105,7 +107,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             )
         )
 
-    # PHASE 3: Multi-horizon returns (match label horizons)
+    # Multi-horizon returns (match label horizons)
     if returns_config.get("enable_multi_horizon", True):
         multi_horizon = returns_config.get("multi_horizon_bars", [6, 12, 24])
         for k in multi_horizon:
@@ -149,7 +151,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
         )
     )
 
-    # PHASE 3: Volatility regime indicators
+    # Volatility regime indicators
     if config.get("volatility", {}).get("enable_regime_features", True):
         vol_regime_lookback = config.get("volatility", {}).get("vol_regime_lookback", 50)
         registry.extend([
@@ -245,7 +247,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
         )
     )
 
-    # PHASE 3: Advanced trend and mean reversion features
+    # Advanced trend and mean reversion features
     if config.get("trend", {}).get("enable_advanced_features", True):
         sma_long_period = config.get("trend", {}).get("sma_long_period", 30)
         registry.extend([
@@ -296,8 +298,9 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             ),
         ])
 
-    # PHASE 4: Momentum indicators (MACD, RSI, Stochastic)
-    # Added based on research findings for regime robustness
+    # -------------------------------------------------------------------------
+    # 4. MOMENTUM (RSI, MACD, derived)
+    # -------------------------------------------------------------------------
     if config.get("momentum", {}).get("enabled", True):
         # RSI
         rsi_period = config.get("momentum", {}).get("rsi_period", 14)
@@ -306,7 +309,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 name=f"rsi_{rsi_period}",
                 lookback_bars=rsi_period,
                 uses_rolling_stats=True,
-                requires_scaling=True, # Scale 0-100 to standard
+                requires_scaling=True,
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
                 description=f"Relative Strength Index ({rsi_period} bars)",
@@ -319,7 +322,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             fast = macd_config.get("fast_period", 12)
             slow = macd_config.get("slow_period", 26)
             signal = macd_config.get("signal_period", 9)
-            
+
             registry.extend([
                 FeatureSpec(
                     name="macd",
@@ -355,13 +358,13 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
         if stoch_config.get("enabled", True):
             k_period = stoch_config.get("k_period", 14)
             d_period = stoch_config.get("d_period", 3)
-            
+
             registry.extend([
                 FeatureSpec(
                     name=f"stoch_k_{k_period}",
                     lookback_bars=k_period,
                     uses_rolling_stats=True,
-                    requires_scaling=True, # Scale 0-100 to standard
+                    requires_scaling=True,
                     fit_on_train_only=False,
                     bar_sizes_supported=["1m", "5m"],
                     description=f"Stochastic %K ({k_period})",
@@ -377,7 +380,39 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 ),
             ])
 
-    # PHASE 3: Microstructure features (order flow proxies)
+        # RSI divergence (Phase 2)
+        rsi_div_cfg = config.get("momentum", {}).get("rsi_divergence", {})
+        if rsi_div_cfg.get("enabled", False):
+            div_lookback = rsi_div_cfg.get("lookback", 5)
+            registry.append(
+                FeatureSpec(
+                    name="rsi_divergence",
+                    lookback_bars=rsi_period + div_lookback,
+                    uses_rolling_stats=True,
+                    requires_scaling=False,  # Binary indicator
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"RSI divergence: sign(price_change_{div_lookback}) != sign(rsi_change_{div_lookback})",
+                )
+            )
+
+        # VWAP momentum (Phase 2)
+        vwap_mom_cfg = config.get("momentum", {}).get("vwap_momentum", {})
+        if vwap_mom_cfg.get("enabled", False):
+            vwap_lookback = vwap_mom_cfg.get("lookback", 5)
+            registry.append(
+                FeatureSpec(
+                    name="vwap_momentum",
+                    lookback_bars=50 + vwap_lookback,  # VWAP needs 50 bars + momentum lookback
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"Rate of change of price_vs_vwap over {vwap_lookback} bars",
+                )
+            )
+
+    # Microstructure features (order flow proxies)
     if config.get("microstructure", {}).get("enabled", True):
         registry.extend([
             FeatureSpec(
@@ -414,12 +449,12 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 requires_scaling=False,  # Binary indicator
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
-                description="Binary: 1 if |return| > 2× vol_20, else 0",
+                description="Binary: 1 if |return| > 2x vol_20, else 0",
             ),
         ])
 
     # -------------------------------------------------------------------------
-    # 4. STRUCTURE (Candle features)
+    # 5. STRUCTURE (Candle features)
     # -------------------------------------------------------------------------
     if config.get("structure", {}).get("enabled", True):
         registry.append(
@@ -483,7 +518,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
         )
 
     # -------------------------------------------------------------------------
-    # 5. TIME (Cyclical encodings)
+    # 6. TIME (Cyclical encodings)
     # -------------------------------------------------------------------------
     if config.get("time", {}).get("enabled", True):
         registry.append(
@@ -494,7 +529,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 requires_scaling=False,  # Already bounded [-1, 1]
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
-                description="sin(2π * minute_of_day / minutes_per_session)",
+                description="sin(2pi * minute_of_day / minutes_per_session)",
             )
         )
 
@@ -506,7 +541,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 requires_scaling=False,  # Already bounded [-1, 1]
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
-                description="cos(2π * minute_of_day / minutes_per_session)",
+                description="cos(2pi * minute_of_day / minutes_per_session)",
             )
         )
 
@@ -515,7 +550,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 name="day_of_week",
                 lookback_bars=0,
                 uses_rolling_stats=False,
-                requires_scaling=False,  # Categorical, will be one-hot later
+                requires_scaling=False,  # Categorical
                 fit_on_train_only=False,
                 bar_sizes_supported=["1m", "5m"],
                 description="Day of week (0=Monday, 6=Sunday)",
@@ -523,7 +558,7 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
         )
 
     # -------------------------------------------------------------------------
-    # 6. META (Flags and masks)
+    # 7. META (Flags and masks)
     # -------------------------------------------------------------------------
     if config.get("output", {}).get("include_synthetic_flag", True):
         registry.append(

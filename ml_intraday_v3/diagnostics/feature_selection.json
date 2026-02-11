@@ -1,0 +1,25 @@
+{
+  "method": "manual_selection_from_experiment_grid",
+  "date": "2026-02-10",
+  "source": "experiments/run_anti_overfit_grid.py - Phase 2 best config",
+  "experiment_id": "p2_conservative_top10_full",
+  "median_test_auc": 0.5500,
+  "train_test_gap": -0.004,
+  "signals_above_055": 2,
+  "prob_range": 0.137,
+  "baseline_auc": 0.509,
+  "baseline_gap": 0.22,
+  "improvement": "AUC +4.1%, gap -101% (negative gap = better generalization)",
+  "selected_features": [
+    "autocorr_5",
+    "vol_regime",
+    "vol_20",
+    "ema_ratio",
+    "relative_volume",
+    "lower_wick",
+    "vol_forecast",
+    "parkinson_vol",
+    "ema_spread"
+  ],
+  "note": "side feature is auto-added by train_balanced_model.py (line 314-315). Total: 10 features."
+}

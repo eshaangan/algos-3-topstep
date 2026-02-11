@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Data files (exclude large data but KEEP models)
+data/
+*.csv
+*.parquet
+# Explicitly include models directory
+!ml_intraday_v3/models/
+!ml_intraday_v3/models/**/*.pkl
+!ml_intraday_v3/models/**/*.joblib
+
+# Temporary files
+*.tmp
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+Dockerfile
+.dockerignore

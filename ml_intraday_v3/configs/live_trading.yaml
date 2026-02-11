@@ -37,7 +37,9 @@ data:
 
   # Historical lookback for feature calculation (bars)
   # Need enough history to compute features (ATR, EMA, etc.)
-  lookback_bars: 100
+  # INCREASED: Ensure sufficient data for all features (multi-bar returns need 24+ bars,
+  # EMA/SMA need 34+ bars for warmup). 300 bars ensures all features have valid data.
+  lookback_bars: 300
 
   # RTH (Regular Trading Hours) filtering
   # If true, only use bars from 8:30 AM - 3:00 PM CT (matches training data)
@@ -74,18 +76,30 @@ topstep:
     # Use brackets (stop-loss and take-profit)
     use_brackets: true
 
-# Operator override: disable circuit breaker for now
+# Phase 2a: Adaptive circuit breaker (ENABLED for combine)
 circuit_breaker:
-  enabled: false
-  max_drawdown_limit: 1500.0
+  enabled: true  # CHANGED from false
+  consecutive_losses: 4          # Was 3; allow more attempts before cooling off
+  cooling_off_minutes: 15        # Was 30; faster recovery
+  temp_confidence_boost: 0.05    # Was 0.10; smaller threshold bump
+  temp_position_reduction: 0.5
+  daily_loss_limit: -500.0  # Stop at -$500 (well before Topstep's -$1,000 limit)
+
+# Phase 2a: Regime detector (detect market regime shifts)
+# TODO: Load 90 days reference data before re-enabling
+regime_detector:
+  enabled: false  # Disabled until proper 90-day historical data loading is implemented
+  reference_window_days: 90    # Compare against last 90 days of training
+  current_window_bars: 100      # Use last 100 bars for current regime
+  max_shifted_pct: 0.30        # Flag if >30% of features shifted
 
 # Execution-time filters (used by `LiveExecutionEngine`)
 # NOTE: These are separate from `signals.volatility_filter` which is a pre-trade gating input.
 regime_filter:
-  enabled: true
+  enabled: false  # Not in backtest; model features already capture regime context
 
 volatility_filter:
-  enabled: true
+  enabled: false  # Not validated in backtest; re-enable after validation
   adx_threshold: 25
 
 # Signal generation
@@ -93,10 +107,12 @@ signals:
   # For long-term bidirectional: do NOT set allowed_directions.
   # For directional tests only: set to ["LONG"] or ["SHORT"].
 
-  # Minimum probability threshold (from backtest config)
-  # Only trade signals above this threshold
-  # Raise threshold to reduce low-edge trades.
-  primary_threshold: 0.20
+  # Minimum probability threshold
+  # Conservative with binary calibrated model; confidence filter at 0.55 gates quality
+  primary_threshold: 0.10
+
+  # Cap to prevent threshold stacking beyond achievable range
+  max_primary_threshold: 0.15
 
   # Use meta model (if available in bundle)
   use_meta_model: false
@@ -107,9 +123,9 @@ signals:
   # Require both primary and meta approval
   require_meta_approval: false
 
-  # Volatility filter
+  # Volatility filter (disabled - not present in backtest validation)
   volatility_filter:
-    enabled: true
+    enabled: false
     min_sigma: 7.0
 
 # Direction change behavior (when model reverses while positions open)
@@ -232,6 +248,8 @@ health:
   model_check_interval_bars: 60  # Check every hour for 1m bars
 
   # Check feature quality (detect NaN, extreme values)
+  # RE-ENABLED: Block trades on invalid features to prevent identical predictions.
+  # With 300-bar buffer, features should be healthy after warmup period (~50 bars).
   check_feature_quality: true
 
   # Halt trading on health check failure
@@ -279,7 +297,7 @@ session:
 
   # No entry window before close (minutes)
   # Don't enter new trades this close to session end
-  no_entry_before_close_minutes: 60
+  no_entry_before_close_minutes: 30  # Bracket orders handle exits; 30min is sufficient
 
 # Version and metadata
 version: "1.0.0"

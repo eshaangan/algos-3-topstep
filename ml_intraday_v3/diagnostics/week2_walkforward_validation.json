@@ -1,0 +1,104 @@
+{
+  "test_months": [
+    {
+      "month": "Aug 2024",
+      "n_train": 1194,
+      "n_test": 15,
+      "accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "auc": 1.0,
+      "pnl": 458.47395846653063,
+      "avg_pnl": 30.564930564435375,
+      "sharpe": 3.978008848200093,
+      "max_dd": -464.0216196938938,
+      "target_rate": 0.6666666666666666,
+      "positive": true
+    },
+    {
+      "month": "Sep 2024",
+      "n_train": 1209,
+      "n_test": 15,
+      "accuracy": 0.7333333333333333,
+      "balanced_accuracy": 0.8571428571428572,
+      "auc": 0.8571428571428571,
+      "pnl": 786.9969774541343,
+      "avg_pnl": 52.46646516360895,
+      "sharpe": 21.934111840889365,
+      "max_dd": -65.04983047045194,
+      "target_rate": 0.9333333333333333,
+      "positive": true
+    },
+    {
+      "month": "Oct 2024",
+      "n_train": 1224,
+      "n_test": 37,
+      "accuracy": 0.918918918918919,
+      "balanced_accuracy": 0.8172043010752688,
+      "auc": 0.967741935483871,
+      "pnl": 2467.796680640066,
+      "avg_pnl": 66.69720758486665,
+      "sharpe": 14.759705674618713,
+      "max_dd": -245.25184433547383,
+      "target_rate": 0.8378378378378378,
+      "positive": true
+    },
+    {
+      "month": "Nov 2024",
+      "n_train": 1261,
+      "n_test": 9,
+      "accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "auc": 1.0,
+      "pnl": -324.5533988095831,
+      "avg_pnl": -36.06148875662034,
+      "sharpe": -3.456146627533411,
+      "max_dd": -298.2047888994412,
+      "target_rate": 0.4444444444444444,
+      "positive": false
+    },
+    {
+      "month": "Dec 2024",
+      "n_train": 1270,
+      "n_test": 7,
+      "accuracy": 0.42857142857142855,
+      "balanced_accuracy": 0.3,
+      "auc": 0.2,
+      "pnl": 356.42641242548314,
+      "avg_pnl": 50.91805891792616,
+      "sharpe": 6.283380610262683,
+      "max_dd": -269.67728987334783,
+      "target_rate": 0.7142857142857143,
+      "positive": true
+    },
+    {
+      "month": "Jan 2025",
+      "n_train": 1277,
+      "n_test": 19,
+      "accuracy": 0.7368421052631579,
+      "balanced_accuracy": 0.6928571428571428,
+      "auc": 0.5571428571428572,
+      "pnl": 979.7396107155002,
+      "avg_pnl": 51.56524266923685,
+      "sharpe": 6.982170201169789,
+      "max_dd": -215.79205445146272,
+      "target_rate": 0.7368421052631579,
+      "positive": true
+    }
+  ],
+  "summary": {
+    "positive_months": 5,
+    "total_months": 6,
+    "cumulative_pnl": 4724.880240892131,
+    "avg_accuracy": 0.8029442976811397,
+    "avg_auc": 0.7636712749615975,
+    "avg_sharpe": 8.413538424601205,
+    "max_dd": -464.0216196938938
+  },
+  "criteria": {
+    "positive_months": true,
+    "cumulative_pnl": true,
+    "avg_sharpe": true,
+    "max_dd": true
+  },
+  "decision": "GO"
+}

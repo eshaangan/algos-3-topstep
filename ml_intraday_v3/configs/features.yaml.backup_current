@@ -1,0 +1,129 @@
+# Features configuration for V3 pipeline
+# Defines minimal, leakage-safe feature set for both 1m and 5m bars
+# Updated: Phase 1+2 - Feature stationarity normalization + momentum features
+
+# Feature computation settings
+computation:
+  # How to handle rows where features cannot be computed
+  # "drop": Drop rows with NaN features (reduces dataset size)
+  # "keep_with_mask": Keep rows, set features to NaN, add usable_for_training mask
+  nan_policy: "keep_with_mask"
+
+  # Epsilon for numerical stability in ratios
+  eps: 1e-8
+
+# Feature normalization (Phase 1: stationarity transforms)
+# Applied AFTER raw feature computation to make features stationary across time
+normalization:
+  enabled: true
+
+  # Rolling z-score lookback (in bars)
+  zscore_lookback: 50
+
+  # Features to normalize via rolling z-score
+  # (non-stationary features that change absolute level over time)
+  zscore_features:
+    - "true_range"
+    - "vol_20"
+    - "parkinson_vol"
+    - "vol_forecast"
+    - "candle_body"
+    - "candle_range"
+    - "upper_wick"
+    - "lower_wick"
+    - "macd"
+    - "macd_signal"
+    - "macd_hist"
+
+  # Price-level features: replace with distance-from-price ratios
+  # These are normalized as (close - indicator) / atr
+  price_distance_features:
+    - "ema_13"
+    - "ema_34"
+    - "sma_20"
+    - "sma_30"
+
+  # Volatility features: replace with rate-of-change
+  # Normalized as current / lagged - 1
+  rate_of_change_features:
+    atr_14: 5   # atr_14 / atr_14.shift(5) - 1
+    vol_20: 5
+
+  # EMA spread: normalize by ATR (already a spread, just scale it)
+  spread_normalize_by_atr:
+    - "ema_spread"
+
+# Returns features
+returns:
+  # Single-bar log return (always computed)
+  single_bar: true
+
+  # Multi-bar log returns (bar-size specific)
+  lookback_bars:
+    1m: [3]
+    5m: [4]  # Keep only 4-bar (20-min momentum)
+
+  # Multi-horizon returns (match 12-24 bar label horizons)
+  enable_multi_horizon: true
+  multi_horizon_bars: [2, 6, 12, 24]
+
+# Volatility features
+volatility:
+  # True range and ATR
+  atr_period: 14
+
+  # Volatility regime indicators
+  enable_regime_features: true
+  vol_regime_lookback: 30
+
+# Trend features (EMA-based)
+trend:
+  ema_fast_period: 13
+  ema_slow_period: 34
+
+  # Advanced trend and mean reversion features
+  enable_advanced_features: true
+  sma_short_period: 20
+  sma_long_period: 30
+
+# Momentum features (Phase 2: ENABLED)
+# RSI and MACD have documented predictive power for intraday mean-reversion/momentum
+momentum:
+  enabled: true
+  rsi_period: 14
+  macd:
+    enabled: true
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+  stochastic:
+    enabled: false  # Disabled - redundant with RSI
+    k_period: 14
+    d_period: 3
+
+  # New derived momentum features (Phase 2)
+  rsi_divergence:
+    enabled: true
+    lookback: 5  # Compare 5-bar changes in price vs RSI
+  vwap_momentum:
+    enabled: true
+    lookback: 5  # Rate of change of price_vs_vwap
+
+# Microstructure features (order flow proxies)
+microstructure:
+  enabled: true
+
+# Candle structure features
+structure:
+  enabled: true
+
+# Time features (cyclical encoding)
+time:
+  minutes_per_session: 1440
+  enabled: true
+
+# Feature output settings
+output:
+  column_order: "registry"
+  include_session_features: true
+  include_synthetic_flag: true

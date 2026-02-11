@@ -1,0 +1,97 @@
+# Optimized Feature Configuration - Pruned Model
+# Based on permutation importance analysis (Feb 10, 2026)
+# Strategy: Disable harmful categories, keep helpful ones
+
+computation:
+  eps: 1.0e-8
+
+# DISABLED - Normalization destroyed signal
+normalization:
+  enabled: false
+
+# Returns: DISABLED - Most were harmful (except log_return_12 which is marginal)
+returns:
+  enabled: false
+  # RATIONALE: log_return_1,2,4,6,24 all negative, only log_return_12 was +0.0013 (marginal)
+
+# Candles: Keep enabled - mixed results but upper_wick was helpful
+candles:
+  enabled: true
+  wicks: true          # upper_wick: +0.0018 (helpful)
+  body_metrics: false  # body_pct: -0.0027 (harmful)
+  # This will generate: candle_body (+0.0005), upper_wick, lower_wick
+  # Note: candle_range will also be generated but was harmful (-0.0065)
+
+# Volatility: DISABLED - ALL features were harmful
+volatility:
+  enabled: false
+  # vol_20 (-0.0056), vol_regime (-0.0026), parkinson_vol (-0.0015),
+  # vol_forecast (-0.0014), true_range (-0.0010) all negative
+
+# Trend: Keep enabled - EMA features were top performers
+trend:
+  enabled: true
+  ema_fast: 13
+  ema_slow: 34
+  sma_short: 20
+  sma_long: 30
+  # This generates: ema_13, ema_34, ema_spread, ema_ratio, sma_20, sma_30, trend_strength
+  # TOP PERFORMERS: ema_spread (+0.0048), ema_ratio (+0.0035), ema_34 (+0.0026)
+  # Harmful: ema_13 (-0.0019), sma_20 (-0.0047), sma_30 (-0.0040)
+  # Note: We need ema_13 to compute ema_spread/ema_ratio even though it's harmful alone
+
+# Bollinger Bands: Keep enabled - bb_position was helpful
+bolling_bands:
+  enabled: true
+  window: 20
+  num_std: 2.0
+  # bb_position: +0.0015
+
+# Momentum: DISABLED - ALL features harmful or zero
+momentum:
+  enabled: false
+  # rsi_14 (-0.0021), macd_hist (-0.0009), macd_signal (-0.0012),
+  # vwap_momentum (-0.0033), rsi_divergence (0.0000)
+
+# Volume: Keep enabled - relative_volume was top 3
+volume:
+  enabled: true
+  relative_volume_window: 20
+  vwap: true  # Needed for calculations even though price_vs_vwap was marginal
+  imbalance: false  # volume_imbalance: -0.0022 (harmful)
+
+# Temporal: Keep enabled - time features were helpful
+temporal:
+  enabled: true
+  cyclical_encoding: true
+  # minute_of_day_cos (+0.0021), minute_of_day_sin (+0.0006), day_of_week (+0.0010)
+
+# Microstructure: Keep enabled - autocorr_5 was top 4
+microstructure:
+  enabled: true
+  autocorr_lags: [5]
+  large_move_threshold: 2.0
+  # autocorr_5: +0.0031 (4th best feature)
+  # large_move: 0.0000 (no contribution)
+
+# Metadata: Keep for pipeline
+metadata:
+  enabled: true
+
+# SUMMARY:
+# Categories DISABLED (all harmful):
+#   - normalization (broke model)
+#   - momentum (all features negative)
+#   - volatility (all features negative)
+#   - returns (mostly negative, minimal benefit)
+#
+# Categories ENABLED (contain helpful features):
+#   - trend (ema_spread, ema_ratio, ema_34 - top performers)
+#   - volume (relative_volume - top 3)
+#   - microstructure (autocorr_5 - top 4)
+#   - temporal (time of day effects)
+#   - bolling_bands (bb_position helpful)
+#   - candles (upper_wick helpful)
+#
+# Expected feature count: ~20 (down from 42)
+# Expected AUC improvement: 0.54 -> 0.56-0.57

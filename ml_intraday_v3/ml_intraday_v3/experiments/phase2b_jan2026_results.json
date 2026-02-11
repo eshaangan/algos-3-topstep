@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-01-30T13:07:18.722525",
+  "baseline": {
+    "total_pnl": 1011.354928683966,
+    "win_rate": 0.42105263157894735,
+    "daily_pnl": 53.229206772840314
+  },
+  "improvements": [
+    {
+      "improvement_name": "Entry Timing Optimization",
+      "baseline_pnl": 1011.354928683966,
+      "improved_pnl": 1693.854928683966,
+      "total_improvement": 682.4999999999999,
+      "avg_improvement_per_trade": 4.490131578947367,
+      "baseline_win_rate": 0.42105263157894735,
+      "improved_win_rate": 0.4276315789473684,
+      "trades_improved": 

@@ -1,0 +1,16 @@
+[
+  {
+    "config": "current",
+    "description": "Current (Phase 1-3)",
+    "test_auc": null,
+    "timestamp": "2026-02-10T11:48:01.994959",
+    "stdout": ""
+  },
+  {
+    "config": "features_simplified",
+    "description": "Baseline (Pre-Phase-1)",
+    "test_auc": null,
+    "timestamp": "2026-02-10T11:48:04.741829",
+    "stdout": ""
+  }
+]

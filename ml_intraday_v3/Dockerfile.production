@@ -1,0 +1,41 @@
+# Production Dockerfile for ml_intraday_v3 live trading system
+# Build context should be parent directory (algos 3 topstep/)
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements from ml_intraday_v3
+COPY ml_intraday_v3/requirements-mlv3.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-mlv3.txt
+
+# Copy the entire ml_intraday_v3 directory preserving structure
+COPY ml_intraday_v3 /app/ml_intraday_v3
+
+# Copy the parent core directory (has projectx_client.py)
+COPY core /app/core
+
+# Explicitly copy the validated model
+COPY ml_intraday_v3/model_bundle_retrained_oct2024_nov2025.pkl /app/ml_intraday_v3/models/saved/model_bundle_retrained_oct2024_nov2025.pkl
+
+# Set Python path
+ENV PYTHONPATH=/app:/app/ml_intraday_v3
+
+# Set working directory to ml_intraday_v3 for correct relative imports
+WORKDIR /app/ml_intraday_v3
+
+# Create logs directory
+RUN mkdir -p /app/ml_intraday_v3/logs
+
+# Set entry point to live trading runner with validated model
+CMD ["python", "live_trading/live_runner.py", \
+     "--model-bundle", "models/saved/model_bundle_retrained_oct2024_nov2025.pkl", \
+     "--no-confirm"]
