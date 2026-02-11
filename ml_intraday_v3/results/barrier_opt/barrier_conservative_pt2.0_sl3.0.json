@@ -1,0 +1,103 @@
+{
+  "exp_id": "barrier_conservative_pt2.0_sl3.0",
+  "config": {
+    "exp_id": "barrier_conservative_pt2.0_sl3.0",
+    "phase": 1,
+    "model_name": "conservative",
+    "model_params": {
+      "n_estimators": 100,
+      "max_depth": 4,
+      "num_leaves": 15,
+      "min_child_samples": 300,
+      "reg_alpha": 0.5,
+      "reg_lambda": 0.5,
+      "learning_rate": 0.05
+    },
+    "feature_set_name": "top10",
+    "feature_set": [
+      "side",
+      "autocorr_5",
+      "vol_regime",
+      "vol_20",
+      "ema_ratio",
+      "relative_volume",
+      "lower_wick",
+      "vol_forecast",
+      "parkinson_vol",
+      "ema_spread"
+    ],
+    "training_window_months": 6,
+    "labeling": {
+      "pt": 2.0,
+      "sl": 3.0,
+      "hz": 12
+    },
+    "sample_weight": "uniform",
+    "calibration": null
+  },
+  "status": "SUCCESS",
+  "runtime_seconds": 2.856642007827759,
+  "folds": [
+    {
+      "fold": 1,
+      "train_auc": 0.6559900670273763,
+      "test_auc": 0.5609894411883137,
+      "train_test_gap": 0.09500062583906255,
+      "pct_signals_above_055": 0.0,
+      "pct_signals_above_060": 0.0,
+      "mean_test_prob": 0.2895724397097659,
+      "std_test_prob": 0.07033339521062225,
+      "n_train": 2462,
+      "n_test": 1464,
+      "n_train_events": 2462,
+      "n_test_events": 1464,
+      "est_signals_per_day": 38.3874139626352,
+      "est_trades_per_day": 0.0
+    },
+    {
+      "fold": 2,
+      "train_auc": 0.6559900670273763,
+      "test_auc": 0.5345527276943591,
+      "train_test_gap": 0.12143733933301715,
+      "pct_signals_above_055": 0.0,
+      "pct_signals_above_060": 0.0,
+      "mean_test_prob": 0.2582678630729436,
+      "std_test_prob": 0.05303664852626658,
+      "n_train": 2462,
+      "n_test": 1618,
+      "n_train_events": 2462,
+      "n_test_events": 1618,
+      "est_signals_per_day": 40.47529706066291,
+      "est_trades_per_day": 0.0
+    },
+    {
+      "fold": 3,
+      "train_auc": 0.6559900670273763,
+      "test_auc": 0.55947834363451,
+      "train_test_gap": 0.09651172339286629,
+      "pct_signals_above_055": 0.0,
+      "pct_signals_above_060": 0.0,
+      "mean_test_prob": 0.2833839154138504,
+      "std_test_prob": 0.06794622978130069,
+      "n_train": 2462,
+      "n_test": 1536,
+      "n_train_events": 2462,
+      "n_test_events": 1536,
+      "est_signals_per_day": 38.32813474734872,
+      "est_trades_per_day": 0.0
+    }
+  ],
+  "summary": {
+    "median_test_auc": 0.55947834363451,
+    "median_train_auc": 0.6559900670273763,
+    "mean_train_test_gap": 0.10431656285498199,
+    "std_test_auc": 0.012121924884616008,
+    "median_pct_signals_above_055": 0.0,
+    "median_pct_signals_above_060": 0.0,
+    "mean_test_prob": 0.2770747393988533,
+    "mean_std_prob": 0.06377209117272985,
+    "median_est_trades_per_day": 0.0,
+    "n_successful_folds": 3,
+    "n_total_folds": 3
+  }
+}

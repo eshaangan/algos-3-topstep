@@ -1,0 +1,65 @@
+{
+  "exp_id": "local_minimal_top20_3mo_null",
+  "config": {
+    "exp_id": "local_minimal_top20_3mo_null",
+    "phase": 1,
+    "model_name": "minimal",
+    "model_params": {
+      "n_estimators": 20,
+      "max_depth": 2,
+      "num_leaves": 4,
+      "min_child_samples": 500,
+      "reg_alpha": 1.5,
+      "reg_lambda": 1.5,
+      "learning_rate": 0.05
+    },
+    "feature_set_name": "top20",
+    "feature_set": [
+      "side",
+      "autocorr_5",
+      "vol_regime",
+      "vol_20",
+      "ema_ratio",
+      "relative_volume",
+      "lower_wick",
+      "vol_forecast",
+      "parkinson_vol",
+      "ema_spread",
+      "log_return_24",
+      "atr_14",
+      "bb_position",
+      "minute_of_day_sin",
+      "minute_of_day_cos",
+      "upper_wick",
+      "volume",
+      "returns_mean",
+      "bb_width",
+      "returns_std"
+    ],
+    "training_window_months": 3,
+    "labeling": {
+      "pt": 3.0,
+      "sl": 2.5,
+      "hz": 12
+    },
+    "sample_weight": "uniform",
+    "calibration": null
+  },
+  "status": "FAILED",
+  "error": "All folds failed",
+  "folds": [
+    {
+      "fold": 1,
+      "error": "Missing features: ['volume', 'returns_mean', 'bb_width', 'returns_std']"
+    },
+    {
+      "fold": 2,
+      "error": "Missing features: ['volume', 'returns_mean', 'bb_width', 'returns_std']"
+    },
+    {
+      "fold": 3,
+      "error": "Missing features: ['volume', 'returns_mean', 'bb_width', 'returns_std']"
+    }
+  ],
+  "runtime_seconds": 2.5670652389526367
+}

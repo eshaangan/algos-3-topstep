@@ -114,8 +114,11 @@ class LiveModelPredictor:
                 - score_ev_short: EV score for SHORT (if bidirectional)
                 - meta_prob: Meta model probability (if use_meta=True)
         """
-        # Prepare features as numeric array
-        X = features[self.feature_columns].to_numpy(dtype=float, copy=False).reshape(1, -1)
+        # Prepare features as DataFrame to preserve feature names for sklearn
+        X = pd.DataFrame(
+            [features[self.feature_columns].to_numpy(dtype=float)],
+            columns=self.feature_columns,
+        )
 
         # Apply preprocessing
         X_scaled = self._preprocess(X)
@@ -201,16 +204,24 @@ class LiveModelPredictor:
 
         # For bidirectional models with side feature, evaluate both LONG and SHORT
         elif self.has_side_feature and side is None:
-            side_idx = self.feature_columns.index('side')
+            side_col = 'side'
 
             # Evaluate LONG (side=1)
             X_long = X_scaled.copy()
-            X_long[0, side_idx] = 1.0
+            if isinstance(X_long, pd.DataFrame):
+                X_long.iloc[0, X_long.columns.get_loc(side_col)] = 1.0
+            else:
+                side_idx = self.feature_columns.index(side_col)
+                X_long[0, side_idx] = 1.0
             proba_long = self.model.predict_proba(X_long)
 
             # Evaluate SHORT (side=-1)
             X_short = X_scaled.copy()
-            X_short[0, side_idx] = -1.0
+            if isinstance(X_short, pd.DataFrame):
+                X_short.iloc[0, X_short.columns.get_loc(side_col)] = -1.0
+            else:
+                side_idx = self.feature_columns.index(side_col)
+                X_short[0, side_idx] = -1.0
             proba_short = self.model.predict_proba(X_short)
 
             n_classes = proba_long.shape[1]
@@ -260,8 +271,11 @@ class LiveModelPredictor:
         else:
             # Non-bidirectional or explicit side provided
             if self.has_side_feature and side is not None:
-                side_idx = self.feature_columns.index('side')
-                X_scaled[0, side_idx] = float(side)
+                if isinstance(X_scaled, pd.DataFrame):
+                    X_scaled.iloc[0, X_scaled.columns.get_loc('side')] = float(side)
+                else:
+                    side_idx = self.feature_columns.index('side')
+                    X_scaled[0, side_idx] = float(side)
             
             # Generate primary prediction
             if hasattr(self.model, 'predict_proba'):
@@ -364,35 +378,42 @@ class LiveModelPredictor:
 
         return pred
 
-    def _preprocess(self, X: np.ndarray) -> np.ndarray:
+    def _preprocess(self, X):
         """
         Apply preprocessing to features.
 
         Args:
-            X: Raw feature matrix
+            X: Raw feature matrix (DataFrame or ndarray)
 
         Returns:
-            Preprocessed feature matrix
+            Preprocessed feature matrix (same type as input)
         """
-        # Ensure numeric
-        X = X.astype(float, copy=False)
+        # Handle both DataFrame and ndarray inputs
+        is_dataframe = isinstance(X, pd.DataFrame)
+        columns = X.columns if is_dataframe else None
+
+        # Convert to numpy for processing
+        X_array = X.to_numpy(dtype=float, copy=False) if is_dataframe else X.astype(float, copy=False)
 
         # Impute missing values
         if self.impute == 'median':
-            mask = np.isnan(X)
-            X[mask] = np.take(self.medians, np.where(mask)[1])
+            mask = np.isnan(X_array)
+            X_array[mask] = np.take(self.medians, np.where(mask)[1])
         elif self.impute == 'zero':
-            X = np.nan_to_num(X, 0.0)
+            X_array = np.nan_to_num(X_array, 0.0)
 
         # Scale
         if self.scaler == 'standard':
-            X_scaled = (X - self.means) / (self.stds + 1e-8)
+            X_scaled = (X_array - self.means) / (self.stds + 1e-8)
         elif self.scaler == 'minmax':
             # MinMax not stored in state, just use X as-is
-            X_scaled = X
+            X_scaled = X_array
         else:
-            X_scaled = X
+            X_scaled = X_array
 
+        # Return same type as input
+        if is_dataframe:
+            return pd.DataFrame(X_scaled, columns=columns)
         return X_scaled
 
     def _preprocess_meta(self, X: np.ndarray) -> np.ndarray:

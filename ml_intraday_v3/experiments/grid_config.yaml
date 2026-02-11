@@ -1,0 +1,220 @@
+# Comprehensive Grid Search Configuration
+# Three-phase hierarchical search to find model edge
+
+# Phase 1: Coarse Grid (200-300 experiments)
+phase1:
+  strategy: "latin_hypercube"  # or "factorial"
+  num_samples: 250
+
+  model_configs:
+    minimal:
+      n_estimators: 20
+      max_depth: 2
+      num_leaves: 4
+      min_child_samples: 500
+      reg_alpha: 1.5
+      reg_lambda: 1.5
+      learning_rate: 0.05
+      
+    very_conservative:
+      n_estimators: 50
+      max_depth: 3
+      num_leaves: 7
+      min_child_samples: 400
+      reg_alpha: 1.0
+      reg_lambda: 1.0
+      learning_rate: 0.05
+      
+    conservative:
+      n_estimators: 100
+      max_depth: 4
+      num_leaves: 15
+      min_child_samples: 300
+      reg_alpha: 0.5
+      reg_lambda: 0.5
+      learning_rate: 0.05
+      
+    current:
+      n_estimators: 150
+      max_depth: 6
+      num_leaves: 31
+      min_child_samples: 100
+      reg_alpha: 0.1
+      reg_lambda: 0.1
+      learning_rate: 0.05
+      
+    moderate:
+      n_estimators: 200
+      max_depth: 5
+      num_leaves: 20
+      min_child_samples: 150
+      reg_alpha: 0.2
+      reg_lambda: 0.2
+      learning_rate: 0.05
+      
+    aggressive:
+      n_estimators: 300
+      max_depth: 7
+      num_leaves: 50
+      min_child_samples: 50
+      reg_alpha: 0.05
+      reg_lambda: 0.05
+      learning_rate: 0.05
+
+  feature_sets:
+    full: null  # All features
+    top20:
+      - side
+      - autocorr_5
+      - vol_regime
+      - vol_20
+      - ema_ratio
+      - relative_volume
+      - lower_wick
+      - vol_forecast
+      - parkinson_vol
+      - ema_spread
+      - log_return_24
+      - atr_14
+      - bb_position
+      - minute_of_day_sin
+      - minute_of_day_cos
+      - upper_wick
+      - volume
+      - returns_mean
+      - bb_width
+      - returns_std
+      
+    top15:
+      - side
+      - autocorr_5
+      - vol_regime
+      - vol_20
+      - ema_ratio
+      - relative_volume
+      - lower_wick
+      - vol_forecast
+      - parkinson_vol
+      - ema_spread
+      - log_return_24
+      - atr_14
+      - bb_position
+      - minute_of_day_sin
+      - minute_of_day_cos
+      
+    top10:
+      - side
+      - autocorr_5
+      - vol_regime
+      - vol_20
+      - ema_ratio
+      - relative_volume
+      - lower_wick
+      - vol_forecast
+      - parkinson_vol
+      - ema_spread
+      
+    top5:
+      - side
+      - autocorr_5
+      - vol_regime
+      - vol_20
+      - ema_ratio
+      
+    structural:
+      - side
+      - upper_wick
+      - lower_wick
+      - body_size
+      - wick_body_ratio
+      
+    volatility:
+      - side
+      - atr_14
+      - vol_20
+      - vol_regime
+      - parkinson_vol
+      - vol_forecast
+      - bb_width
+      
+    time:
+      - side
+      - minute_of_day_sin
+      - minute_of_day_cos
+      - hour_of_day
+      
+    momentum:
+      - side
+      - ema_ratio
+      - ema_spread
+      - autocorr_5
+      - log_return_24
+
+  training_windows: [3, 6, 12, 18, 24]  # months
+
+  labeling_barriers:
+    - {pt: 2.5, sl: 2.0, hz: 10}
+    - {pt: 3.0, sl: 2.5, hz: 12}
+    - {pt: 3.5, sl: 3.0, hz: 14}
+    - {pt: 4.0, sl: 3.5, hz: 16}
+
+  sample_weights:
+    - uniform
+    - time_decay_0.005
+    - time_decay_0.01
+
+  calibration_methods:
+    - isotonic
+    - sigmoid
+    - null
+
+# Phase 2: Fine Grid (150-250 experiments)
+phase2:
+  strategy: "neighborhood"
+  neighborhood_size: 10  # variations per base config
+
+  hyperparameter_deltas:
+    n_estimators: [-50, 0, 50]
+    max_depth: [-1, 0, 1]
+    min_child_samples: [0.5, 1.0, 2.0]  # multipliers
+    learning_rate: [0.01, 0.05, 0.1]
+    feature_fraction: [0.8, 0.9, 1.0]
+    bagging_fraction: [0.8, 0.9, 1.0]
+
+# Phase 3: Validation & Ensemble (20-50 experiments)
+phase3:
+  holdout_period: "2025-07-01 to 2025-12-31"
+  ensemble_strategies:
+    - simple_average
+    - weighted_by_auc
+    - stacking_meta_learner
+
+# GCP Configuration
+gcp:
+  project: "trading-algo-3"
+  zone: "us-central1-a"
+  machine_type: "n2-highmem-4"
+  disk_size_gb: 50
+  bucket: "gs://trading-algo-3"
+  
+  # Cost controls
+  max_budget_usd: 200
+  timeout_per_experiment_minutes: 30
+
+# Data Configuration
+data:
+  source_file: "MES_5min_Oct2024_Dec2025.parquet"
+  train_start: "2024-01-01"
+  test_periods:
+    - "2025-01-01 to 2025-02-28"
+    - "2025-03-01 to 2025-04-30"
+    - "2025-05-01 to 2025-06-30"
+
+# Success Criteria
+success_criteria:
+  min_test_auc: 0.52
+  min_pct_signals_above_055: 0.30
+  max_train_test_gap: 0.15
+  max_auc_std_across_folds: 0.05
+  min_signals_per_day: 8
+  max_signals_per_day: 20

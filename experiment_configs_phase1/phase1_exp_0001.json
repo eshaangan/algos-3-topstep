@@ -1,0 +1,21 @@
+{
+  "exp_id": "phase1_exp_0001",
+  "phase": 1,
+  "model_name": "current",
+  "model_params": {
+    "n_estimators": 150,
+    "max_depth": 6,
+    "num_leaves": 31,
+    "min_child_samples": 100,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.1,
+    "learning_rate": 0.05
+  },
+  "feature_set_name": "time",
+  "feature_set": [
+    "side",
+    "minute_of_day_sin",
+    "minute_of_day_cos",
+    "hour_of_day"
+  ],
+  "training_window_months": 
