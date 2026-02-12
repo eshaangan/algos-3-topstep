@@ -60,3 +60,11 @@ time:
 # Output: generate is_synthetic flag
 output:
   include_synthetic_flag: true
+
+# Multi-resolution features: OFF by default to preserve existing model behavior.
+# Exhaustive experiments can override this via experiment config.
+multi_resolution:
+  enabled: false
+  resolutions_min: [15, 30, 60]
+  prefix: mr
+  align_method: ffill

@@ -30,7 +30,7 @@ gsutil -m cp -r gs://trading-algo-3/code/ml_intraday_v3 /workspace/
 # Install Python dependencies
 echo "Installing Python dependencies..."
 pip3 install --upgrade pip
-pip3 install numpy pandas scikit-learn lightgbm joblib pyyaml
+pip3 install numpy pandas scikit-learn lightgbm joblib pyyaml matplotlib seaborn pyarrow
 
 # Download data from GCS
 echo "Downloading data..."

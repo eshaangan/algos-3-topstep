@@ -1,0 +1,102 @@
+version: 1
+seed: 42
+
+global:
+  cv_n_splits: 5
+  cv_embargo_bars: 12
+  data_file: MES_5min_Oct2024_Dec2025.parquet
+
+axes:
+  session_mode: [rth_eth, rth_only, eth_only]
+  training_window_months: [1, 2, 3, 6, 9, 12]
+  sample_weight: [uniform, time_decay_0.001, time_decay_0.005, class_balanced]
+  calibration: [null, sigmoid, isotonic]
+  balance_method: [undersample]
+  cv_n_splits: [3, 5, 8]
+  cv_embargo_bars: [6, 12, 24]
+  labeling:
+    - {pt: 2.0, sl: 2.0, hz: 6}
+    - {pt: 2.5, sl: 2.5, hz: 12}
+    - {pt: 3.0, sl: 2.5, hz: 12}
+    - {pt: 3.5, sl: 2.5, hz: 24}
+    - {pt: 4.0, sl: 3.0, hz: 24}
+  model:
+    - name: lightgbm_conservative
+      model_kind: lightgbm
+      model_params:
+        n_estimators: 200
+        learning_rate: 0.03
+        max_depth: 4
+        num_leaves: 15
+        min_child_samples: 200
+        reg_alpha: 0.5
+        reg_lambda: 0.5
+        subsample: 0.8
+        colsample_bytree: 0.8
+    - name: lightgbm_moderate
+      model_kind: lightgbm
+      model_params:
+        n_estimators: 600
+        learning_rate: 0.03
+        max_depth: 6
+        num_leaves: 31
+        min_child_samples: 80
+        reg_alpha: 0.1
+        reg_lambda: 0.2
+        subsample: 0.8
+        colsample_bytree: 0.8
+    - name: random_forest
+      model_kind: random_forest
+      model_params:
+        n_estimators: 600
+        max_depth: 8
+        min_samples_leaf: 20
+    - name: extra_trees
+      model_kind: extra_trees
+      model_params:
+        n_estimators: 600
+        max_depth: 8
+        min_samples_leaf: 20
+    - name: logreg_elasticnet
+      model_kind: logreg
+      model_params:
+        penalty: elasticnet
+        C: 0.3
+        l1_ratio: 0.5
+    - name: mlp_small
+      model_kind: mlp
+      model_params:
+        hidden_layer_sizes: [128, 64]
+        alpha: 0.0005
+        learning_rate_init: 0.0003
+  feature_set:
+    - name: full
+      feature_set: null
+      features_config: {}
+    - name: no_momentum
+      feature_set: null
+      features_config:
+        momentum:
+          enabled: false
+    - name: momentum_on
+      feature_set: null
+      features_config:
+        momentum:
+          enabled: true
+    - name: normalized
+      feature_set: null
+      features_config:
+        normalization:
+          enabled: true
+          zscore_lookback: 50
+    - name: multi_res
+      feature_set: null
+      features_config:
+        multi_resolution:
+          enabled: true
+          resolutions_min: [15, 30, 60, 120]
+          prefix: mr
+          align_method: ffill
+
+constraints:
+  max_experiments_default: 1000

@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from .registry import get_feature_registry, filter_registry_for_bar_size, FeatureSpec
+from .multi_resolution import build_multi_resolution_features
 
 logger = logging.getLogger(__name__)
 
@@ -445,5 +446,32 @@ def build_features(
         logger.debug(
             f"Usable for training: {n_usable}/{n_total} ({pct_usable:.2f}%)"
         )
+
+    # -------------------------------------------------------------------------
+    # 9. Optional multi-resolution features (5m -> higher timeframes)
+    # -------------------------------------------------------------------------
+    if bar_size == "5m" and config.get("multi_resolution", {}).get("enabled", False):
+        mr_df = build_multi_resolution_features(
+            bars_df=df,
+            base_index=features_df.index,
+            config=config,
+            feature_builder=build_features,
+        )
+        if not mr_df.empty:
+            features_df = features_df.join(mr_df, how="left")
+            # Maintain deterministic ordering for appended columns.
+            base_cols = [spec.name for spec in registry]
+            mr_cols = sorted([c for c in features_df.columns if c not in base_cols])
+            features_df = features_df[base_cols + mr_cols]
+
+            # Update mask to include multi-resolution feature availability.
+            if "usable_for_training" in features_df.columns:
+                mr_nonmeta = [
+                    c for c in mr_cols if c not in {"is_synthetic", "usable_for_training"}
+                ]
+                if mr_nonmeta:
+                    base_mask = features_df["usable_for_training"].astype(bool)
+                    extra_mask = ~features_df[mr_nonmeta].isna().any(axis=1)
+                    features_df["usable_for_training"] = base_mask & extra_mask
 
     return features_df

@@ -1,0 +1,30 @@
+{
+  "exp_id": "exhaustive_exp_00336",
+  "phase": "exhaustive",
+  "session_mode": "rth_eth",
+  "training_window_months": 12,
+  "sample_weight": "class_balanced",
+  "calibration": "isotonic",
+  "balance_method": "undersample",
+  "cv_n_splits": 8,
+  "cv_embargo_bars": 24,
+  "labeling": {
+    "pt": 4.0,
+    "sl": 3.0,
+    "hz": 24
+  },
+  "model_name": "random_forest",
+  "model_kind": "random_forest",
+  "model_params": {
+    "n_estimators": 600,
+    "max_depth": 8,
+    "min_samples_leaf": 20
+  },
+  "feature_set_name": "momentum_on",
+  "feature_set": null,
+  "features_config": {
+    "momentum": {
+      "enabled": true
+    }
+  }
+}
