@@ -1,0 +1,42 @@
+{
+  "exp_id": "batch17_norm_139",
+  "phase": "batch17_norm",
+  "architecture": "single_model",
+  "labeling_method": "triple_barrier",
+  "labeling_params": {
+    "pt_mult": 2.0,
+    "sl_mult": 1.5,
+    "time_mult": 40
+  },
+  "sample_weight": "uniqueness",
+  "feature_set_name": "baseline",
+  "features_config": {
+    "normalization": {
+      "method": "robust",
+      "window": "rolling_63"
+    },
+    "fracdiff_d": 0.4,
+    "enable_fracdiff": true
+  },
+  "normalization_method": "robust",
+  "normalization_window": "rolling_63",
+  "fracdiff_d": 0.4,
+  "model_kind": "lightgbm",
+  "model_params": {
+    "n_estimators": 400,
+    "learning_rate": 0.01,
+    "num_leaves": 63,
+    "max_depth": 10,
+    "min_child_samples": 80,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.2
+  },
+  "cv_method": "cpcv",
+  "cv_n_splits": 5,
+  "cv_n_test_splits": 2,
+  "cv_purge_pct": 0.02,
+  "cv_embargo_pct": 0.01,
+  "cv_embargo_bars": 12
+}

@@ -1,0 +1,28 @@
+version: 1
+seed: 42
+batch_name: batch1_labeling
+n_configs_default: 200
+
+axes:
+  labeling_method:
+    - triple_barrier
+    - trend_scanning
+    - trend_scanning_adaptive
+
+  sample_weight:
+    - uniform
+    - uniqueness
+    - uniqueness_decay
+
+  features:
+    - baseline
+    - baseline_fracdiff
+
+  triple_barrier:
+    pt_mult: [1.5, 2.0, 2.5]
+    sl_mult: [1.0, 1.5, 2.0]
+    time_mult: [20, 40, 60]
+
+  trend_scanning:
+    max_lookahead: [15, 20, 25, 30]
+    min_t_value: [1.5, 2.0, 2.5]

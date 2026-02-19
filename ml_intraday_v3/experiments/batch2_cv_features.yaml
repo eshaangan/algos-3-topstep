@@ -1,0 +1,26 @@
+version: 1
+seed: 42
+batch_name: batch2_cv_features
+n_configs_default: 200
+
+axes:
+  cv_method:
+    - kfold
+    - cpcv
+    - cpcv_embargo
+
+  feature_set:
+    - baseline
+    - baseline_hmm
+    - baseline_multiresolution
+    - baseline_fracdiff_hmm
+
+  calibration:
+    - null
+    - isotonic
+    - sigmoid
+
+  model_params:
+    num_leaves: [31, 63, 127]
+    max_depth: [-1, 10, 20]
+    min_data_in_leaf: [20, 50, 100]

@@ -1,0 +1,28 @@
+{
+  "model_id": "batch1_exp_00159",
+  "model_file": "batch1_exp_00159_production_model.pkl",
+  "feature_columns": [
+    "returns",
+    "log_returns",
+    "volume_ratio",
+    "price_ma5",
+    "price_ma20",
+    "high_low_ratio",
+    "atr_ratio"
+  ],
+  "training_date": "2026-02-15T20:17:46.567259",
+  "training_samples": 22986,
+  "performance": {
+    "cv_auc": 0.544,
+    "cv_signals_055": 0.54,
+    "cv_trades_per_day": 8.9,
+    "training_signal_rate": 0.4256068911511355
+  },
+  "deployment_ready": true,
+  "integration_notes": [
+    "This is a quickstart model with simplified features",
+    "For full production deployment, integrate with complete feature pipeline",
+    "Feature engineering should match training exactly",
+    "Test on paper trading before live deployment"
+  ]
+}

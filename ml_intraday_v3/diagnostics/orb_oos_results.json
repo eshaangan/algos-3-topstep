@@ -1,0 +1,334 @@
+{
+  "strategy": "ORB",
+  "variant": "no_trailing_stop",
+  "params": {
+    "or_window": "09:30-09:55",
+    "or_end_time": "09:55",
+    "entry_cutoff": "12:00",
+    "min_range_atr": 0.5,
+    "pt_atr_mult": 2.0,
+    "sl_atr_mult": 1.5,
+    "n_contracts": 2,
+    "trailing_disabled": true
+  },
+  "backtest": {
+    "total_pnl": 922.3376354225695,
+    "num_trades": 32,
+    "win_rate": 0.5625,
+    "profit_factor": 1.4855735147533982,
+    "sharpe_ratio": 3.455617428125342,
+    "max_drawdown": -573.8157548841991,
+    "max_consecutive_losses": 6,
+    "avg_trade_pnl": 28.823051106955297
+  },
+  "monte_carlo": {
+    "p_pass": 0.5389,
+    "median_days": 28.0,
+    "p25_days": 22.0,
+    "p75_days": 34.0,
+    "p95_days": 39.0,
+    "p_fail_daily": 0.0,
+    "p_fail_trailing": 0.0288,
+    "p_consistency_issues": 0.9956,
+    "mean_final_profit": 2365.58,
+    "p95_max_drawdown": 1797.11,
+    "n_paths": 10000.0,
+    "paths_passed": 5389.0
+  },
+  "oos_simulate": {
+    "passed": false,
+    "fail_reason": "Ran out of trading days without hitting profit target",
+    "final_profit": 922.34
+  },
+  "go_signal": true,
+  "trades": [
+    {
+      "entry_bar": 99,
+      "exit_bar": 123,
+      "direction": 1,
+      "entry_price": 6948.25,
+      "exit_price": 6955.5,
+      "pnl": 70.02,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 181,
+      "exit_bar": 190,
+      "direction": 1,
+      "entry_price": 6970.5,
+      "exit_price": 6962.20451288839,
+      "pnl": -85.43487111609873,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 266,
+      "exit_bar": 271,
+      "direction": -1,
+      "entry_price": 6983.0,
+      "exit_price": 6990.977970239212,
+      "pnl": -82.25970239211573,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 284,
+      "exit_bar": 303,
+      "direction": 1,
+      "entry_price": 6999.25,
+      "exit_price": 6991.916653872443,
+      "pnl": -75.8134612755698,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 349,
+      "exit_bar": 359,
+      "direction": 1,
+      "entry_price": 6964.0,
+      "exit_price": 6950.505186277715,
+      "pnl": -137.4281372228456,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 368,
+      "exit_bar": 392,
+      "direction": 1,
+      "entry_price": 6962.5,
+      "exit_price": 6960.25,
+      "pnl": -24.98,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 433,
+      "exit_bar": 434,
+      "direction": -1,
+      "entry_price": 6959.75,
+      "exit_price": 6976.291958287757,
+      "pnl": -167.89958287756642,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 444,
+      "exit_bar": 462,
+      "direction": 1,
+      "entry_price": 6990.75,
+      "exit_price": 7009.24072816571,
+      "pnl": 182.42728165709698,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 527,
+      "exit_bar": 551,
+      "direction": 1,
+      "entry_price": 7003.25,
+      "exit_price": 7010.5,
+      "pnl": 70.02,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 600,
+      "exit_bar": 604,
+      "direction": -1,
+      "entry_price": 7000.25,
+      "exit_price": 6985.56895152579,
+      "pnl": 144.33048474210003,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 684,
+      "exit_bar": 686,
+      "direction": -1,
+      "entry_price": 6944.75,
+      "exit_price": 6961.170093203612,
+      "pnl": -166.6809320361194,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 690,
+      "exit_bar": 714,
+      "direction": -1,
+      "entry_price": 6943.0,
+      "exit_price": 6925.25,
+      "pnl": 175.02,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 780,
+      "exit_bar": 804,
+      "direction": 1,
+      "entry_price": 7011.25,
+      "exit_price": 7007.75,
+      "pnl": -37.48,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 855,
+      "exit_bar": 868,
+      "direction": -1,
+      "entry_price": 6975.5,
+      "exit_price": 6987.035654478243,
+      "pnl": -117.83654478242578,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 936,
+      "exit_bar": 960,
+      "direction": 1,
+      "entry_price": 6903.0,
+      "exit_price": 6911.0,
+      "pnl": 77.52,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 985,
+      "exit_bar": 988,
+      "direction": -1,
+      "entry_price": 6867.5,
+      "exit_price": 6884.613527915253,
+      "pnl": -173.61527915253143,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 995,
+      "exit_bar": 1006,
+      "direction": 1,
+      "entry_price": 6895.25,
+      "exit_price": 6880.420599555784,
+      "pnl": -150.77400444215934,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 1071,
+      "exit_bar": 1077,
+      "direction": 1,
+      "entry_price": 6884.5,
+      "exit_price": 6905.734579129847,
+      "pnl": 209.8657912984668,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 1152,
+      "exit_bar": 1159,
+      "direction": -1,
+      "entry_price": 6929.75,
+      "exit_price": 6948.089662189409,
+      "pnl": -185.87662189408954,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 1236,
+      "exit_bar": 1248,
+      "direction": 1,
+      "entry_price": 6946.75,
+      "exit_price": 6962.584945765367,
+      "pnl": 155.86945765366684,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 1323,
+      "exit_bar": 1347,
+      "direction": 1,
+      "entry_price": 6985.0,
+      "exit_price": 6988.5,
+      "pnl": 32.52,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 1411,
+      "exit_bar": 1435,
+      "direction": 1,
+      "entry_price": 7008.5,
+      "exit_price": 7009.75,
+      "pnl": 10.02,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 1489,
+      "exit_bar": 1506,
+      "direction": -1,
+      "entry_price": 7018.0,
+      "exit_price": 7006.530204818493,
+      "pnl": 112.21795181506924,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 1572,
+      "exit_bar": 1579,
+      "direction": -1,
+      "entry_price": 6954.25,
+      "exit_price": 6927.348190247171,
+      "pnl": 266.5380975282874,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 1671,
+      "exit_bar": 1681,
+      "direction": -1,
+      "entry_price": 6958.75,
+      "exit_price": 6938.476716756097,
+      "pnl": 200.2528324390328,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 1741,
+      "exit_bar": 1765,
+      "direction": 1,
+      "entry_price": 6993.25,
+      "exit_price": 7011.0,
+      "pnl": 175.02,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 1824,
+      "exit_bar": 1840,
+      "direction": -1,
+      "entry_price": 6975.25,
+      "exit_price": 6954.09060300614,
+      "pnl": 209.11396993860356,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 1908,
+      "exit_bar": 1910,
+      "direction": -1,
+      "entry_price": 6918.0,
+      "exit_price": 6939.326682424399,
+      "pnl": -215.74682424399222,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 1920,
+      "exit_bar": 1937,
+      "direction": -1,
+      "entry_price": 6916.0,
+      "exit_price": 6885.360012204905,
+      "pnl": 303.9198779509529,
+      "exit_reason": "profit_target"
+    },
+    {
+      "entry_bar": 1994,
+      "exit_bar": 2009,
+      "direction": -1,
+      "entry_price": 6811.75,
+      "exit_price": 6839.2674976875105,
+      "pnl": -277.65497687510515,
+      "exit_reason": "stop_loss"
+    },
+    {
+      "entry_bar": 2088,
+      "exit_bar": 2112,
+      "direction": 1,
+      "entry_price": 6911.5,
+      "exit_price": 6936.5,
+      "pnl": 247.52,
+      "exit_reason": "time_stop"
+    },
+    {
+      "entry_bar": 2162,
+      "exit_bar": 2167,
+      "direction": 1,
+      "entry_price": 6959.5,
+      "exit_price": 6977.710282870991,
+      "pnl": 179.6228287099125,
+      "exit_reason": "profit_target"
+    }
+  ]
+}

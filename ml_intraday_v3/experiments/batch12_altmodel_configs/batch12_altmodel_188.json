@@ -1,0 +1,31 @@
+{
+  "phase": "batch12_altmodel",
+  "architecture": "single_model",
+  "labeling_method": "triple_barrier",
+  "sample_weight": "uniqueness",
+  "feature_set_name": "baseline",
+  "labeling_params": {
+    "pt_mult": 2.0,
+    "sl_mult": 1.5,
+    "time_mult": 40
+  },
+  "cv_method": "cpcv",
+  "cv_n_splits": 5,
+  "cv_n_test_splits": 2,
+  "cv_purge_pct": 0.02,
+  "cv_embargo_pct": 0.01,
+  "cv_embargo_bars": 12,
+  "exp_id": "batch12_altmodel_188",
+  "model_kind": "lightgbm",
+  "model_params": {
+    "n_estimators": 200,
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "max_depth": 15,
+    "min_child_samples": 80,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.2
+  }
+}

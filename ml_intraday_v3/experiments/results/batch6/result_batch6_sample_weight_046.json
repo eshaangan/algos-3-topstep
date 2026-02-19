@@ -1,0 +1,59 @@
+{
+  "exp_id": "batch6_sample_weight_046",
+  "config": {
+    "exp_id": "batch6_sample_weight_046",
+    "phase": "batch6_sample_weight",
+    "labeling_method": "triple_barrier",
+    "sample_weight": "uniform",
+    "sample_weight_params": {},
+    "class_weight": "balanced_subsample",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 400,
+      "learning_rate": 0.01,
+      "num_leaves": 127,
+      "max_depth": 6,
+      "min_child_samples": 80,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2,
+      "class_weight": "balanced_subsample"
+    },
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_embargo_bars": 12,
+    "features_config": {},
+    "feature_set_name": "baseline",
+    "labeling_params": {
+      "pt_mult": 2.0,
+      "sl_mult": 1.5,
+      "time_mult": 40
+    }
+  },
+  "status": "FAILED",
+  "error": "All folds failed",
+  "folds": [
+    {
+      "fold": 1,
+      "error": "The 'class_weight' parameter of compute_sample_weight must be an instance of 'dict', an instance of 'list', a str among {'balanced'} or None. Got 'balanced_subsample' instead."
+    },
+    {
+      "fold": 2,
+      "error": "The 'class_weight' parameter of compute_sample_weight must be an instance of 'dict', an instance of 'list', a str among {'balanced'} or None. Got 'balanced_subsample' instead."
+    },
+    {
+      "fold": 3,
+      "error": "The 'class_weight' parameter of compute_sample_weight must be an instance of 'dict', an instance of 'list', a str among {'balanced'} or None. Got 'balanced_subsample' instead."
+    },
+    {
+      "fold": 4,
+      "error": "The 'class_weight' parameter of compute_sample_weight must be an instance of 'dict', an instance of 'list', a str among {'balanced'} or None. Got 'balanced_subsample' instead."
+    },
+    {
+      "fold": 5,
+      "error": "The 'class_weight' parameter of compute_sample_weight must be an instance of 'dict', an instance of 'list', a str among {'balanced'} or None. Got 'balanced_subsample' instead."
+    }
+  ],
+  "runtime_seconds": 12.588057279586792
+}

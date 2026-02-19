@@ -1,0 +1,32 @@
+{
+  "total_experiments": 10,
+  "mean_test_auc": 0.5026711354864919,
+  "median_test_auc": 0.49822262847856996,
+  "best_test_auc": 0.5173166768230754,
+  "mean_pct_signals_055": 0.8246706586826349,
+  "mean_pct_signals_060": 0.7035928143712574,
+  "mean_est_trades_per_day": 11.869783923336303,
+  "signal_diversity_score": 3,
+  "signal_diversity_std": 0.005899545932746098,
+  "baseline_comparison": {
+    "baseline_pnl": -1212.56,
+    "baseline_win_rate": 0.413,
+    "baseline_signals": 624,
+    "baseline_signal_pct": 0.03,
+    "improvement_signal_pct": 0.7946706586826349
+  },
+  "top_model": {
+    "exp_id": "batch4_forward_test_004",
+    "original_exp_id": "batch1_exp_00038",
+    "score": 0.6676403743396814,
+    "test_auc": 0.5173166768230754,
+    "pct_signals_055": 0.8179640718562874,
+    "est_trades_per_day": 12.04585537918871
+  },
+  "problem_solved": {
+    "diversity": false,
+    "quality": true,
+    "auc": true,
+    "overall": false
+  }
+}

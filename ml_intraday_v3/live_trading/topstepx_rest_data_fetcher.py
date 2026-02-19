@@ -74,7 +74,7 @@ class TopstepXRestDataFetcher:
         self.enable_rth_filter = enable_rth_filter
 
         # Initialize ProjectX client
-        self.client = ProjectXClient()
+        self.client = ProjectXClient(timeout_seconds=30.0)
 
         # Rolling buffer of completed bars
         self.bars_buffer = pd.DataFrame()

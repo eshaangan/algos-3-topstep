@@ -2,6 +2,9 @@
 
 Adapted from ml_intraday_v3/live_trading/live_runner.py.
 Replaces ML prediction pipeline with rule-based signal generation.
+Places orders directly via ProjectXClient with ATR-based bracket stops.
+
+Instrument is driven by configs/risk.yaml  position.instrument field.
 """
 
 import logging
@@ -17,13 +20,10 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from rules.ema_trend import EMATrendRule
+from rules.opening_range import OpeningRangeBreakoutRule
 from rules.time_of_day import TimeOfDayRule
-from rules.volume_breakout import VolumeBreakoutRule
-from rules.mean_reversion import MeanReversionRule
-from rules.rejection_pattern import RejectionPatternRule
 from engine.signal_aggregator import SignalAggregator
-from engine.risk_manager import RiskManager, TradeRecord
+from engine.risk_manager import RiskManager
 from utils.indicators import atr
 
 logger = logging.getLogger(__name__)
@@ -52,16 +52,19 @@ class LiveRunner:
 
         # Load configs
         self.rules_cfg = self._load_yaml("rules.yaml")
-        self.risk_cfg = self._load_yaml("risk.yaml")
-        self.exec_cfg = self._load_yaml("execution_spec.yaml")
+        self.risk_cfg  = self._load_yaml("risk.yaml")
+        self.exec_cfg  = self._load_yaml("execution_spec.yaml")
+
+        # Instrument symbol from risk config (e.g. "MNQ", "MES")
+        self.symbol = self.risk_cfg["position"]["instrument"]
 
         # Build trading components
         self._build_rules()
         self._build_risk_manager()
 
-        # Data fetcher + execution engine (from ml_intraday_v3)
+        # Data fetcher and API client (initialised in run())
         self.data_fetcher = None
-        self.execution_engine = None
+        self.client = None  # ProjectXClient for direct order placement
 
     def _load_yaml(self, filename: str) -> dict:
         path = self.config_dir / filename
@@ -69,55 +72,31 @@ class LiveRunner:
             return yaml.safe_load(f)
 
     def _build_rules(self):
-        """Instantiate all trading rules and aggregator."""
+        """Instantiate ORB as primary rule with TimeOfDay filter."""
         cfg = self.rules_cfg
 
-        ema_cfg = cfg["ema_trend"]
-        primary = EMATrendRule(
-            fast_period=ema_cfg["fast_period"],
-            slow_period=ema_cfg["slow_period"],
-            min_spread_atr_ratio=ema_cfg["min_spread_atr_ratio"],
-            slope_lookback=ema_cfg["slope_lookback"],
-            atr_period=ema_cfg["atr_period"],
+        orb_cfg = cfg["opening_range_breakout"]
+        primary = OpeningRangeBreakoutRule(
+            or_end_time=orb_cfg["or_end_time"],
+            min_or_bars=orb_cfg.get("min_or_bars", 4),
+            min_range_atr=orb_cfg["min_range_atr"],
+            entry_cutoff_time=orb_cfg["entry_cutoff_time"],
+            atr_period=orb_cfg.get("atr_period", 14),
+            use_close_for_signal=orb_cfg.get("use_close_for_signal", True),
         )
 
-        filters = []
         tod_cfg = cfg["time_of_day"]
-        filters.append(TimeOfDayRule(
+        filters = [TimeOfDayRule(
             session_start=tod_cfg["session_start"],
             session_end=tod_cfg["session_end"],
             lunch_filter_enabled=tod_cfg.get("lunch_filter_enabled", False),
-        ))
-
-        vol_cfg = cfg["volume_breakout"]
-        filters.append(VolumeBreakoutRule(
-            lookback=vol_cfg["lookback"],
-            min_ratio=vol_cfg["min_ratio"],
-            max_ratio=vol_cfg["max_ratio"],
-        ))
-
-        confirmations = []
-        mr_cfg = cfg["mean_reversion"]
-        confirmations.append(MeanReversionRule(
-            bb_period=mr_cfg["bb_period"],
-            bb_std=mr_cfg["bb_std"],
-            long_bb_threshold=mr_cfg["long_bb_threshold"],
-            short_bb_threshold=mr_cfg["short_bb_threshold"],
-            rsi_period=mr_cfg["rsi_period"],
-            rsi_long_threshold=mr_cfg["rsi_long_threshold"],
-            rsi_short_threshold=mr_cfg["rsi_short_threshold"],
-        ))
-
-        rej_cfg = cfg["rejection_pattern"]
-        confirmations.append(RejectionPatternRule(
-            min_wick_body_ratio=rej_cfg["min_wick_body_ratio"],
-        ))
+        )]
 
         self.aggregator = SignalAggregator(
             primary_rule=primary,
             filter_rules=filters,
-            confirmation_rules=confirmations,
-            min_confirmations=1,
+            confirmation_rules=[],
+            min_confirmations=0,
         )
 
     def _build_risk_manager(self):
@@ -137,9 +116,8 @@ class LiveRunner:
         )
 
     def _init_data_fetcher(self):
-        """Initialize TopstepX data fetcher (reuses ml_intraday_v3 infrastructure)."""
+        """Initialize TopstepX data fetcher and reuse its authenticated client."""
         try:
-            # Import from ml_intraday_v3
             ml_v3_path = Path(__file__).parent.parent.parent / "ml_intraday_v3"
             sys.path.insert(0, str(ml_v3_path))
             from live_trading.topstepx_rest_data_fetcher import TopstepXRestDataFetcher
@@ -151,7 +129,10 @@ class LiveRunner:
                 enable_rth_filter=True,
             )
             self.data_fetcher.initialize_buffer()
-            logger.info("Data fetcher initialized")
+
+            # Reuse the authenticated client from the data fetcher
+            self.client = self.data_fetcher.client
+            logger.info(f"Data fetcher initialized for {self.symbol} ({self.contract_id})")
             return True
         except Exception as e:
             logger.error(f"Failed to init data fetcher: {e}", exc_info=True)
@@ -163,18 +144,73 @@ class LiveRunner:
         try:
             now_et = now.astimezone(pd.Timestamp.now(tz="US/Eastern").tzinfo)
         except Exception:
-            return True  # Default to allowing if timezone fails
+            return True  # default to allowing if timezone fails
 
         t = now_et.time()
         session_start = pd.Timestamp(self.rules_cfg["time_of_day"]["session_start"]).time()
-        session_end = pd.Timestamp(self.rules_cfg["time_of_day"]["session_end"]).time()
+        session_end   = pd.Timestamp(self.rules_cfg["time_of_day"]["session_end"]).time()
         return session_start <= t <= session_end
+
+    def _place_order(self, direction_str: str, entry_price: float,
+                     stop_loss: float, profit_target: float) -> bool:
+        """Place a bracketed market order via ProjectX REST API."""
+        try:
+            core_path = Path(__file__).parent.parent / "core" / "projectx_client.py"
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("projectx_client", core_path)
+            mod  = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            BracketInstruction = mod.BracketInstruction
+
+            tick_size    = self.risk_cfg["position"]["tick_size"]
+            n_contracts  = self.risk_manager.contracts
+
+            # Ticks relative to entry (signed by convention)
+            stop_ticks_raw   = int(round((stop_loss    - entry_price) / tick_size))
+            target_ticks_raw = int(round((profit_target - entry_price) / tick_size))
+
+            if direction_str == "LONG":
+                stop_ticks   = -max(1, abs(stop_ticks_raw))
+                target_ticks =  max(1, abs(target_ticks_raw))
+                side = "BUY"
+            else:
+                stop_ticks   =  max(1, abs(stop_ticks_raw))
+                target_ticks = -max(1, abs(target_ticks_raw))
+                side = "SELL"
+
+            bracket_stop   = BracketInstruction(ticks=stop_ticks,   order_type=4)  # STOP
+            bracket_target = BracketInstruction(ticks=target_ticks, order_type=1)  # LIMIT
+
+            logger.info(
+                f"Placing {side} {n_contracts}x {self.symbol} @ market | "
+                f"stop_ticks={stop_ticks} ({stop_loss:.2f}), "
+                f"target_ticks={target_ticks} ({profit_target:.2f})"
+            )
+
+            order = self.client.place_order(
+                symbol=self.symbol,
+                side=side,
+                quantity=n_contracts,
+                order_type="MARKET",
+                contract_id=self.contract_id,
+                stop_loss_bracket=bracket_stop,
+                take_profit_bracket=bracket_target,
+            )
+            logger.info(
+                f"Order accepted: id={order.order_id}, "
+                f"side={order.side}, qty={order.quantity}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Order placement failed: {e}", exc_info=True)
+            return False
 
     def _process_bar(self, bar_time, latest_bar, bars_df):
         """Process a new bar through the rule engine."""
         self.risk_manager.tick_bar()
 
-        # Check risk
+        # Check risk limits
         can_trade, reason = self.risk_manager.can_trade()
         if not can_trade:
             logger.info(f"Risk block: {reason}")
@@ -187,14 +223,14 @@ class LiveRunner:
         if not decision.should_trade:
             return
 
-        # Compute ATR for stops
+        # ATR for position sizing
         current_atr = atr(bars_df["high"], bars_df["low"], bars_df["close"]).iloc[-1]
         if pd.isna(current_atr) or current_atr <= 0:
             logger.warning("Invalid ATR, skipping trade")
             return
 
-        exit_cfg = self.rules_cfg["exit_strategy"]
-        entry_price = latest_bar["close"]
+        exit_cfg     = self.rules_cfg["exit_strategy"]
+        entry_price  = latest_bar["close"]
 
         stop_loss = self.risk_manager.compute_stop_price(
             entry_price, decision.direction, current_atr, exit_cfg["stop_loss_atr"]
@@ -205,7 +241,7 @@ class LiveRunner:
 
         direction_str = "LONG" if decision.direction == 1 else "SHORT"
         logger.info(
-            f"TRADE SIGNAL: {direction_str} @ {entry_price:.2f}, "
+            f"TRADE SIGNAL: {self.symbol} {direction_str} @ {entry_price:.2f}, "
             f"SL={stop_loss:.2f}, TP={profit_target:.2f}, ATR={current_atr:.2f}"
         )
 
@@ -213,22 +249,12 @@ class LiveRunner:
             logger.info("[DRY RUN] Trade logged but not executed")
             return
 
-        # Execute via TopstepX (if available)
-        if self.execution_engine:
-            try:
-                success, exec_reason = self.execution_engine.execute_signal(
-                    timestamp=bar_time,
-                    direction=direction_str,
-                    prediction={"confidence": decision.confidence},
-                    bars_df=bars_df,
-                    contracts=self.risk_manager.contracts,
-                )
-                if success:
-                    logger.info(f"Order executed: {direction_str}")
-                else:
-                    logger.warning(f"Order rejected: {exec_reason}")
-            except Exception as e:
-                logger.error(f"Execution error: {e}", exc_info=True)
+        # Live: place order via ProjectX API
+        success = self._place_order(direction_str, entry_price, stop_loss, profit_target)
+        if success:
+            logger.info(f"[LIVE] Order placed: {self.symbol} {direction_str}")
+        else:
+            logger.error(f"[LIVE] Order placement FAILED for {self.symbol} {direction_str}")
 
     def _signal_handler(self, signum, frame):
         logger.warning(f"Signal {signum} received - shutting down")
@@ -237,22 +263,22 @@ class LiveRunner:
     def run(self):
         """Main trading loop."""
         logger.info("=" * 60)
-        logger.info("RULE-BASED LIVE TRADING")
+        logger.info(f"RULE-BASED LIVE TRADING  [{self.symbol}]")
         logger.info("=" * 60)
-        logger.info(f"Dry run: {self.dry_run}")
+        logger.info(f"Dry run:  {self.dry_run}")
+        logger.info(f"Symbol:   {self.symbol}")
         logger.info(f"Contract: {self.contract_id}")
 
         if not self._init_data_fetcher():
             logger.error("Failed to initialize - aborting")
             return
 
-        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGINT,  self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
         self.running = True
 
         logger.info("Live trading started")
         update_interval = 30  # seconds
-
         current_date = None
 
         while self.running:
@@ -262,11 +288,11 @@ class LiveRunner:
                     time.sleep(60)
                     continue
 
-                # New day reset
+                # New-day state reset
                 now_date = datetime.now().date()
                 if current_date is not None and now_date != current_date:
                     self.risk_manager.reset_daily()
-                    logger.info("New trading day - risk state reset")
+                    logger.info("New trading day — risk state reset")
                 current_date = now_date
 
                 # Poll for new bar
@@ -279,8 +305,10 @@ class LiveRunner:
                     self.last_bar_time is None or latest_bar.name > self.last_bar_time
                 ):
                     bar_time = latest_bar.name
-                    logger.info(f"New bar: {bar_time}, close={latest_bar['close']:.2f}")
-
+                    logger.info(
+                        f"New bar: {bar_time}, "
+                        f"{self.symbol} close={latest_bar['close']:.2f}"
+                    )
                     bars_df = self.data_fetcher.get_buffer()
                     self._process_bar(bar_time, latest_bar, bars_df)
                     self.last_bar_time = bar_time
@@ -295,5 +323,4 @@ class LiveRunner:
                 time.sleep(update_interval)
 
         logger.info("Live trading stopped")
-        stats = self.risk_manager.session_stats
-        logger.info(f"Session stats: {stats}")
+        logger.info(f"Session stats: {self.risk_manager.session_stats}")

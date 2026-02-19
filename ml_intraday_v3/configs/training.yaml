@@ -157,3 +157,17 @@ walkforward:
     step_days: 21           # Step forward 1 month
     expanding: false        # Fixed rolling window (not expanding)
     min_train_events: 500   # Minimum events to train a window
+
+# Experiment-time CV options (used by comprehensive grid search v2)
+cv_method: kfold
+cpcv:
+  n_splits: 5
+  n_test_splits: 2
+  purge_pct: 0.02
+  embargo_pct: 0.01
+  selection: balanced
+
+# Experiment-time sample-weighting policy
+sample_weighting:
+  method: uniqueness_decay
+  lambda: 0.005

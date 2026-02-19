@@ -21,7 +21,7 @@ import pandas as pd
 import yaml
 from lightgbm import LGBMClassifier
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, log_loss, roc_auc_score
 from sklearn.neural_network import MLPClassifier
@@ -34,8 +34,12 @@ sys.path.insert(0, str(project_root))
 
 from ml_intraday_v3.core.instrument import InstrumentSpec
 from ml_intraday_v3.features.build import build_features
+from ml_intraday_v3.cross_validation.cpcv import build_cpcv_splits
 from ml_intraday_v3.labels.events import balance_events, generate_events
+from ml_intraday_v3.labels.meta_labels import create_meta_labels
 from ml_intraday_v3.labels.triple_barrier import apply_triplebarrier
+from ml_intraday_v3.models.meta_labeling import TwoStageMetaLabeler
+from ml_intraday_v3.sampling.uniqueness import compute_uniqueness_decay_weights
 from ml_intraday_v3.validation.purged_cv import build_purged_kfold_splits
 
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +60,10 @@ def load_base_configs(config_dir: Path) -> Dict:
 def apply_experiment_overrides(base_configs: Dict, exp_config: Dict) -> Dict:
     configs = deepcopy(base_configs)
 
+    labeling_method = exp_config.get("labeling_method")
+    if labeling_method in {"trend_scanning", "trend_scanning_adaptive"}:
+        configs["labeling"]["primary_labeling"]["event_policy"] = "trend_scanning"
+
     labeling = exp_config.get("labeling", {})
     if labeling:
         tb = configs["labeling"]["primary_labeling"]["triple_barrier"]
@@ -67,6 +75,57 @@ def apply_experiment_overrides(base_configs: Dict, exp_config: Dict) -> Dict:
             hz_val = int(labeling["hz"])
             tb["horizon_bars"]["5m"] = [hz_val]
             configs["execution"]["holding_constraints"]["max_holding_bars"]["5m"] = hz_val
+
+    labeling_params = exp_config.get("labeling_params", {})
+    if labeling_params:
+        tb = configs["labeling"]["primary_labeling"]["triple_barrier"]
+        if "pt_mult" in labeling_params:
+            tb["pt_multipliers"] = [float(labeling_params["pt_mult"])]
+        if "sl_mult" in labeling_params:
+            tb["sl_multipliers"] = [float(labeling_params["sl_mult"])]
+        if "time_mult" in labeling_params:
+            hz_val = int(labeling_params["time_mult"])
+            tb["horizon_bars"]["5m"] = [hz_val]
+            configs["execution"]["holding_constraints"]["max_holding_bars"]["5m"] = hz_val
+
+        ts_cfg = configs["labeling"]["primary_labeling"].setdefault("trend_scanning", {})
+        if "max_lookahead" in labeling_params:
+            tb["horizon_bars"]["5m"] = [int(labeling_params["max_lookahead"])]
+            configs["execution"]["holding_constraints"]["max_holding_bars"]["5m"] = int(
+                labeling_params["max_lookahead"]
+            )
+        if "min_t_value" in labeling_params:
+            ts_cfg["min_t_value"] = float(labeling_params["min_t_value"])
+            ts_cfg["tstat_threshold"] = float(labeling_params["min_t_value"])
+
+    if labeling_method == "trend_scanning_adaptive":
+        ts_cfg = configs["labeling"]["primary_labeling"].setdefault("trend_scanning", {})
+        ts_cfg["use_cusum_prefilter"] = True
+        ts_cfg["cusum_threshold_atr_mult"] = float(
+            exp_config.get("cusum_threshold_atr_mult", ts_cfg.get("cusum_threshold_atr_mult", 1.0))
+        )
+
+    # CUSUM threshold override (Batch 13)
+    cusum_mult = exp_config.get("cusum_threshold_atr_mult")
+    if cusum_mult is not None:
+        cusum_cfg = configs["labeling"]["primary_labeling"].setdefault("cusum", {})
+        cusum_cfg["threshold_atr_mult"] = float(cusum_mult)
+
+    # Event filter / policy override (Batch 13)
+    event_filter = exp_config.get("event_filter")
+    if event_filter == "all_bars":
+        configs["labeling"]["primary_labeling"]["event_policy"] = "every_bar"
+    elif event_filter == "volatility_breakout":
+        configs["labeling"]["primary_labeling"]["event_policy"] = "cusum"
+        cusum_cfg = configs["labeling"]["primary_labeling"].setdefault("cusum", {})
+        cusum_cfg["threshold_atr_mult"] = float(exp_config.get("cusum_threshold_atr_mult", 1.5))
+    # default "cusum" keeps the labeling.yaml default
+
+    # drop_vertical_barrier override (Batch 15)
+    drop_vb = exp_config.get("drop_vertical_barrier")
+    if drop_vb is not None:
+        tb_cfg = configs["labeling"]["primary_labeling"].setdefault("triple_barrier", {})
+        tb_cfg["drop_vertical_barrier"] = bool(drop_vb)
 
     features_cfg = exp_config.get("features_config")
     if features_cfg:
@@ -100,7 +159,12 @@ def filter_session(df: pd.DataFrame, session_mode: str | None) -> pd.DataFrame:
     return df
 
 
-def create_sample_weights(events_df: pd.DataFrame, method: str) -> pd.Series:
+def create_sample_weights(
+    events_df: pd.DataFrame,
+    method: str,
+    bars_index: pd.Index | None = None,
+    decay_lambda: float = 0.005,
+) -> pd.Series:
     n_samples = len(events_df)
     if n_samples == 0:
         return pd.Series(dtype=float)
@@ -137,6 +201,16 @@ def create_sample_weights(events_df: pd.DataFrame, method: str) -> pd.Series:
             dtype=float,
         )
 
+    if method == "uniqueness":
+        if bars_index is None:
+            raise ValueError("uniqueness weighting requires bars_index")
+        return compute_uniqueness_decay_weights(events_df, bars_index, decay_lambda=0.0)
+
+    if method == "uniqueness_decay":
+        if bars_index is None:
+            raise ValueError("uniqueness_decay weighting requires bars_index")
+        return compute_uniqueness_decay_weights(events_df, bars_index, decay_lambda=float(decay_lambda))
+
     raise ValueError(f"Unknown sample weight method: {method}")
 
 
@@ -146,6 +220,11 @@ def fit_with_sample_weights(model, X_train: pd.DataFrame, y_train: pd.Series, sa
     """
     if sample_weights is None or len(sample_weights) == 0:
         model.fit(X_train, y_train)
+        return model
+
+    # Meta-labeling wrapper.
+    if isinstance(model, TwoStageMetaLabeler):
+        model.fit(X_train, y_train, sample_weight_primary=sample_weights)
         return model
 
     # Calibrated model wrapping a pipeline/base estimator.
@@ -166,6 +245,14 @@ def fit_with_sample_weights(model, X_train: pd.DataFrame, y_train: pd.Series, sa
     # Plain pipeline estimator.
     if isinstance(model, Pipeline):
         model.fit(X_train, y_train, model__sample_weight=sample_weights)
+        return model
+
+    # VotingClassifier: try sample_weight, fall back silently if not supported.
+    if isinstance(model, VotingClassifier):
+        try:
+            model.fit(X_train, y_train, sample_weight=sample_weights)
+        except TypeError:
+            model.fit(X_train, y_train)
         return model
 
     # Plain estimator.
@@ -193,7 +280,48 @@ def build_model(exp_config: Dict):
                 ("model", MLPClassifier(random_state=42, max_iter=500, early_stopping=True, **params)),
             ]
         )
+    if model_kind == "ensemble_voting":
+        ensemble_members = exp_config.get("ensemble_members", [
+            {"name": "lgb31", "model_kind": "lightgbm", "model_params": {"n_estimators": 200, "num_leaves": 31, "learning_rate": 0.03, "max_depth": 6}},
+            {"name": "lgb127", "model_kind": "lightgbm", "model_params": {"n_estimators": 200, "num_leaves": 127, "learning_rate": 0.01, "max_depth": 10}},
+            {"name": "rf200", "model_kind": "random_forest", "model_params": {"n_estimators": 200, "max_depth": 10}},
+            {"name": "et200", "model_kind": "extra_trees", "model_params": {"n_estimators": 200, "max_depth": 10}},
+        ])
+        estimators = []
+        for member in ensemble_members:
+            member_cfg = deepcopy(exp_config)
+            member_cfg["model_kind"] = member["model_kind"]
+            member_cfg["model_params"] = member.get("model_params", {})
+            estimators.append((member.get("name", f"m{len(estimators)}"), build_model(member_cfg)))
+        voting_method = exp_config.get("voting_method", "soft")
+        weights = exp_config.get("ensemble_weights_list")
+        return VotingClassifier(estimators=estimators, voting=voting_method, weights=weights, n_jobs=1)
     raise ValueError(f"Unsupported model_kind: {model_kind}")
+
+
+def maybe_wrap_meta_labeler(base_model, exp_config: Dict):
+    if exp_config.get("architecture", "single_model") != "meta_labeling":
+        return base_model
+    secondary_params = deepcopy(exp_config.get("secondary_model_params", {}))
+    secondary = LGBMClassifier(
+        objective="binary",
+        verbose=-1,
+        force_col_wise=True,
+        n_estimators=int(secondary_params.get("n_estimators", 300)),
+        learning_rate=float(secondary_params.get("learning_rate", 0.05)),
+        num_leaves=int(secondary_params.get("num_leaves", 31)),
+        max_depth=int(secondary_params.get("max_depth", 6)),
+        min_child_samples=int(secondary_params.get("min_child_samples", 50)),
+        subsample=float(secondary_params.get("subsample", 0.9)),
+        colsample_bytree=float(secondary_params.get("colsample_bytree", 0.9)),
+        reg_alpha=float(secondary_params.get("reg_alpha", 0.2)),
+        reg_lambda=float(secondary_params.get("reg_lambda", 0.2)),
+    )
+    return TwoStageMetaLabeler(
+        primary_estimator=base_model,
+        secondary_estimator=secondary,
+        secondary_threshold=float(exp_config.get("final_threshold", 0.55)),
+    )
 
 
 def coerce_numeric_features(X: pd.DataFrame) -> pd.DataFrame:
@@ -264,12 +392,18 @@ def run_single_fold(
 
     weight_source = train_events[train_events["event_id"].isin(train_df.index)].copy()
     weight_source = weight_source.set_index("event_id").join(train_df[["y"]], how="left").reset_index()
-    weight_series = create_sample_weights(weight_source, exp_config.get("sample_weight", "uniform"))
+    weight_series = create_sample_weights(
+        weight_source,
+        exp_config.get("sample_weight", "uniform"),
+        bars_index=all_df.index,
+        decay_lambda=float(exp_config.get("sample_decay_lambda", 0.005)),
+    )
     sample_weights = weight_series.reindex(train_df.index).to_numpy(dtype=float)
 
     model = build_model(exp_config)
+    model = maybe_wrap_meta_labeler(model, exp_config)
     calibration = exp_config.get("calibration")
-    if calibration in {"sigmoid", "isotonic"}:
+    if calibration in {"sigmoid", "isotonic"} and not isinstance(model, TwoStageMetaLabeler):
         model = CalibratedClassifierCV(model, method=calibration, cv=3)
 
     model = fit_with_sample_weights(model, X_train, y_train, sample_weights)
@@ -370,7 +504,21 @@ def run_experiment(exp_config: Dict, data_path: Path, config_dir: Path) -> Dict:
 
     n_splits = int(exp_config.get("cv_n_splits", 5))
     embargo_bars = int(exp_config.get("cv_embargo_bars", 12))
-    folds = build_purged_kfold_splits(events, df.index, n_splits=n_splits, embargo_bars=embargo_bars)
+    cv_method = exp_config.get("cv_method", "kfold")
+    if cv_method == "cpcv":
+        folds = build_cpcv_splits(
+            events_df=events,
+            bars_index=df.index,
+            n_splits=n_splits,
+            n_test_splits=int(exp_config.get("cv_n_test_splits", 2)),
+            purge_pct=float(exp_config.get("cv_purge_pct", 0.02)),
+            embargo_pct=float(exp_config.get("cv_embargo_pct", 0.01)),
+            max_paths=exp_config.get("cv_max_paths"),
+            selection=exp_config.get("cv_selection", "balanced"),
+            random_state=int(exp_config.get("seed", 42)),
+        )
+    else:
+        folds = build_purged_kfold_splits(events, df.index, n_splits=n_splits, embargo_bars=embargo_bars)
 
     fold_results = []
     for i, fold in enumerate(folds, 1):

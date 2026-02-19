@@ -16,6 +16,9 @@ import pandas as pd
 
 from .registry import get_feature_registry, filter_registry_for_bar_size, FeatureSpec
 from .multi_resolution import build_multi_resolution_features
+from .fractional_diff import fracdiff_series
+from .hmm_regime import build_hmm_regime_features
+from .structural_breaks import build_structural_break_features
 
 logger = logging.getLogger(__name__)
 
@@ -380,10 +383,50 @@ def build_features(
             features["day_of_week"] = df.index.dayofweek
 
     # -------------------------------------------------------------------------
+    # Optional structural break features
+    # -------------------------------------------------------------------------
+    if config.get("structural_breaks", {}).get("enabled", False):
+        sb = build_structural_break_features(
+            close=df["close"],
+            returns=features.get("log_return_1"),
+        )
+        for col in sb.columns:
+            features[col] = sb[col]
+
+    # -------------------------------------------------------------------------
+    # Optional HMM regime features
+    # -------------------------------------------------------------------------
+    hmm_cfg = config.get("hmm_regime", {})
+    if hmm_cfg.get("enabled", False):
+        hmm_df = build_hmm_regime_features(
+            close=df["close"],
+            n_states=int(hmm_cfg.get("n_states", 2)),
+            min_train_samples=int(hmm_cfg.get("min_train_samples", 252)),
+            refit_every=int(hmm_cfg.get("refit_every", 21)),
+            rolling_window_size=int(hmm_cfg.get("rolling_window_size", 252)),
+        )
+        for col in hmm_df.columns:
+            features[col] = hmm_df[col]
+
+    # -------------------------------------------------------------------------
     # PHASE 1: NORMALIZATION (apply after all raw features computed)
     # Converts non-stationary features to stationary versions
     # -------------------------------------------------------------------------
     features = _apply_normalization(features, df, config)
+
+    # -------------------------------------------------------------------------
+    # Optional fractional differentiation for selected feature columns
+    # -------------------------------------------------------------------------
+    frac_cfg = config.get("fractional_diff", {})
+    if frac_cfg.get("enabled", False):
+        d_val = float(frac_cfg.get("d", 0.4))
+        threshold = float(frac_cfg.get("threshold", 1e-5))
+        apply_to = frac_cfg.get("apply_to", [])
+        for col in apply_to:
+            if col in features:
+                features[col] = fracdiff_series(features[col], d=d_val, threshold=threshold)
+            else:
+                logger.debug("fractional_diff skipped missing feature column: %s", col)
 
     # -------------------------------------------------------------------------
     # 8. META (Flags and masks)
@@ -424,7 +467,8 @@ def build_features(
         if col in features:
             features_df[col] = features[col]
         else:
-            logger.warning(f"Feature {col} registered but not computed")
+            logger.warning(f"Feature {col} registered but not computed; filling with NaN")
+            features_df[col] = np.nan
 
     assert list(features_df.columns) == ordered_columns, (
         "Column order mismatch! "

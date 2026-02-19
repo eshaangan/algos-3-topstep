@@ -1,0 +1,20 @@
+{
+  "total_experiments": 410,
+  "best_auc": 0.5929541184540141,
+  "mean_auc": 0.5127802277848896,
+  "models_above_050_auc": 308,
+  "models_above_052_auc": 128,
+  "best_model": {
+    "exp_id": "batch1_exp_00038",
+    "batch": "batch1",
+    "auc": 0.5173166768230754,
+    "signals_055": 0.8179640718562874,
+    "labeling": "trend_scanning_adaptive",
+    "cv": "kfold",
+    "calibration": "none"
+  },
+  "technique_rankings": {
+    "best_labeling": "triple_barrier",
+    "best_cv": "kfold"
+  }
+}

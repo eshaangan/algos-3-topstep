@@ -1,0 +1,26 @@
+{
+  "phase": "batch12_altmodel",
+  "architecture": "single_model",
+  "labeling_method": "triple_barrier",
+  "sample_weight": "uniqueness",
+  "feature_set_name": "baseline",
+  "labeling_params": {
+    "pt_mult": 2.0,
+    "sl_mult": 1.5,
+    "time_mult": 40
+  },
+  "cv_method": "cpcv",
+  "cv_n_splits": 5,
+  "cv_n_test_splits": 2,
+  "cv_purge_pct": 0.02,
+  "cv_embargo_pct": 0.01,
+  "cv_embargo_bars": 12,
+  "exp_id": "batch12_altmodel_058",
+  "model_kind": "extra_trees",
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 20,
+    "min_samples_leaf": 20,
+    "class_weight": "balanced"
+  }
+}

@@ -1,0 +1,22 @@
+version: 1
+seed: 42
+batch_name: batch3_metalabeling
+n_configs_default: 200
+
+axes:
+  architecture:
+    - single_model
+    - meta_labeling
+
+  primary_model:
+    recall_threshold: [0.60, 0.70, 0.80]
+    t_value_threshold: [1.0, 1.5, 2.0]
+
+  secondary_model:
+    num_leaves: [15, 31, 63]
+    max_depth: [5, 10, 15]
+
+  final_threshold:
+    - 0.50
+    - 0.55
+    - 0.60

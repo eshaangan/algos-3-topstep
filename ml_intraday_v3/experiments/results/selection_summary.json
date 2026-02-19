@@ -1,0 +1,58 @@
+{
+  "selection_date": "2026-02-15T19:13:55.973059",
+  "total_experiments_analyzed": 34,
+  "n_selected": 10,
+  "selection_criteria": {
+    "min_auc": 0.52,
+    "min_signal_rate": 0.15,
+    "min_trades_per_day": 2,
+    "min_successful_folds": 5,
+    "max_train_test_gap": 0.4
+  },
+  "scoring_weights": {
+    "auc": 0.4,
+    "signal_quality": 0.3,
+    "calibration": 0.2,
+    "stability": 0.1
+  },
+  "top_model": {
+    "exp_id": "batch1_exp_00097",
+    "batch": "batch1",
+    "final_score": 0.637735855631712,
+    "auc": 0.5295842417863318,
+    "signal_rate": 0.7374301675977654,
+    "brier": 0.24880905054254246,
+    "config": {
+      "labeling": "trend_scanning_adaptive",
+      "cv": "kfold",
+      "sample_weight": "uniqueness_decay",
+      "calibration": "none",
+      "features": "baseline"
+    }
+  },
+  "diversity": {
+    "labeling_methods": {
+      "trend_scanning_adaptive": 9,
+      "trend_scanning": 1
+    },
+    "cv_methods": {
+      "kfold": 10
+    },
+    "sample_weights": {
+      "uniqueness_decay": 10
+    },
+    "calibrations": {
+      "none": 10
+    },
+    "feature_sets": {
+      "baseline_fracdiff": 6,
+      "baseline": 4
+    }
+  },
+  "score_statistics": {
+    "mean": 0.5625883253978536,
+    "std": 0.03967990688749947,
+    "min": 0.5395196213851652,
+    "max": 0.637735855631712
+  }
+}

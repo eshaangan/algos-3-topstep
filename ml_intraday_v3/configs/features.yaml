@@ -68,3 +68,26 @@ multi_resolution:
   resolutions_min: [15, 30, 60]
   prefix: mr
   align_method: ffill
+
+# Fractional differentiation (optional)
+fractional_diff:
+  enabled: false
+  d: 0.4
+  threshold: 0.01
+  apply_to:
+    - close
+    - ema_13
+    - ema_34
+    - price_vs_vwap
+
+# HMM regime features (optional)
+hmm_regime:
+  enabled: false
+  n_states: 2
+  min_train_samples: 252
+  refit_every: 21
+  rolling_window_size: 252
+
+# Structural break features (optional)
+structural_breaks:
+  enabled: false

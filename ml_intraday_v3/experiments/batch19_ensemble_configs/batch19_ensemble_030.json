@@ -1,0 +1,48 @@
+{
+  "exp_id": "batch19_ensemble_030",
+  "phase": "batch19_ensemble",
+  "architecture": "single_model",
+  "labeling_method": "triple_barrier",
+  "labeling_params": {
+    "pt_mult": 2.0,
+    "sl_mult": 1.5,
+    "time_mult": 40
+  },
+  "sample_weight": "uniqueness",
+  "feature_set_name": "baseline",
+  "features_config": {},
+  "model_kind": "ensemble_voting",
+  "ensemble_preset": "lgb_rf",
+  "ensemble_members": [
+    {
+      "name": "lgb63",
+      "model_kind": "lightgbm",
+      "model_params": {
+        "n_estimators": 200,
+        "num_leaves": 63,
+        "learning_rate": 0.03,
+        "max_depth": 8
+      }
+    },
+    {
+      "name": "rf200",
+      "model_kind": "random_forest",
+      "model_params": {
+        "n_estimators": 200,
+        "max_depth": 10,
+        "min_samples_leaf": 20
+      }
+    }
+  ],
+  "voting_method": "hard",
+  "ensemble_weights": "auc_weighted",
+  "ensemble_weights_list": null,
+  "balance_method": "undersample",
+  "session_mode": "rth_only",
+  "cv_method": "cpcv",
+  "cv_n_splits": 5,
+  "cv_n_test_splits": 2,
+  "cv_purge_pct": 0.02,
+  "cv_embargo_pct": 0.01,
+  "cv_embargo_bars": 12
+}

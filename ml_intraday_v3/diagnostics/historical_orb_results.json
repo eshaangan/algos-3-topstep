@@ -1,0 +1,231 @@
+{
+  "meta": {
+    "strategy": "opening_range_breakout",
+    "config": {
+      "or_end_time": "09:55",
+      "entry_cutoff_time": "12:00",
+      "min_range_atr": 0.3,
+      "pt_atr_mult": 2.0,
+      "sl_atr_mult": 1.5,
+      "trailing_activation_atr": 999.0,
+      "trailing_distance_atr": 0.75,
+      "atr_period": 14,
+      "time_stop_bars": 24,
+      "commission_per_side": 0.62,
+      "slippage_ticks": 1
+    },
+    "es_data": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/data/processed/es_bars_2010_2025.h5",
+    "oos_data": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/data/processed/jan_feb_2026_oos_test.h5",
+    "note": "Risk limits disabled to measure pure strategy edge"
+  },
+  "es_years": [
+    {
+      "label": "2010",
+      "n_bars": 11431,
+      "num_trades": 184,
+      "win_rate": 0.4348,
+      "profit_factor": 0.7447,
+      "total_pnl": -4316.63,
+      "avg_trade_pnl": -23.46,
+      "sharpe_ratio": -2.1162,
+      "max_drawdown": -4680.36
+    },
+    {
+      "label": "2011",
+      "n_bars": 19774,
+      "num_trades": 315,
+      "win_rate": 0.4667,
+      "profit_factor": 0.9161,
+      "total_pnl": -2802.26,
+      "avg_trade_pnl": -8.9,
+      "sharpe_ratio": -0.7176,
+      "max_drawdown": -6286.7
+    },
+    {
+      "label": "2012",
+      "n_bars": 19529,
+      "num_trades": 311,
+      "win_rate": 0.4341,
+      "profit_factor": 0.876,
+      "total_pnl": -3063.22,
+      "avg_trade_pnl": -9.85,
+      "sharpe_ratio": -1.0783,
+      "max_drawdown": -4252.26
+    },
+    {
+      "label": "2013",
+      "n_bars": 19560,
+      "num_trades": 298,
+      "win_rate": 0.3758,
+      "profit_factor": 0.6361,
+      "total_pnl": -10198.99,
+      "avg_trade_pnl": -34.22,
+      "sharpe_ratio": -3.4739,
+      "max_drawdown": -10513.93
+    },
+    {
+      "label": "2014",
+      "n_bars": 19264,
+      "num_trades": 292,
+      "win_rate": 0.3973,
+      "profit_factor": 0.7167,
+      "total_pnl": -8709.37,
+      "avg_trade_pnl": -29.83,
+      "sharpe_ratio": -2.5546,
+      "max_drawdown": -9903.68
+    },
+    {
+      "label": "2015",
+      "n_bars": 19850,
+      "num_trades": 303,
+      "win_rate": 0.3663,
+      "profit_factor": 0.5778,
+      "total_pnl": -18136.0,
+      "avg_trade_pnl": -59.85,
+      "sharpe_ratio": -3.8854,
+      "max_drawdown": -19232.4
+    },
+    {
+      "label": "2016",
+      "n_bars": 19882,
+      "num_trades": 298,
+      "win_rate": 0.3993,
+      "profit_factor": 0.7354,
+      "total_pnl": -9410.06,
+      "avg_trade_pnl": -31.58,
+      "sharpe_ratio": -2.0742,
+      "max_drawdown": -11104.26
+    },
+    {
+      "label": "2017",
+      "n_bars": 19772,
+      "num_trades": 300,
+      "win_rate": 0.37,
+      "profit_factor": 0.6491,
+      "total_pnl": -9127.95,
+      "avg_trade_pnl": -30.43,
+      "sharpe_ratio": -3.2114,
+      "max_drawdown": -9492.02
+    },
+    {
+      "label": "2018",
+      "n_bars": 19741,
+      "num_trades": 327,
+      "win_rate": 0.422,
+      "profit_factor": 0.8225,
+      "total_pnl": -10285.25,
+      "avg_trade_pnl": -31.45,
+      "sharpe_ratio": -1.4713,
+      "max_drawdown": -15599.88
+    },
+    {
+      "label": "2019",
+      "n_bars": 19818,
+      "num_trades": 301,
+      "win_rate": 0.402,
+      "profit_factor": 0.7861,
+      "total_pnl": -9999.06,
+      "avg_trade_pnl": -33.22,
+      "sharpe_ratio": -1.8087,
+      "max_drawdown": -11552.55
+    },
+    {
+      "label": "2020",
+      "n_bars": 19793,
+      "num_trades": 295,
+      "win_rate": 0.4407,
+      "profit_factor": 0.8618,
+      "total_pnl": -11631.09,
+      "avg_trade_pnl": -39.43,
+      "sharpe_ratio": -0.9626,
+      "max_drawdown": -13038.03
+    },
+    {
+      "label": "2021",
+      "n_bars": 19882,
+      "num_trades": 287,
+      "win_rate": 0.4634,
+      "profit_factor": 1.0601,
+      "total_pnl": 3633.72,
+      "avg_trade_pnl": 12.66,
+      "sharpe_ratio": 0.4349,
+      "max_drawdown": -5104.71
+    },
+    {
+      "label": "2022",
+      "n_bars": 19847,
+      "num_trades": 304,
+      "win_rate": 0.4605,
+      "profit_factor": 0.9225,
+      "total_pnl": -9668.36,
+      "avg_trade_pnl": -31.8,
+      "sharpe_ratio": -0.6211,
+      "max_drawdown": -23387.22
+    },
+    {
+      "label": "2023",
+      "n_bars": 19737,
+      "num_trades": 316,
+      "win_rate": 0.4304,
+      "profit_factor": 0.8132,
+      "total_pnl": -15691.05,
+      "avg_trade_pnl": -49.66,
+      "sharpe_ratio": -1.5711,
+      "max_drawdown": -16408.54
+    },
+    {
+      "label": "2024",
+      "n_bars": 19861,
+      "num_trades": 329,
+      "win_rate": 0.462,
+      "profit_factor": 1.0542,
+      "total_pnl": 4639.68,
+      "avg_trade_pnl": 14.1,
+      "sharpe_ratio": 0.4018,
+      "max_drawdown": -8805.09
+    },
+    {
+      "label": "2025",
+      "n_bars": 19192,
+      "num_trades": 311,
+      "win_rate": 0.4759,
+      "profit_factor": 1.0789,
+      "total_pnl": 8964.36,
+      "avg_trade_pnl": 28.82,
+      "sharpe_ratio": 0.558,
+      "max_drawdown": -14235.17
+    }
+  ],
+  "es_aggregate": {
+    "total_trades": 4771,
+    "win_rate": 0.4253,
+    "profit_factor": 0.882,
+    "total_pnl": -105801.51,
+    "avg_trade_pnl": -22.18,
+    "median_trade_pnl": -113.74,
+    "positive_years": 3,
+    "total_years": 16
+  },
+  "oos_n1": {
+    "label": "Jan-Feb 2026 n=1",
+    "n_bars": 2070,
+    "num_trades": 30,
+    "win_rate": 0.5667,
+    "profit_factor": 1.4888,
+    "total_pnl": 454.79,
+    "avg_trade_pnl": 15.16,
+    "sharpe_ratio": 3.3811,
+    "max_drawdown": -247.67
+  },
+  "oos_n2": {
+    "label": "Jan-Feb 2026 n=2",
+    "n_bars": 2070,
+    "num_trades": 30,
+    "win_rate": 0.5667,
+    "profit_factor": 1.4888,
+    "total_pnl": 909.57,
+    "avg_trade_pnl": 30.32,
+    "sharpe_ratio": 3.3811,
+    "max_drawdown": -495.35
+  }
+}

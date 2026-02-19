@@ -17,7 +17,7 @@ References:
 """
 
 import logging
-from typing import Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -27,12 +27,57 @@ try:
     from hmmlearn.hmm import GaussianHMM
     HMM_AVAILABLE = True
 except ImportError:
+    GaussianHMM = Any
     HMM_AVAILABLE = False
     warnings.warn(
         "hmmlearn not installed. Install with: pip install hmmlearn>=0.3.0"
     )
 
 logger = logging.getLogger(__name__)
+
+
+def build_hmm_regime_features(
+    close: pd.Series,
+    n_states: int = 2,
+    min_train_samples: int = 252,
+    refit_every: int = 21,
+    rolling_window_size: int = 252,
+) -> pd.DataFrame:
+    """
+    Build causal HMM regime features from close prices.
+
+    Returns empty DataFrame if hmmlearn is unavailable or data is insufficient.
+    """
+    if not HMM_AVAILABLE:
+        logger.warning("hmmlearn unavailable; skipping HMM regime features")
+        return pd.DataFrame(index=close.index)
+
+    px = pd.to_numeric(close, errors="coerce")
+    returns = np.log(px).diff()
+    if returns.dropna().shape[0] < int(min_train_samples):
+        logger.warning("Insufficient samples for HMM features; skipping")
+        return pd.DataFrame(index=close.index)
+
+    detector = HMMRegimeDetector(
+        n_states=n_states,
+        min_samples=min_train_samples,
+        n_iter=100,
+        random_state=42,
+    )
+    states, probs = detector.predict_expanding(
+        returns=returns,
+        min_train_samples=min_train_samples,
+        refit_every=refit_every,
+        use_rolling_window=True,
+        rolling_window_size=rolling_window_size,
+    )
+
+    out = pd.DataFrame(index=close.index)
+    out["hmm_state"] = states.reindex(close.index)
+    out["hmm_state"] = out["hmm_state"].fillna(-1).astype(int)
+    for col in probs.columns:
+        out[col] = probs[col].reindex(close.index)
+    return out
 
 
 class HMMRegimeDetector:

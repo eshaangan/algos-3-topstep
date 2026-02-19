@@ -2,25 +2,24 @@
 # Designed for Topstep 50k Combine
 
 position:
-  contracts: 1              # Fixed 1 MES contract for combine
-  instrument: "MES"
+  contracts: 2              # 2 MNQ contracts — P(pass/14d)=51%, median=11d
+  instrument: "MNQ"
   tick_size: 0.25
-  tick_value: 1.25          # $1.25 per tick for MES
-  point_value: 5.0          # $5.00 per point for MES
+  tick_value: 0.50          # $0.50 per tick for MNQ
+  point_value: 2.0          # $2.00 per point for MNQ
 
 daily_limits:
-  max_daily_loss: -400.0    # Hard stop, buffer vs $500 Topstep limit
-  per_trade_max_loss: 100.0 # Max $100 loss per trade (20 MES points)
+  max_daily_loss: -950.0    # Topstep limit $1,000; use $50 buffer
+  per_trade_max_loss: 1000.0
 
 circuit_breaker:
   max_consecutive_losses: 3
-  cooldown_bars: 5          # Bars to wait after losing trade
+  cooldown_bars: 3
 
 session:
-  # Force flatten N minutes before session close
   flatten_minutes_before_close: 5
   session_close: "16:00"    # ET
 
 drawdown:
-  # Stop trading if within this amount of trailing max drawdown
-  buffer_from_max: 500.0
+  # Topstep trailing max drawdown $2,000; stop at $1,800
+  buffer_from_max: 1800.0

@@ -1,0 +1,44 @@
+[
+  {
+    "instrument": "MGC",
+    "n_trades": 23,
+    "win_rate": 0.34782608695652173,
+    "total_pnl": -1922.2469580729994,
+    "avg_pnl": -83.57595469882607,
+    "sharpe": -5.058420410231565,
+    "p_pass_40": 0.0001,
+    "p_pass_14": 0.0,
+    "med_days": 25,
+    "p95_dd": 2710.34,
+    "has_edge": false,
+    "trading_days": 27
+  },
+  {
+    "instrument": "M2K",
+    "n_trades": 34,
+    "win_rate": 0.5,
+    "total_pnl": 597.1592226296909,
+    "avg_pnl": 17.563506547932086,
+    "sharpe": 2.7405517674414543,
+    "p_pass_40": 0.1369,
+    "p_pass_14": 0.0001,
+    "med_days": 34,
+    "p95_dd": 1136.93,
+    "has_edge": false,
+    "trading_days": 27
+  },
+  {
+    "instrument": "MNQ",
+    "n_trades": 30,
+    "win_rate": 0.5666666666666667,
+    "total_pnl": 2576.500483064068,
+    "avg_pnl": 85.88334943546893,
+    "sharpe": 4.312470083152209,
+    "p_pass_40": 0.686,
+    "p_pass_14": 0.5105,
+    "med_days": 11,
+    "p95_dd": 2209.74,
+    "has_edge": true,
+    "trading_days": 27
+  }
+]

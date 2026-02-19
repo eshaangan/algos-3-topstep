@@ -239,7 +239,7 @@ def generate_events(
         horizons_all = np.full(len(t0_idx_all), -1, dtype=int)
     else:
         ts_cfg = primary_cfg.get("trend_scanning", {}) or {}
-        tstat_threshold = float(ts_cfg.get("tstat_threshold", 2.0))
+        tstat_threshold = float(ts_cfg.get("tstat_threshold", ts_cfg.get("min_t_value", 2.0)))
         if tstat_threshold <= 0.0:
             raise ValueError("primary_labeling.trend_scanning.tstat_threshold must be > 0")
 
@@ -291,6 +291,7 @@ def generate_events(
         t0_idx_all = start_idx_all[keep]
         horizons_all = best_h[keep]
         betas = best_beta[keep]
+        tvals = best_abs_t[keep]
         sides_all = np.where(betas >= 0.0, 1, -1).astype(int)
     events = []
     base_ok_arr = base_ok.to_numpy()
@@ -300,9 +301,11 @@ def generate_events(
             select = horizons_all == int(horizon_bars)
             t0_pool = t0_idx_all[select]
             side_pool = sides_all[select]
+            tval_pool = tvals[select]
         else:
             t0_pool = t0_idx_all
             side_pool = sides_all
+            tval_pool = None
 
         if len(t0_pool) == 0:
             continue
@@ -320,6 +323,7 @@ def generate_events(
             if side_pool is not None
             else np.ones(len(t0_idx), dtype=int)
         )
+        tval_vals = tval_pool[feasible] if tval_pool is not None else np.full(len(t0_idx), np.nan)
 
         base_df = pd.DataFrame(
             {
@@ -329,6 +333,7 @@ def generate_events(
                 "side": side_vals,
                 "sigma": sigma.iloc[t0_idx].to_numpy(),
                 "horizon_bars": horizon_bars,
+                "trend_t_value": tval_vals,
             }
         )
 
@@ -351,6 +356,7 @@ def generate_events(
                 "pt_mult",
                 "sl_mult",
                 "horizon_bars",
+                "trend_t_value",
             ]
         )
 

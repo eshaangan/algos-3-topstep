@@ -1,0 +1,36 @@
+{
+  "exp_id": "batch2_exp_00123",
+  "phase": "batch2",
+  "cv_method": "cpcv",
+  "cv_n_splits": 5,
+  "cv_n_test_splits": 2,
+  "cv_embargo_pct": 0.0,
+  "cv_purge_pct": 0.02,
+  "feature_set_name": "baseline_multiresolution",
+  "features_config": {
+    "multi_resolution": {
+      "enabled": true,
+      "resolutions_min": [
+        15,
+        30,
+        60
+      ],
+      "prefix": "mr",
+      "align_method": "ffill"
+    }
+  },
+  "sample_weight": "uniqueness",
+  "calibration": null,
+  "model_kind": "lightgbm",
+  "model_params": {
+    "n_estimators": 500,
+    "learning_rate": 0.03,
+    "num_leaves": 63,
+    "max_depth": -1,
+    "min_child_samples": 100,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.2
+  }
+}

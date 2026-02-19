@@ -1,0 +1,14 @@
+{
+  "batch": "batch6_sample_weight",
+  "n_configs": 200,
+  "sample_weights": [
+    "uniform",
+    "uniqueness_decay",
+    "uniqueness"
+  ],
+  "class_weights": [
+    "balanced_subsample",
+    "balanced",
+    "None"
+  ]
+}

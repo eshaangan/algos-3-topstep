@@ -1,50 +1,27 @@
 # Rule-Based Trading System - Rule Parameters
-# All thresholds are designed for MES 5-minute bars
+# Instrument: MNQ (Micro NASDAQ) — P(pass/14d)=51%, median=11d, WR=56.7%
 
-ema_trend:
-  fast_period: 13
-  slow_period: 34
-  # Minimum spread as fraction of ATR to trigger signal
-  min_spread_atr_ratio: 0.3
-  # Slope lookback (bars) for slow EMA slope direction
-  slope_lookback: 3
-  # ATR period for spread normalization
+# PRIMARY signal: Opening Range Breakout
+# Best config confirmed on Jan-Feb 2026 OOS (MNQ): WR=56.7%, P(pass/40d)=68.6%
+opening_range_breakout:
+  or_end_time: "09:44"          # OR window: 09:30-09:44 ET (3 bars) — best OOS config
+  min_or_bars: 4                # Need at least 4 bars in OR window
+  min_range_atr: 0.3            # Range must be >= 0.3x ATR (filters flat opens)
+  entry_cutoff_time: "12:00"    # No new entries after noon
   atr_period: 14
-
-volume_breakout:
-  lookback: 20
-  min_ratio: 1.2      # Volume must be >= 1.2x average
-  max_ratio: 2.0      # Volume must be < 2.0x average (spike = veto)
-
-mean_reversion:
-  bb_period: 20
-  bb_std: 2.0
-  # Bollinger position thresholds (0=lower band, 1=upper band)
-  long_bb_threshold: 0.3    # Price below 30% of BB range -> confirms LONG
-  short_bb_threshold: 0.7   # Price above 70% of BB range -> confirms SHORT
-  rsi_period: 14
-  rsi_long_threshold: 35    # RSI < 35 -> confirms LONG
-  rsi_short_threshold: 65   # RSI > 65 -> confirms SHORT
+  use_close_for_signal: true    # Trigger on close > range_high (confirmed break)
 
 time_of_day:
   # Eastern Time
   session_start: "09:35"
   session_end: "15:45"
-  # Lunch filter (optional, disabled by default)
   lunch_filter_enabled: false
   lunch_start: "12:00"
   lunch_end: "13:00"
 
-rejection_pattern:
-  # Minimum wick-to-body ratio for rejection signal
-  min_wick_body_ratio: 1.5
-
 exit_strategy:
-  # All in ATR multiples
   profit_target_atr: 2.0
   stop_loss_atr: 1.5
-  # Time stop in bars (5-min bars)
   time_stop_bars: 24
-  # Trailing stop
-  trailing_activation_atr: 1.0   # Activates when profit >= 1.0x ATR
-  trailing_distance_atr: 0.75    # Trails at 0.75x ATR from peak
+  trailing_activation_atr: 999.0  # DISABLED - trailing stop cuts winners
+  trailing_distance_atr: 0.75

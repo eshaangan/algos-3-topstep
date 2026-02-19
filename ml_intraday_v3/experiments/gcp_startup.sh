@@ -23,14 +23,15 @@ echo "Phase: $PHASE"
 mkdir -p /workspace
 cd /workspace
 
-# Download code from GCS (assumes code has been uploaded)
-echo "Downloading code..."
-gsutil -m cp -r gs://trading-algo-3/code/ml_intraday_v3 /workspace/
+# Download compact code snapshot from GCS
+echo "Downloading code snapshot..."
+gsutil cp gs://trading-algo-3/code-snapshots/ml_intraday_v3_snapshot.tar.gz /tmp/ml_intraday_v3_snapshot.tar.gz
+tar -xzf /tmp/ml_intraday_v3_snapshot.tar.gz -C /workspace
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
 pip3 install --upgrade pip
-pip3 install numpy pandas scikit-learn lightgbm joblib pyyaml matplotlib seaborn pyarrow
+pip3 install numpy pandas scikit-learn lightgbm joblib pyyaml matplotlib seaborn pyarrow hmmlearn
 
 # Download data from GCS
 echo "Downloading data..."

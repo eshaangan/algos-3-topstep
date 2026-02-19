@@ -1,0 +1,384 @@
+[
+  {
+    "or_end": "09:44",
+    "cutoff": "11:00",
+    "n_trades": 30,
+    "win_rate": 0.6333333333333333,
+    "total_pnl": 1354.7737307685616,
+    "avg_pnl": 45.15912435895205,
+    "sharpe": 4.778238507272027,
+    "max_dd": -373.3182556779939,
+    "p_pass": 0.8513,
+    "med_days": 24,
+    "p95_dd": 1266.06,
+    "p_fail_dd": 0.0044,
+    "exits": {
+      "stop_loss": 11,
+      "profit_target": 16,
+      "time_stop": 3
+    }
+  },
+  {
+    "or_end": "09:44",
+    "cutoff": "12:00",
+    "n_trades": 36,
+    "win_rate": 0.6111111111111112,
+    "total_pnl": 1457.0352747548884,
+    "avg_pnl": 40.47320207652468,
+    "sharpe": 4.6650186395459,
+    "max_dd": -474.06062714399013,
+    "p_pass": 0.7856,
+    "med_days": 26,
+    "p95_dd": 1285.52,
+    "p_fail_dd": 0.0052,
+    "exits": {
+      "stop_loss": 13,
+      "profit_target": 18,
+      "time_stop": 5
+    }
+  },
+  {
+    "or_end": "09:44",
+    "cutoff": "13:00",
+    "n_trades": 41,
+    "win_rate": 0.5853658536585366,
+    "total_pnl": 1297.4113514000474,
+    "avg_pnl": 31.64417930244018,
+    "sharpe": 4.296044509746099,
+    "max_dd": -560.389908400779,
+    "p_pass": 0.599,
+    "med_days": 28,
+    "p95_dd": 1519.25,
+    "p_fail_dd": 0.0133,
+    "exits": {
+      "stop_loss": 16,
+      "profit_target": 20,
+      "time_stop": 5
+    }
+  },
+  {
+    "or_end": "09:44",
+    "cutoff": "14:00",
+    "n_trades": 46,
+    "win_rate": 0.5652173913043478,
+    "total_pnl": 1224.5140962689527,
+    "avg_pnl": 26.61987165802071,
+    "sharpe": 3.639295934196185,
+    "max_dd": -532.757561933191,
+    "p_pass": 0.4708,
+    "med_days": 29,
+    "p95_dd": 1636.94,
+    "p_fail_dd": 0.0182,
+    "exits": {
+      "stop_loss": 19,
+      "profit_target": 21,
+      "time_stop": 6
+    }
+  },
+  {
+    "or_end": "09:44",
+    "cutoff": "15:00",
+    "n_trades": 50,
+    "win_rate": 0.54,
+    "total_pnl": 1029.8109355716824,
+    "avg_pnl": 20.59621871143365,
+    "sharpe": 3.018827389145755,
+    "max_dd": -532.757561933191,
+    "p_pass": 0.316,
+    "med_days": 31,
+    "p95_dd": 1858.39,
+    "p_fail_dd": 0.0352,
+    "exits": {
+      "stop_loss": 22,
+      "profit_target": 21,
+      "time_stop": 6,
+      "session_close": 1
+    }
+  },
+  {
+    "or_end": "09:55",
+    "cutoff": "11:00",
+    "n_trades": 31,
+    "win_rate": 0.5806451612903226,
+    "total_pnl": 1246.386848636149,
+    "avg_pnl": 40.20602737535964,
+    "sharpe": 4.361870997056767,
+    "max_dd": -455.6986969921127,
+    "p_pass": 0.7802,
+    "med_days": 25,
+    "p95_dd": 1371.76,
+    "p_fail_dd": 0.0054,
+    "exits": {
+      "profit_target": 14,
+      "stop_loss": 12,
+      "time_stop": 5
+    }
+  },
+  {
+    "or_end": "09:55",
+    "cutoff": "12:00",
+    "n_trades": 34,
+    "win_rate": 0.5588235294117647,
+    "total_pnl": 1344.3599387789234,
+    "avg_pnl": 39.5399981993801,
+    "sharpe": 4.4970157635665835,
+    "max_dd": -556.4410684581089,
+    "p_pass": 0.7691,
+    "med_days": 26,
+    "p95_dd": 1356.29,
+    "p_fail_dd": 0.0059,
+    "exits": {
+      "profit_target": 15,
+      "stop_loss": 13,
+      "time_stop": 6
+    }
+  },
+  {
+    "or_end": "09:55",
+    "cutoff": "13:00",
+    "n_trades": 40,
+    "win_rate": 0.55,
+    "total_pnl": 1292.9735224021176,
+    "avg_pnl": 32.32433806005294,
+    "sharpe": 4.369833149525941,
+    "max_dd": -582.3194030411541,
+    "p_pass": 0.6204,
+    "med_days": 28,
+    "p95_dd": 1535.32,
+    "p_fail_dd": 0.0121,
+    "exits": {
+      "profit_target": 18,
+      "stop_loss": 16,
+      "time_stop": 6
+    }
+  },
+  {
+    "or_end": "09:55",
+    "cutoff": "14:00",
+    "n_trades": 44,
+    "win_rate": 0.5454545454545454,
+    "total_pnl": 1269.9356567837574,
+    "avg_pnl": 28.862174017812666,
+    "sharpe": 3.804351651708717,
+    "max_dd": -582.3194030411541,
+    "p_pass": 0.5348,
+    "med_days": 29,
+    "p95_dd": 1594.0,
+    "p_fail_dd": 0.0164,
+    "exits": {
+      "profit_target": 20,
+      "stop_loss": 18,
+      "time_stop": 6
+    }
+  },
+  {
+    "or_end": "09:55",
+    "cutoff": "15:00",
+    "n_trades": 51,
+    "win_rate": 0.5490196078431373,
+    "total_pnl": 1555.2447654089617,
+    "avg_pnl": 30.49499540017572,
+    "sharpe": 4.776069083170279,
+    "max_dd": -409.83298355554143,
+    "p_pass": 0.5695,
+    "med_days": 28,
+    "p95_dd": 1495.69,
+    "p_fail_dd": 0.0096,
+    "exits": {
+      "profit_target": 23,
+      "stop_loss": 21,
+      "time_stop": 6,
+      "session_close": 1
+    }
+  },
+  {
+    "or_end": "10:14",
+    "cutoff": "11:00",
+    "n_trades": 23,
+    "win_rate": 0.5217391304347826,
+    "total_pnl": 280.6425353223467,
+    "avg_pnl": 12.20184936184116,
+    "sharpe": 0.9341586129349336,
+    "max_dd": -606.231580273372,
+    "p_pass": 0.1865,
+    "med_days": 30,
+    "p95_dd": 2134.6,
+    "p_fail_dd": 0.1229,
+    "exits": {
+      "profit_target": 7,
+      "time_stop": 7,
+      "stop_loss": 9
+    }
+  },
+  {
+    "or_end": "10:14",
+    "cutoff": "12:00",
+    "n_trades": 31,
+    "win_rate": 0.5483870967741935,
+    "total_pnl": 901.8187326972846,
+    "avg_pnl": 29.090926861202732,
+    "sharpe": 2.8260052005696514,
+    "max_dd": -777.5016249557812,
+    "p_pass": 0.5402,
+    "med_days": 28,
+    "p95_dd": 1653.13,
+    "p_fail_dd": 0.0194,
+    "exits": {
+      "profit_target": 11,
+      "time_stop": 8,
+      "stop_loss": 12
+    }
+  },
+  {
+    "or_end": "10:14",
+    "cutoff": "13:00",
+    "n_trades": 38,
+    "win_rate": 0.5,
+    "total_pnl": 562.4971541061947,
+    "avg_pnl": 14.802556687005122,
+    "sharpe": 1.8548863339326505,
+    "max_dd": -924.2918992809064,
+    "p_pass": 0.21,
+    "med_days": 31,
+    "p95_dd": 2072.03,
+    "p_fail_dd": 0.0817,
+    "exits": {
+      "profit_target": 13,
+      "time_stop": 9,
+      "stop_loss": 16
+    }
+  },
+  {
+    "or_end": "10:14",
+    "cutoff": "14:00",
+    "n_trades": 42,
+    "win_rate": 0.47619047619047616,
+    "total_pnl": 392.7765670296973,
+    "avg_pnl": 9.351823024516602,
+    "sharpe": 1.262265237637751,
+    "max_dd": -1087.7417435703683,
+    "p_pass": 0.1165,
+    "med_days": 31,
+    "p95_dd": 2108.69,
+    "p_fail_dd": 0.1116,
+    "exits": {
+      "profit_target": 14,
+      "time_stop": 9,
+      "stop_loss": 19
+    }
+  },
+  {
+    "or_end": "10:14",
+    "cutoff": "15:00",
+    "n_trades": 46,
+    "win_rate": 0.4782608695652174,
+    "total_pnl": 541.709693980514,
+    "avg_pnl": 11.776297695228564,
+    "sharpe": 1.7925575106613412,
+    "max_dd": -793.5655122368989,
+    "p_pass": 0.1484,
+    "med_days": 31,
+    "p95_dd": 2084.85,
+    "p_fail_dd": 0.0953,
+    "exits": {
+      "profit_target": 16,
+      "time_stop": 9,
+      "stop_loss": 21
+    }
+  },
+  {
+    "or_end": "10:30",
+    "cutoff": "11:00",
+    "n_trades": 12,
+    "win_rate": 0.5833333333333334,
+    "total_pnl": 395.8173375498574,
+    "avg_pnl": 32.98477812915478,
+    "sharpe": 2.0924061431142564,
+    "max_dd": -592.4818576219623,
+    "p_pass": 0.624,
+    "med_days": 28,
+    "p95_dd": 1305.8,
+    "p_fail_dd": 0.0047,
+    "exits": {
+      "time_stop": 4,
+      "stop_loss": 4,
+      "profit_target": 4
+    }
+  },
+  {
+    "or_end": "10:30",
+    "cutoff": "12:00",
+    "n_trades": 25,
+    "win_rate": 0.52,
+    "total_pnl": 355.88782157636876,
+    "avg_pnl": 14.235512863054751,
+    "sharpe": 1.576869176557772,
+    "max_dd": -676.0918532531214,
+    "p_pass": 0.1967,
+    "med_days": 31,
+    "p95_dd": 2054.83,
+    "p_fail_dd": 0.0729,
+    "exits": {
+      "time_stop": 7,
+      "stop_loss": 11,
+      "profit_target": 7
+    }
+  },
+  {
+    "or_end": "10:30",
+    "cutoff": "13:00",
+    "n_trades": 31,
+    "win_rate": 0.4838709677419355,
+    "total_pnl": 74.6899200022479,
+    "avg_pnl": 2.4093522581370292,
+    "sharpe": 0.25307679700695046,
+    "max_dd": -956.265637006778,
+    "p_pass": 0.0547,
+    "med_days": 32,
+    "p95_dd": 2178.67,
+    "p_fail_dd": 0.2054,
+    "exits": {
+      "time_stop": 7,
+      "stop_loss": 15,
+      "profit_target": 9
+    }
+  },
+  {
+    "or_end": "10:30",
+    "cutoff": "14:00",
+    "n_trades": 34,
+    "win_rate": 0.47058823529411764,
+    "total_pnl": 62.20123872127016,
+    "avg_pnl": 1.8294481976844164,
+    "sharpe": 0.20645087686679592,
+    "max_dd": -1033.0441227707706,
+    "p_pass": 0.0385,
+    "med_days": 31,
+    "p95_dd": 2169.82,
+    "p_fail_dd": 0.184,
+    "exits": {
+      "time_stop": 8,
+      "stop_loss": 16,
+      "profit_target": 10
+    }
+  },
+  {
+    "or_end": "10:30",
+    "cutoff": "15:00",
+    "n_trades": 39,
+    "win_rate": 0.4358974358974359,
+    "total_pnl": -234.82338685492775,
+    "avg_pnl": -6.021112483459686,
+    "sharpe": -0.7602542438838941,
+    "max_dd": -1092.6172371177381,
+    "p_pass": 0.0093,
+    "med_days": 33,
+    "p95_dd": 2230.06,
+    "p_fail_dd": 0.3333,
+    "exits": {
+      "time_stop": 8,
+      "stop_loss": 20,
+      "profit_target": 11
+    }
+  }
+]

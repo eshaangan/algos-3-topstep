@@ -32,6 +32,10 @@ primary_labeling:
     # Raise to reduce events (higher confidence), lower to increase events.
     # Raised back to 2.0 to reduce noisy/low-edge events (lower overfit risk).
     tstat_threshold: 2.0
+    # Alias used by experiment sweeps
+    min_t_value: 2.0
+    # Optional max lookahead (experiment runner maps this to horizon_bars)
+    max_lookahead: 25
 
     # Optional CUSUM prefilter to reduce scanning work and avoid flat regimes.
     use_cusum_prefilter: true
@@ -120,6 +124,12 @@ sample_weights:
 
     # Method: "lopez_de_prado" or "simple_overlap"
     method: "lopez_de_prado"
+
+  # Optional exponential decay on top of uniqueness.
+  # final_weight = uniqueness * exp(-lambda * age_days)
+  uniqueness_decay:
+    enabled: false
+    lambda: 0.005
 
   # Magnitude weighting (return-based)
   magnitude:

@@ -1,0 +1,7 @@
+{
+  "batch": "batch8_calibration",
+  "n_configs": 100,
+  "calibration_methods": [
+    "none"
+  ]
+}

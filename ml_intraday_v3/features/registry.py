@@ -557,6 +557,87 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             )
         )
 
+    # Optional structural break features
+    if config.get("structural_breaks", {}).get("enabled", False):
+        registry.extend([
+            FeatureSpec(
+                name="sb_adf_pvalue",
+                lookback_bars=120,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Rolling ADF p-value proxy for structural instability",
+            ),
+            FeatureSpec(
+                name="sb_cusum_score",
+                lookback_bars=80,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="CUSUM-style local break score",
+            ),
+            FeatureSpec(
+                name="sb_near_break",
+                lookback_bars=120,
+                uses_rolling_stats=True,
+                requires_scaling=False,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Binary flag for likely near-break regimes",
+            ),
+        ])
+
+    # Optional HMM regime features
+    hmm_cfg = config.get("hmm_regime", {})
+    if hmm_cfg.get("enabled", False):
+        n_states = int(hmm_cfg.get("n_states", 2))
+        registry.append(
+            FeatureSpec(
+                name="hmm_state",
+                lookback_bars=int(hmm_cfg.get("min_train_samples", 252)),
+                uses_rolling_stats=True,
+                requires_scaling=False,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Causal HMM latent regime state",
+            )
+        )
+        for i in range(n_states):
+            registry.append(
+                FeatureSpec(
+                    name=f"prob_state_{i}",
+                    lookback_bars=int(hmm_cfg.get("min_train_samples", 252)),
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"HMM probability for state {i}",
+                )
+            )
+        if n_states == 2:
+            registry.extend([
+                FeatureSpec(
+                    name="prob_bull",
+                    lookback_bars=int(hmm_cfg.get("min_train_samples", 252)),
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="HMM inferred bull-state probability",
+                ),
+                FeatureSpec(
+                    name="prob_bear",
+                    lookback_bars=int(hmm_cfg.get("min_train_samples", 252)),
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="HMM inferred bear-state probability",
+                ),
+            ])
+
     # -------------------------------------------------------------------------
     # 7. META (Flags and masks)
     # -------------------------------------------------------------------------

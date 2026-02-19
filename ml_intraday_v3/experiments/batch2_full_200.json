@@ -1,0 +1,6502 @@
+[
+  {
+    "exp_id": "batch2_exp_00001",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00002",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00003",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00004",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00005",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00006",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00007",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00008",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00009",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00010",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00011",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00012",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00013",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00014",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00015",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00016",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00017",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00018",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00019",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00020",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00021",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00022",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00023",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00024",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00025",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00026",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00027",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00028",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00029",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00030",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00031",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00032",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00033",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00034",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00035",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00036",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00037",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00038",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00039",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00040",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00041",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00042",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00043",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00044",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00045",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00046",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00047",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00048",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00049",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00050",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00051",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00052",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00053",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00054",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00055",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00056",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00057",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00058",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00059",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00060",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00061",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00062",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00063",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00064",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00065",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00066",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00067",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00068",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00069",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00070",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00071",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00072",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00073",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00074",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00075",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00076",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00077",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00078",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00079",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00080",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00081",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00082",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00083",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00084",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00085",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00086",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00087",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00088",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00089",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00090",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00091",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00092",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00093",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00094",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00095",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00096",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00097",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00098",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00099",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00100",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00101",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00102",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00103",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00104",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00105",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00106",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00107",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00108",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00109",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00110",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00111",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00112",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00113",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00114",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00115",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00116",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00117",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00118",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00119",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00120",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00121",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00122",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00123",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00124",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00125",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00126",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00127",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00128",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00129",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00130",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00131",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00132",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00133",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00134",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00135",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00136",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00137",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00138",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00139",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00140",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00141",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00142",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00143",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00144",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00145",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00146",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00147",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00148",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00149",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00150",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00151",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00152",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00153",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00154",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00155",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00156",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00157",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00158",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00159",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00160",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00161",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00162",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00163",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00164",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00165",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00166",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00167",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00168",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00169",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00170",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00171",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00172",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00173",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00174",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00175",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00176",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00177",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00178",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00179",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00180",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00181",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00182",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00183",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00184",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00185",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00186",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00187",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00188",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00189",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00190",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00191",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 20,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00192",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 127,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00193",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_multiresolution",
+    "features_config": {
+      "multi_resolution": {
+        "enabled": true,
+        "resolutions_min": [
+          15,
+          30,
+          60
+        ],
+        "prefix": "mr",
+        "align_method": "ffill"
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00194",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": null,
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": 10,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00195",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00196",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 63,
+      "max_depth": -1,
+      "min_child_samples": 50,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00197",
+    "phase": "batch2",
+    "cv_method": "kfold",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00198",
+    "phase": "batch2",
+    "cv_method": "cpcv",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.0,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "sigmoid",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 20,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00199",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline",
+    "features_config": {},
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": -1,
+      "min_child_samples": 100,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  },
+  {
+    "exp_id": "batch2_exp_00200",
+    "phase": "batch2",
+    "cv_method": "cpcv_embargo",
+    "cv_n_splits": 5,
+    "cv_n_test_splits": 2,
+    "cv_embargo_pct": 0.01,
+    "cv_purge_pct": 0.02,
+    "feature_set_name": "baseline_fracdiff_hmm",
+    "features_config": {
+      "hmm_regime": {
+        "enabled": true
+      },
+      "fractional_diff": {
+        "enabled": true,
+        "d": 0.4,
+        "threshold": 0.01,
+        "apply_to": [
+          "close",
+          "ema_13",
+          "ema_34",
+          "price_vs_vwap"
+        ]
+      }
+    },
+    "sample_weight": "uniqueness",
+    "calibration": "isotonic",
+    "model_kind": "lightgbm",
+    "model_params": {
+      "n_estimators": 500,
+      "learning_rate": 0.03,
+      "num_leaves": 31,
+      "max_depth": 10,
+      "min_child_samples": 20,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.1,
+      "reg_lambda": 0.2
+    }
+  }
+]
