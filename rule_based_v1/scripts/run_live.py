@@ -19,6 +19,8 @@ def main():
                         help="Paper trade mode (default: True)")
     parser.add_argument("--live", action="store_true",
                         help="Enable real trading (overrides --dry-run)")
+    parser.add_argument("--yes", action="store_true",
+                        help="Skip confirmation prompt (for cron/non-interactive use)")
     parser.add_argument("--contract-id", type=str, help="TopstepX contract ID")
     parser.add_argument("--account-id", type=str, help="TopstepX account ID")
     parser.add_argument("--config-dir", type=str)
@@ -37,10 +39,11 @@ def main():
         logger.info("Starting in DRY RUN mode (paper trading)")
     else:
         logger.warning("LIVE TRADING MODE - real orders will be placed!")
-        confirm = input("Type 'CONFIRM' to proceed with live trading: ")
-        if confirm != "CONFIRM":
-            logger.info("Live trading cancelled.")
-            return
+        if not args.yes:
+            confirm = input("Type 'CONFIRM' to proceed with live trading: ")
+            if confirm != "CONFIRM":
+                logger.info("Live trading cancelled.")
+                return
 
     try:
         from live.runner import LiveRunner
