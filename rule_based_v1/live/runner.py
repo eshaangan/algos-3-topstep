@@ -155,12 +155,10 @@ class LiveRunner:
                      stop_loss: float, profit_target: float) -> bool:
         """Place a bracketed market order via ProjectX REST API."""
         try:
-            core_path = Path(__file__).parent.parent / "core" / "projectx_client.py"
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("projectx_client", core_path)
-            mod  = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            BracketInstruction = mod.BracketInstruction
+            core_dir = str(Path(__file__).parent.parent)
+            if core_dir not in sys.path:
+                sys.path.insert(0, core_dir)
+            from core.projectx_client import BracketInstruction
 
             tick_size    = self.risk_cfg["position"]["tick_size"]
             n_contracts  = self.risk_manager.contracts
