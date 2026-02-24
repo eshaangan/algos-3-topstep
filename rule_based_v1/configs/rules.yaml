@@ -4,7 +4,7 @@
 # PRIMARY signal: Opening Range Breakout
 # Best config confirmed on Jan-Feb 2026 OOS (MNQ): WR=56.7%, P(pass/40d)=68.6%
 opening_range_breakout:
-  or_end_time: "09:44"          # OR window: 09:30-09:44 ET (3 bars) — best OOS config
+  or_end_time: "09:55"          # OR window: 09:30-09:55 ET (6 bars) — first signal at 10:00
   min_or_bars: 4                # Need at least 4 bars in OR window
   min_range_atr: 0.3            # Range must be >= 0.3x ATR (filters flat opens)
   entry_cutoff_time: "12:00"    # No new entries after noon
