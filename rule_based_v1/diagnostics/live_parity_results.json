@@ -1,0 +1,66 @@
+{
+  "description": "MNQ ORB variant comparison, Jan 1 \u2013 Feb 27 2026 OOS",
+  "config": {
+    "or_end_time": "09:55",
+    "min_or_bars": 4,
+    "min_range_atr": 0.3,
+    "entry_cutoff_time": "12:00",
+    "pt_atr_mult": 2.0,
+    "sl_atr_mult": 1.5,
+    "n_contracts": 2,
+    "trailing_activation_atr": 999.0,
+    "commission_per_side": 0.62,
+    "slippage_ticks": 1,
+    "atr_period": 14,
+    "point_value": 2.0,
+    "tick_size": 0.25,
+    "tick_value": 0.5
+  },
+  "variants": {
+    "A_original": {
+      "num_trades": 32,
+      "win_rate": 0.5625,
+      "total_pnl": 321.32,
+      "avg_pnl": 10.04,
+      "profit_factor": 1.412,
+      "sharpe": 2.997,
+      "max_drawdown": -252.16,
+      "trades_per_day": 1.23,
+      "exit_reasons": {
+        "time_stop": 31.2,
+        "stop_loss": 37.5,
+        "profit_target": 31.2
+      }
+    },
+    "B_no_time_stop": {
+      "num_trades": 32,
+      "win_rate": 0.4375,
+      "total_pnl": 92.21,
+      "avg_pnl": 2.88,
+      "profit_factor": 1.096,
+      "sharpe": 0.738,
+      "max_drawdown": -444.89,
+      "trades_per_day": 1.23,
+      "exit_reasons": {
+        "session_close": 9.4,
+        "stop_loss": 46.9,
+        "profit_target": 43.8
+      }
+    },
+    "C_multi_entry": {
+      "num_trades": 48,
+      "win_rate": 0.4583333333333333,
+      "total_pnl": 245.06,
+      "avg_pnl": 5.11,
+      "profit_factor": 1.187,
+      "sharpe": 1.324,
+      "max_drawdown": -607.72,
+      "trades_per_day": 1.85,
+      "exit_reasons": {
+        "session_close": 10.4,
+        "stop_loss": 43.8,
+        "profit_target": 45.8
+      }
+    }
+  }
+}

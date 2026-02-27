@@ -66,6 +66,12 @@ class LiveRunner:
         self.data_fetcher = None
         self.client = None  # ProjectXClient for direct order placement
 
+        # Session state (reset daily)
+        self.session_traded: bool = False        # one-trade-per-session guard
+        self.last_trade_direction: int = 0        # 1=LONG, -1=SHORT (for time stop close)
+        self.entry_bar_count: int = 0             # bars elapsed since last entry
+        self.time_stop_bars: int = self.rules_cfg.get("exit_strategy", {}).get("time_stop_bars", 24)
+
     def _load_yaml(self, filename: str) -> dict:
         path = self.config_dir / filename
         with open(path) as f:
@@ -204,9 +210,59 @@ class LiveRunner:
             logger.error(f"Order placement failed: {e}", exc_info=True)
             return False
 
+    def _apply_time_stop(self):
+        """Cancel open brackets and flatten position after time_stop_bars elapsed."""
+        logger.info(
+            f"Time stop triggered: {self.time_stop_bars} bars after entry "
+            f"({'LONG' if self.last_trade_direction == 1 else 'SHORT'})"
+        )
+
+        if self.dry_run:
+            logger.info("[DRY RUN] Time stop would cancel brackets and flatten position")
+            return
+
+        try:
+            # Check if still in a position (TP/SL may have already closed it)
+            positions = self.client.search_open_positions()
+            if not positions:
+                logger.info("Time stop: position already closed (TP/SL hit), no action needed")
+                return
+
+            logger.info(f"Time stop: {len(positions)} open position(s) found, flattening")
+
+            # Cancel any open bracket orders first
+            open_orders = self.client.search_open_orders()
+            for order in open_orders:
+                try:
+                    self.client.cancel_order(str(order.order_id))
+                    logger.info(f"Time stop: cancelled bracket order id={order.order_id}")
+                except Exception as e:
+                    logger.warning(f"Time stop: cancel failed for id={order.order_id}: {e}")
+
+            # Place flat market order to close position
+            close_side = "SELL" if self.last_trade_direction == 1 else "BUY"
+            close_order = self.client.place_order(
+                symbol=self.symbol,
+                side=close_side,
+                quantity=self.risk_manager.contracts,
+                order_type="MARKET",
+                contract_id=self.contract_id,
+            )
+            logger.info(f"Time stop: FLATTEN order placed id={close_order.order_id}")
+
+        except Exception as e:
+            logger.error(f"Time stop flatten failed: {e}", exc_info=True)
+
     def _process_bar(self, bar_time, latest_bar, bars_df):
         """Process a new bar through the rule engine."""
         self.risk_manager.tick_bar()
+
+        # One-trade-per-session guard + time stop monitoring
+        if self.session_traded:
+            self.entry_bar_count += 1
+            if self.entry_bar_count == self.time_stop_bars:
+                self._apply_time_stop()
+            return
 
         # Check risk limits
         can_trade, reason = self.risk_manager.can_trade()
@@ -245,12 +301,18 @@ class LiveRunner:
 
         if self.dry_run:
             logger.info("[DRY RUN] Trade logged but not executed")
+            self.session_traded = True
+            self.last_trade_direction = decision.direction
+            self.entry_bar_count = 0
             return
 
         # Live: place order via ProjectX API
         success = self._place_order(direction_str, entry_price, stop_loss, profit_target)
         if success:
             logger.info(f"[LIVE] Order placed: {self.symbol} {direction_str}")
+            self.session_traded = True
+            self.last_trade_direction = decision.direction
+            self.entry_bar_count = 0
         else:
             logger.error(f"[LIVE] Order placement FAILED for {self.symbol} {direction_str}")
 
@@ -290,6 +352,9 @@ class LiveRunner:
                 now_date = datetime.now().date()
                 if current_date is not None and now_date != current_date:
                     self.risk_manager.reset_daily()
+                    self.session_traded = False
+                    self.last_trade_direction = 0
+                    self.entry_bar_count = 0
                     logger.info("New trading day — risk state reset")
                 current_date = now_date
 
