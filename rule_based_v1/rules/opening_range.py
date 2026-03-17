@@ -47,6 +47,9 @@ class OpeningRangeBreakoutRule(BaseRule):
         If True, trigger on close > range_high (conservative, confirmed break).
         If False, trigger on high > range_high (aggressive, first-touch entry).
         Default True.
+    long_only : bool
+        If True, only take LONG breakout signals. SHORT signals are suppressed.
+        Default False.
     """
 
     def __init__(
@@ -57,6 +60,7 @@ class OpeningRangeBreakoutRule(BaseRule):
         entry_cutoff_time: str = "12:00",
         atr_period: int = 14,
         use_close_for_signal: bool = True,
+        long_only: bool = False,
     ):
         super().__init__(name="opening_range_breakout", role="primary")
         self.or_end_time = or_end_time
@@ -65,6 +69,7 @@ class OpeningRangeBreakoutRule(BaseRule):
         self.entry_cutoff_time = entry_cutoff_time
         self.atr_period = atr_period
         self.use_close_for_signal = use_close_for_signal
+        self.long_only = long_only
 
         # Parse time strings
         h_or, m_or = map(int, or_end_time.split(":"))
@@ -184,6 +189,9 @@ class OpeningRangeBreakoutRule(BaseRule):
             )
 
         # SHORT: first bar where price breaks below the range low
+        if self.long_only:
+            return RuleSignal.no_signal(self.name, "long_only mode: SHORT suppressed")
+
         if signal_low < range_low and prev_signal_low >= range_low:
             excess = (range_low - signal_low) / atr_val
             strength = min(1.0, excess / 0.5)

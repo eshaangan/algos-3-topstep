@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from rules.opening_range import OpeningRangeBreakoutRule
 from rules.time_of_day import TimeOfDayRule
 from engine.signal_aggregator import SignalAggregator
-from engine.risk_manager import RiskManager
+from engine.risk_manager import RiskManager, TradeRecord
 from utils.indicators import atr
 
 logger = logging.getLogger(__name__)
@@ -67,9 +67,10 @@ class LiveRunner:
         self.client = None  # ProjectXClient for direct order placement
 
         # Session state (reset daily)
-        self.session_traded: bool = False        # one-trade-per-session guard
-        self.last_trade_direction: int = 0        # 1=LONG, -1=SHORT (for time stop close)
-        self.entry_bar_count: int = 0             # bars elapsed since last entry
+        self.trades_today: int = 0
+        self.max_trades_per_day: int = self.risk_cfg.get("session", {}).get("max_trades_per_day", 1)
+        self.active_trade: dict | None = None  # tracks open position
+        self.last_trade_direction: int = 0     # 1=LONG, -1=SHORT
         self.time_stop_bars: int = self.rules_cfg.get("exit_strategy", {}).get("time_stop_bars", 24)
 
     def _load_yaml(self, filename: str) -> dict:
@@ -89,6 +90,7 @@ class LiveRunner:
             entry_cutoff_time=orb_cfg["entry_cutoff_time"],
             atr_period=orb_cfg.get("atr_period", 14),
             use_close_for_signal=orb_cfg.get("use_close_for_signal", True),
+            long_only=orb_cfg.get("long_only", False),
         )
 
         tod_cfg = cfg["time_of_day"]
@@ -210,15 +212,81 @@ class LiveRunner:
             logger.error(f"Order placement failed: {e}", exc_info=True)
             return False
 
+    def _check_fill(self):
+        """Poll open positions; when position disappears, infer exit and record trade."""
+        if self.active_trade is None:
+            return
+        try:
+            positions = self.client.search_open_positions()
+            if positions:
+                return
+
+            # Position is gone — bracket filled
+            trade       = self.active_trade
+            entry_price = trade["entry_price"]
+            direction   = trade["direction"]
+            sl          = trade["stop_loss"]
+            tp          = trade["profit_target"]
+            last_close  = trade["last_bar_close"]
+
+            if direction == 1:  # LONG
+                if last_close >= tp:
+                    exit_price = tp
+                    reason = "profit_target"
+                elif last_close <= sl:
+                    exit_price = sl
+                    reason = "stop_loss"
+                else:
+                    exit_price = last_close
+                    reason = "bracket_fill"
+            else:  # SHORT
+                if last_close <= tp:
+                    exit_price = tp
+                    reason = "profit_target"
+                elif last_close >= sl:
+                    exit_price = sl
+                    reason = "stop_loss"
+                else:
+                    exit_price = last_close
+                    reason = "bracket_fill"
+
+            contracts        = self.risk_manager.contracts
+            point_value      = self.risk_cfg["position"]["point_value"]
+            commission       = self.risk_cfg["position"].get("commission_per_side", 0.62)
+            gross_pnl        = (exit_price - entry_price) * direction * contracts * point_value
+            total_commission = 2 * commission * contracts
+            pnl              = gross_pnl - total_commission
+
+            trade_record = TradeRecord(
+                entry_bar=0,
+                exit_bar=0,
+                direction=direction,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                pnl=pnl,
+                exit_reason=reason,
+            )
+            self.risk_manager.record_trade(trade_record)
+            logger.info(
+                f"[FILL] Trade closed via {reason}: PnL=${pnl:+.2f} "
+                f"(entry={entry_price}, exit={exit_price})"
+            )
+            self.active_trade = None
+
+        except Exception as e:
+            logger.error(f"_check_fill error: {e}", exc_info=True)
+
     def _apply_time_stop(self):
         """Cancel open brackets and flatten position after time_stop_bars elapsed."""
+        trade = self.active_trade
+        direction_label = "LONG" if trade["direction"] == 1 else "SHORT"
         logger.info(
-            f"Time stop triggered: {self.time_stop_bars} bars after entry "
-            f"({'LONG' if self.last_trade_direction == 1 else 'SHORT'})"
+            f"Time stop triggered: {self.time_stop_bars} bars after entry ({direction_label})"
         )
 
         if self.dry_run:
             logger.info("[DRY RUN] Time stop would cancel brackets and flatten position")
+            self.active_trade = None
             return
 
         try:
@@ -226,6 +294,7 @@ class LiveRunner:
             positions = self.client.search_open_positions()
             if not positions:
                 logger.info("Time stop: position already closed (TP/SL hit), no action needed")
+                self.active_trade = None
                 return
 
             logger.info(f"Time stop: {len(positions)} open position(s) found, flattening")
@@ -239,8 +308,11 @@ class LiveRunner:
                 except Exception as e:
                     logger.warning(f"Time stop: cancel failed for id={order.order_id}: {e}")
 
-            # Place flat market order to close position
-            close_side = "SELL" if self.last_trade_direction == 1 else "BUY"
+            entry_price = trade["entry_price"]
+            direction   = trade["direction"]
+            last_close  = trade["last_bar_close"]
+
+            close_side = "SELL" if direction == 1 else "BUY"
             close_order = self.client.place_order(
                 symbol=self.symbol,
                 side=close_side,
@@ -250,18 +322,48 @@ class LiveRunner:
             )
             logger.info(f"Time stop: FLATTEN order placed id={close_order.order_id}")
 
+            contracts        = self.risk_manager.contracts
+            point_value      = self.risk_cfg["position"]["point_value"]
+            commission       = self.risk_cfg["position"].get("commission_per_side", 0.62)
+            gross_pnl        = (last_close - entry_price) * direction * contracts * point_value
+            total_commission = 2 * commission * contracts
+            pnl              = gross_pnl - total_commission
+
+            trade_record = TradeRecord(
+                entry_bar=0,
+                exit_bar=0,
+                direction=direction,
+                entry_price=entry_price,
+                exit_price=last_close,
+                pnl=pnl,
+                exit_reason="time_stop",
+            )
+            self.risk_manager.record_trade(trade_record)
+            logger.info(
+                f"[TIME STOP] Trade closed: PnL=${pnl:+.2f} "
+                f"(entry={entry_price}, exit={last_close})"
+            )
+
         except Exception as e:
             logger.error(f"Time stop flatten failed: {e}", exc_info=True)
+        finally:
+            self.active_trade = None
 
     def _process_bar(self, bar_time, latest_bar, bars_df):
         """Process a new bar through the rule engine."""
         self.risk_manager.tick_bar()
 
-        # One-trade-per-session guard + time stop monitoring
-        if self.session_traded:
-            self.entry_bar_count += 1
-            if self.entry_bar_count == self.time_stop_bars:
+        # Active trade monitoring: update bar count and check time stop
+        if self.active_trade is not None:
+            self.active_trade["bars_since_entry"] += 1
+            self.active_trade["last_bar_close"] = latest_bar["close"]
+            if self.active_trade["bars_since_entry"] >= self.time_stop_bars:
                 self._apply_time_stop()
+            return
+
+        # Daily trade cap
+        if self.trades_today >= self.max_trades_per_day:
+            logger.info(f"Max trades reached: {self.trades_today}/{self.max_trades_per_day}")
             return
 
         # Check risk limits
@@ -301,18 +403,32 @@ class LiveRunner:
 
         if self.dry_run:
             logger.info("[DRY RUN] Trade logged but not executed")
-            self.session_traded = True
+            self.active_trade = {
+                "direction": decision.direction,
+                "entry_price": entry_price,
+                "stop_loss": stop_loss,
+                "profit_target": profit_target,
+                "bars_since_entry": 0,
+                "last_bar_close": entry_price,
+            }
+            self.trades_today += 1
             self.last_trade_direction = decision.direction
-            self.entry_bar_count = 0
             return
 
         # Live: place order via ProjectX API
         success = self._place_order(direction_str, entry_price, stop_loss, profit_target)
         if success:
             logger.info(f"[LIVE] Order placed: {self.symbol} {direction_str}")
-            self.session_traded = True
+            self.active_trade = {
+                "direction": decision.direction,
+                "entry_price": entry_price,
+                "stop_loss": stop_loss,
+                "profit_target": profit_target,
+                "bars_since_entry": 0,
+                "last_bar_close": entry_price,
+            }
+            self.trades_today += 1
             self.last_trade_direction = decision.direction
-            self.entry_bar_count = 0
         else:
             logger.error(f"[LIVE] Order placement FAILED for {self.symbol} {direction_str}")
 
@@ -352,9 +468,9 @@ class LiveRunner:
                 now_date = datetime.now().date()
                 if current_date is not None and now_date != current_date:
                     self.risk_manager.reset_daily()
-                    self.session_traded = False
+                    self.trades_today = 0
+                    self.active_trade = None
                     self.last_trade_direction = 0
-                    self.entry_bar_count = 0
                     logger.info("New trading day — risk state reset")
                 current_date = now_date
 
@@ -362,6 +478,13 @@ class LiveRunner:
                 new_bar = self.data_fetcher.fetch_latest_bar()
                 if new_bar is not None:
                     self.data_fetcher.update_buffer(new_bar)
+
+                # Check if active trade bracket filled (live mode only)
+                if self.active_trade is not None and not self.dry_run:
+                    try:
+                        self._check_fill()
+                    except Exception as e:
+                        logger.error(f"_check_fill loop error: {e}", exc_info=True)
 
                 latest_bar = self.data_fetcher.get_latest_bar()
                 if latest_bar is not None and (
@@ -386,4 +509,11 @@ class LiveRunner:
                 time.sleep(update_interval)
 
         logger.info("Live trading stopped")
-        logger.info(f"Session stats: {self.risk_manager.session_stats}")
+        stats = self.risk_manager.session_stats
+        logger.info(
+            f"Session stats: trades_today={self.trades_today}, "
+            f"daily_pnl=${stats['daily_pnl']:+.2f}, "
+            f"wins={stats['wins']}, losses={stats['losses']}, "
+            f"win_rate={stats['win_rate']:.1%}, "
+            f"halted={stats['halted']}"
+        )

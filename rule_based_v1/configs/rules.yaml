@@ -4,12 +4,13 @@
 # PRIMARY signal: Opening Range Breakout
 # Best config confirmed on Jan-Feb 2026 OOS (MNQ): WR=56.7%, P(pass/40d)=68.6%
 opening_range_breakout:
-  or_end_time: "09:55"          # OR window: 09:30-09:55 ET (6 bars) — first signal at 10:00
-  min_or_bars: 4                # Need at least 4 bars in OR window
+  or_end_time: "10:04"          # OR window: 09:30-10:04 ET (7 bars) — first signal at 10:05
+  min_or_bars: 7                # Need at least 7 bars in OR window
   min_range_atr: 0.3            # Range must be >= 0.3x ATR (filters flat opens)
   entry_cutoff_time: "12:00"    # No new entries after noon
   atr_period: 14
   use_close_for_signal: true    # Trigger on close > range_high (confirmed break)
+  long_only: true               # LONG-only: SHORT WR=33% in 2026 YTD, LONG WR=67%
 
 time_of_day:
   # Eastern Time
@@ -20,7 +21,7 @@ time_of_day:
   lunch_end: "13:00"
 
 exit_strategy:
-  profit_target_atr: 2.0
+  profit_target_atr: 3.0
   stop_loss_atr: 1.5
   time_stop_bars: 24
   trailing_activation_atr: 999.0  # DISABLED - trailing stop cuts winners

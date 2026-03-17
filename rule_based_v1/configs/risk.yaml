@@ -2,7 +2,7 @@
 # Designed for Topstep 50k Combine
 
 position:
-  contracts: 2              # 2 MNQ contracts — P(pass/14d)=51%, median=11d
+  contracts: 3              # 3 MNQ contracts — LONG-only 1trade/day: Sharpe=4.95, DD=-$1,516
   instrument: "MNQ"
   tick_size: 0.25
   tick_value: 0.50          # $0.50 per tick for MNQ
@@ -19,7 +19,8 @@ circuit_breaker:
 session:
   flatten_minutes_before_close: 5
   session_close: "16:00"    # ET
+  max_trades_per_day: 1     # 1 trade/day: WR=73%, Sharpe=4.95 vs 2 trades WR=55%, Sharpe=0.34
 
 drawdown:
-  # Topstep trailing max drawdown $2,000; stop at $1,800
-  buffer_from_max: 1800.0
+  # Topstep trailing max drawdown $2,000; stop at $1,950 ($50 buffer)
+  buffer_from_max: 1950.0
