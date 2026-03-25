@@ -11,6 +11,10 @@ opening_range_breakout:
   atr_period: 14
   use_close_for_signal: true    # Trigger on close > range_high (confirmed break)
   long_only: true               # LONG-only: SHORT WR=33% in 2026 YTD, LONG WR=67%
+  require_prev_vwap: true       # Only trade when yesterday close > yesterday VWAP
+                                # OOS: WR=68.4%, DD=-$1,143, P(pass/30d)=78.1% vs 41.8% baseline
+  require_gex_explosive: false  # GEX proxy filter — DISABLED for combine (N=10 too small); enable on PRACTICE only
+                                # Backtest: PrevVWAP+GEX = 10t, 80% WR, Sharpe=10.08, DD=-$796
 
 time_of_day:
   # Eastern Time
@@ -21,8 +25,28 @@ time_of_day:
   lunch_end: "13:00"
 
 exit_strategy:
-  profit_target_atr: 3.0
+  profit_target_atr: 2.0         # Changed from 3.0 — regime_quality_sweep: PT=2x Sharpe=8.78 vs 8.29 at PT=3x
+                                  # Exit dist at PT=2x: 5 TP (31%), 8 time-stops (50%), 3 SL (19%)
+                                  # Exit dist at PT=3x: 1 TP  (6%), 12 time-stops (75%), 3 SL (19%)
   stop_loss_atr: 1.5
   time_stop_bars: 24
   trailing_activation_atr: 999.0  # DISABLED - trailing stop cuts winners
   trailing_distance_atr: 0.75
+
+msite:
+  enabled: true
+  n_contracts: 12
+  pt_mult: 2.0
+  sl_frac: 0.55
+  afternoon_cutoff: [14, 0]
+  time_stop_bars: 12
+
+gire:
+  enabled: true
+  g_star: 0.2              # gap ≥ 0.2×ATR to qualify
+  clv_thresh: 0.8          # CLV_y ≥ 0.8 for SHORT, ≤ 0.2 for LONG
+  use_opening_failure: true
+  time_stop_hour: 12       # time stop at 12:00 ET
+  n_contracts: 1           # 1 MNQ contract
+  time_stop_bars: 48       # fallback bar count
+  afternoon_cutoff: [12, 0]
