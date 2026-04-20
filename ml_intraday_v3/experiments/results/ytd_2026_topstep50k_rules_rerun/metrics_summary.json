@@ -1,0 +1,59 @@
+{
+  "run_id": "ytd_2026_topstep50k_rules_rerun",
+  "topstep_50k_rules_applied": {
+    "profit_target_usd": 3000,
+    "maximum_loss_trailing_usd": 2000,
+    "daily_loss_limit_usd": 1000,
+    "max_position_micros_mes": 50,
+    "max_position_minis_equivalent": 5,
+    "this_stack_contracts_mes": 2,
+    "notes": "Cumulative profit halt at +$3k via RiskManager (topstep.profit_target_usd). Trailing $2k / daily $1k in risk.yaml."
+  },
+  "risk_yaml_snapshot": {
+    "starting_balance": 50000,
+    "max_daily_loss": 1000,
+    "max_trailing_drawdown": 2000,
+    "profit_target_usd": 3000,
+    "max_contracts": 2
+  },
+  "oos_window": {
+    "start": "2026-01-01 00:00:00+00:00",
+    "end": "2026-04-12 23:59:59+00:00"
+  },
+  "totals": {
+    "total_pnl_usd": 3427.319275200726,
+    "max_drawdown_usd": 954.9837053552983,
+    "trades_count": 60,
+    "skipped_signals": 865,
+    "skipped_profit_target_after_combine_pass": 296,
+    "win_rate": 0.6,
+    "profit_factor": 1.8254572203056023,
+    "avg_trade_usd": 57.1219879200121,
+    "mtm_liquidations": 0
+  },
+  "ending_equity_usd": 53427.31927520065,
+  "cumulative_profit_vs_50k_start_usd": 3427.3192752006507,
+  "profit_target_hit_sim": true,
+  "daily_from_risk_tearsheet": {
+    "session_days": 22,
+    "avg_day_usd": 155.78723978185118,
+    "best_day_usd": 1228.0385297828989,
+    "worst_day_usd": -729.6576604055494,
+    "daily_win_rate": 0.6363636363636364,
+    "daily_sharpe": 5.976615180172741,
+    "daily_sortino": 11.403588203526748
+  },
+  "trades_by_session_day": {
+    "mean_trades_per_session_day": 2.6818181818181817,
+    "median": 2.0,
+    "min": 1,
+    "max": 5,
+    "session_days_with_zero_trades": 0,
+    "session_days_no_trade_list": []
+  },
+  "artifacts": {
+    "metrics_summary": "ml_intraday_v3/experiments/results/ytd_2026_topstep50k_rules_rerun/metrics_summary.json",
+    "promotion_summary": "ml_intraday_v3/experiments/results/ytd_2026_topstep50k_rules_rerun/contracts_2/promotion_summary.json",
+    "trades_parquet": "ml_intraday_v3/experiments/results/ytd_2026_topstep50k_rules_rerun/contracts_2/ytd_2026_jan_apr/trades.parquet"
+  }
+}

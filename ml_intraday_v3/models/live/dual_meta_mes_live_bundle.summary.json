@@ -1,0 +1,9 @@
+{
+  "bundle_path": "ml_intraday_v3/models/live/dual_meta_mes_live_bundle.pkl",
+  "training_window": {
+    "start": "2025-10-12T19:55:00+00:00",
+    "end": "2026-04-10T19:55:00+00:00",
+    "lookback_days": 180
+  },
+  "meta_routes": []
+}

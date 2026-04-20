@@ -1,0 +1,36 @@
+{
+  "executed_trades": 11,
+  "daily": {
+    "days": 4,
+    "avg_day_usd": 345.5396557691632,
+    "best_day_usd": 931.0415355911557,
+    "worst_day_usd": 134.3838885261432,
+    "daily_win_rate": 1.0,
+    "daily_pnl_std": 390.54718168402144,
+    "daily_sharpe": 14.045094270055118,
+    "daily_sortino": null,
+    "daily_pnl_by_day": {
+      "2026-04-07": 165.93588106468658,
+      "2026-04-08": 931.0415355911557,
+      "2026-04-09": 134.3838885261432,
+      "2026-04-10": 150.79731789466723
+    }
+  },
+  "streaks": {
+    "longest_win_streak": 4,
+    "longest_loss_streak": 2
+  },
+  "tail": {
+    "best_trade_usd": 952.51,
+    "worst_trade_usd": -104.95697986711298,
+    "trade_pnl_p05": -103.99969417582929,
+    "trade_pnl_p95": 556.3641447746161,
+    "trade_pnl_std": 290.97911098702986
+  },
+  "equity": {
+    "final_equity": 51382.15862307665,
+    "max_drawdown_usd": 196.4006436413183,
+    "recovery_factor": 7.03744446785447,
+    "longest_underwater_bars": 3
+  }
+}

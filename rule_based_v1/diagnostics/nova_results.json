@@ -1,0 +1,191 @@
+{
+  "meta": {
+    "instrument": "MES",
+    "data_range": "2025-06-29 to 2026-02-09",
+    "n_days": 2,
+    "sci_pctl_window": 30,
+    "repair_lo": 0.05,
+    "repair_hi": 0.45,
+    "tp_mult": 0.6,
+    "sl_mult": 0.45,
+    "n_contracts": 1
+  },
+  "overall": {
+    "N": 2,
+    "WR": 50.0,
+    "avg_pnl": -9.22,
+    "total_pnl": -18.44,
+    "max_dd": 0.0,
+    "sharpe": -12.488
+  },
+  "long_only": {
+    "N": 0,
+    "WR": 0.0,
+    "avg_pnl": 0.0,
+    "total_pnl": 0.0,
+    "max_dd": 0.0,
+    "sharpe": 0.0
+  },
+  "short_only": {
+    "N": 2,
+    "WR": 50.0,
+    "avg_pnl": -9.22,
+    "total_pnl": -18.44,
+    "max_dd": 0.0,
+    "sharpe": -12.488
+  },
+  "exit_breakdown": [
+    {
+      "reason": "stop",
+      "N": 1,
+      "WR": 0.0,
+      "total_pnl": -20.94,
+      "avg_pnl": -20.94
+    },
+    {
+      "reason": "hard_exit",
+      "N": 1,
+      "WR": 100.0,
+      "total_pnl": 2.5,
+      "avg_pnl": 2.5
+    }
+  ],
+  "monotonicity_by_sci": [
+    {
+      "decile": "0-10pct",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -20.94
+    },
+    {
+      "decile": "10-20pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "20-30pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "30-40pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "40-50pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "50-60pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "60-70pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "70-80pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "80-90pct",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "decile": "90-100pct",
+      "N": 1,
+      "WR": 100.0,
+      "avg_pnl": 2.5
+    }
+  ],
+  "monotonicity_by_repair": [
+    {
+      "band": "0.05-0.15",
+      "N": 1,
+      "WR": 100.0,
+      "avg_pnl": 2.5
+    },
+    {
+      "band": "0.15-0.25",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -20.94
+    },
+    {
+      "band": "0.25-0.35",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    },
+    {
+      "band": "0.35-0.45",
+      "N": 0,
+      "WR": null,
+      "avg_pnl": null
+    }
+  ],
+  "monthly_pnl": {
+    "2025-09": -20.94,
+    "2025-12": 2.5
+  },
+  "trade_log": [
+    {
+      "date": "2025-09-29",
+      "next_date": "2025-09-30",
+      "direction": "SHORT",
+      "sci": 0.3075,
+      "sci_dir": 1,
+      "repair": 0.1714,
+      "C_end": 6714.25,
+      "C_start": 6705.5,
+      "close_range": 8.75,
+      "mid_3": 6711.5,
+      "entry_price": 6710.5,
+      "stop_price": 6714.4375,
+      "profit_target": 6705.25,
+      "sl_dist": 3.9375,
+      "tp_dist": 5.25,
+      "exit_price": 6714.6875,
+      "exit_reason": "stop",
+      "pnl_pts": -4.1875,
+      "pnl_usd": -20.94,
+      "atr_d": 44.8026
+    },
+    {
+      "date": "2025-12-11",
+      "next_date": "2025-12-12",
+      "direction": "SHORT",
+      "sci": 0.3629,
+      "sci_dir": 1,
+      "repair": 0.0714,
+      "C_end": 6908.0,
+      "C_start": 6901.0,
+      "close_range": 7.0,
+      "mid_3": 6907.625,
+      "entry_price": 6906.25,
+      "stop_price": 6909.4,
+      "profit_target": 6902.05,
+      "sl_dist": 3.15,
+      "tp_dist": 4.2,
+      "exit_price": 6905.75,
+      "exit_reason": "hard_exit",
+      "pnl_pts": 0.5,
+      "pnl_usd": 2.5,
+      "atr_d": 77.3289
+    }
+  ]
+}

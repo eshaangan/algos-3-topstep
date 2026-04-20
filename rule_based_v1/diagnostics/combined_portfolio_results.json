@@ -1,0 +1,67 @@
+{
+  "ytd_2026": {
+    "period": "Jan 2026 \u2013 Mar 2026",
+    "portfolio": {
+      "label": "YTD 2026",
+      "n_days": 23,
+      "pos_days": 17,
+      "neg_days": 6,
+      "flat_days": 0,
+      "day_wr": 0.7391304347826086,
+      "total_pnl": 7344.12,
+      "avg_daily": 319.31,
+      "sharpe": 9.671,
+      "max_dd": -796.19
+    },
+    "strategies": {
+      "orb": {
+        "n": 16,
+        "wr": 0.75,
+        "total_pnl_scaled": 4438.08
+      },
+      "msite": {
+        "n": 6,
+        "wr": 0.667,
+        "total_pnl_scaled": 2264.04
+      },
+      "gire": {
+        "n": 1,
+        "wr": 1.0,
+        "total_pnl_scaled": 642.0,
+        "note": "1 known trade Jan 28 (RTH-only data)"
+      }
+    }
+  },
+  "long_aug25_mar26": {
+    "period": "Aug 2025 \u2013 Mar 2026",
+    "portfolio": {
+      "label": "Long Aug25\u2013Mar26",
+      "n_days": 61,
+      "pos_days": 36,
+      "neg_days": 25,
+      "flat_days": 0,
+      "day_wr": 0.5901639344262295,
+      "total_pnl": 10262.36,
+      "avg_daily": 168.24,
+      "sharpe": 5.495,
+      "max_dd": -1553.69
+    },
+    "strategies": {
+      "orb": {
+        "n": 43,
+        "wr": 0.535,
+        "total_pnl_scaled": 4379.32
+      },
+      "msite": {
+        "n": 13,
+        "wr": 0.615,
+        "total_pnl_scaled": 3993.54
+      },
+      "gire": {
+        "n": 8,
+        "wr": 0.857,
+        "total_pnl_scaled": 1889.5
+      }
+    }
+  }
+}

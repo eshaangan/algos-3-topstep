@@ -1,0 +1,37 @@
+# Micro Nikkei (USD) — Tokyo-session ORB (Japan local clock via session_timezone).
+# OR window: 09:00–10:04 JST (cash-style open). Requires ETH / extended-hours 5m bars — not US RTH-only.
+# Live: ensure Topstep/API feed includes Asia session; otherwise use US-session vm_orb_mnk instead.
+
+opening_range_breakout:
+  session_timezone: "Asia/Tokyo"
+  session_start_time: "09:00"
+  or_end_time: "10:04"
+  min_or_bars: 7
+  min_range_atr: 0.30
+  entry_cutoff_time: "12:00"
+  atr_period: 14
+  use_close_for_signal: true
+  long_only: true
+  require_prev_vwap: false
+  require_gex_explosive: false
+
+time_of_day:
+  clock_timezone: "Asia/Tokyo"
+  session_start: "09:35"
+  session_end: "12:30"
+  lunch_filter_enabled: false
+  lunch_start: "12:00"
+  lunch_end: "13:00"
+
+exit_strategy:
+  profit_target_atr: 3.5
+  stop_loss_atr: 1.75
+  time_stop_bars: 24
+  trailing_activation_atr: 999.0
+  trailing_distance_atr: 0.75
+
+msite:
+  enabled: false
+
+gire:
+  enabled: false

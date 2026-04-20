@@ -1,0 +1,25 @@
+# MNQ liquidity sweep + reclaim sidecar.
+# Backtest candidate: overnight-low sweep -> long reclaim, 10:30-13:00 ET.
+
+liquidity_sweep_reclaim:
+  enabled: true
+  bar_size_minutes: 5
+  lookback_bars: 6000
+  side: "long"
+  level: "overnight_low"
+  entry_start: "10:30"
+  entry_end: "13:00"
+  confirm_bars: 1
+  min_sweep_ticks: 1
+  stop_buffer_ticks: 1
+  min_rr: 0.8
+  time_stop_bars: 12
+  max_trades_per_day: 1
+  # Safety: when true, skip new sweep entries if any account-level open position is visible.
+  # Leave false only if you explicitly accept overlapping exposure with ORB.
+  skip_if_account_has_open_position: false
+
+time_of_day:
+  session_start: "10:25"
+  session_end: "15:55"
+  clock_timezone: "US/Eastern"

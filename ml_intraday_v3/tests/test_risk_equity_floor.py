@@ -252,6 +252,15 @@ class TestHWMUpdateWithEquityFloor:
         assert rm.equity == 0.0, "Equity should be zero"
 
 
+def test_apply_broker_snapshot_from_topstep():
+    rm = create_risk_manager(starting_capital=50000.0)
+    ts = pd.Timestamp("2020-01-01 10:00", tz="UTC")
+    rm.apply_broker_snapshot(equity=51201.09, daily_pnl=63.77, timestamp=ts)
+    assert rm.equity == 51201.09
+    assert rm.daily_pnl == 63.77
+    assert rm.hwm >= 51201.09
+
+
 if __name__ == "__main__":
     # Run tests with pytest
     pytest.main([__file__, "-v"])

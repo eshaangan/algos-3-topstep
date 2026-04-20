@@ -1,0 +1,34 @@
+# ORB-only sidecar for VM (run alongside MES ML). MSITE/GIRE off — one system, one primary logic.
+# Instrument still MNQ per rule math (point_value in risk.yaml). Use MNQ Topstep contract id in env.
+
+opening_range_breakout:
+  or_end_time: "10:04"
+  min_or_bars: 7
+  min_range_atr: 0.3
+  entry_cutoff_time: "12:00"
+  atr_period: 14
+  use_close_for_signal: true
+  long_only: true
+  require_prev_vwap: true
+  skip_gap_up_pct: 0.003
+  require_gex_explosive: false
+
+time_of_day:
+  session_start: "09:35"
+  session_end: "15:45"
+  lunch_filter_enabled: false
+  lunch_start: "12:00"
+  lunch_end: "13:00"
+
+exit_strategy:
+  profit_target_atr: 3.0
+  stop_loss_atr: 1.5
+  time_stop_bars: 24
+  trailing_activation_atr: 999.0
+  trailing_distance_atr: 0.75
+
+msite:
+  enabled: false
+
+gire:
+  enabled: false

@@ -1,0 +1,22 @@
+{
+  "test_range": {
+    "start": "2026-01-01",
+    "end": "2026-12-31"
+  },
+  "lookback_days": 180,
+  "gap_days": 0,
+  "session_days_in_index": 69,
+  "days_with_backtest": 67,
+  "aggregate_total_pnl_usd": 1231.9452840896668,
+  "aggregate_trades_count": 93,
+  "skipped_days": [],
+  "daily_metrics_csv": "ml_intraday_v3/experiments/results/daily_refit_2026_ytd/daily_metrics.csv",
+  "labeling_note": "Per day, test labeling uses concat(train_bars, session_bars) for indicator/event context; only events with t0 on that Chicago session_date are scored and backtested.",
+  "all_trades_parquet": "ml_intraday_v3/experiments/results/daily_refit_2026_ytd/all_trades.parquet",
+  "reference_single_window_pnl": {
+    "total_pnl_usd": 2124.463998810398,
+    "trades_count": 89,
+    "max_drawdown_usd": 1365.3884412606203,
+    "note": "Single fit on full test range; UTC bounds from _period_bounds differ from per-day Chicago slices."
+  }
+}

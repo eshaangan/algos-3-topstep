@@ -17,6 +17,7 @@ class TimeOfDayRule(BaseRule):
         lunch_filter_enabled: bool = False,
         lunch_start: str = "12:00",
         lunch_end: str = "13:00",
+        clock_timezone: str | None = None,
     ):
         super().__init__(name="time_of_day", role="filter")
         self.session_start = pd.Timestamp(session_start).time()
@@ -24,6 +25,8 @@ class TimeOfDayRule(BaseRule):
         self.lunch_filter_enabled = lunch_filter_enabled
         self.lunch_start = pd.Timestamp(lunch_start).time()
         self.lunch_end = pd.Timestamp(lunch_end).time()
+        # None = US/Eastern (legacy). "Asia/Tokyo" = compare wall-clock in Japan (Asia ORB).
+        self.clock_timezone = clock_timezone
 
     def required_bars(self) -> int:
         return 1
@@ -32,11 +35,11 @@ class TimeOfDayRule(BaseRule):
         if len(bars) < 1:
             return RuleSignal.no_signal(self.name, "No bars")
 
-        current_time = bars.index[-1]
-
-        # Convert to Eastern if needed
-        if current_time.tzinfo is not None:
-            current_time = current_time.tz_convert("US/Eastern")
+        ts = bars.index[-1]
+        if ts.tzinfo is None:
+            ts = pd.Timestamp(ts).tz_localize("UTC")
+        tz = self.clock_timezone or "US/Eastern"
+        current_time = ts.tz_convert(tz)
 
         t = current_time.time()
 

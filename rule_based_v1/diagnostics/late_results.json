@@ -1,0 +1,164 @@
+{
+  "generated": "2026-03-24T16:53:15.927586",
+  "stages_run": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "B1",
+    "B2",
+    "B3",
+    "B4"
+  ],
+  "results": {
+    "MES": {
+      "A1": {
+        "n": 26,
+        "wr": 0.4231,
+        "avg_pnl": -2.12,
+        "sharpe": -0.629,
+        "max_dd": -212.5,
+        "notes": "r>0.3, market 3:20, 16tk stop"
+      },
+      "A2": {
+        "n": 19,
+        "wr": 0.4211,
+        "avg_pnl": -2.5,
+        "sharpe": -0.641,
+        "max_dd": -172.5,
+        "notes": "A1 + Comp>0.45"
+      },
+      "A3": {
+        "n": 4,
+        "wr": 0.0,
+        "avg_pnl": -22.5,
+        "sharpe": -2.863,
+        "max_dd": -90.0,
+        "notes": "A2 + D>p80_D"
+      },
+      "A4": {
+        "n": 9,
+        "wr": 0.3333,
+        "avg_pnl": -6.25,
+        "sharpe": -0.886,
+        "max_dd": -98.75,
+        "notes": "A2 + trigger-box breakout 3:21-3:35"
+      },
+      "A5": {
+        "n": 1,
+        "wr": 1.0,
+        "avg_pnl": 35.0,
+        "sharpe": 1.414,
+        "max_dd": 0.0,
+        "notes": "A4 + price pos + AM extreme"
+      },
+      "B1": {
+        "n": 26,
+        "wr": 0.4615,
+        "avg_pnl": 1.11,
+        "sharpe": 0.328,
+        "max_dd": -91.25,
+        "notes": "r>0.3, market 3:00, 16tk stop"
+      },
+      "B2": {
+        "n": 45,
+        "wr": 0.4222,
+        "avg_pnl": 0.17,
+        "sharpe": 0.067,
+        "max_dd": -186.25,
+        "notes": "r>0.2, market 3:00, 16tk stop"
+      },
+      "B3": {
+        "n": 9,
+        "wr": 0.3333,
+        "avg_pnl": -5.83,
+        "sharpe": -1.017,
+        "max_dd": -80.0,
+        "notes": "r>0.3 + mid_drift>0, market 3:00, 16tk stop"
+      },
+      "B4": {
+        "n": 12,
+        "wr": 0.25,
+        "avg_pnl": -11.56,
+        "sharpe": -1.941,
+        "max_dd": -146.25,
+        "notes": "r>0.3 + trigger-box breakout 3:21-3:35"
+      }
+    },
+    "MNQ": {
+      "A1": {
+        "n": 13,
+        "wr": 0.3846,
+        "avg_pnl": -1.31,
+        "sharpe": -1.021,
+        "max_dd": -52.0,
+        "notes": "r>0.3, market 3:20, 16tk stop"
+      },
+      "A2": {
+        "n": 6,
+        "wr": 0.1667,
+        "avg_pnl": -5.67,
+        "sharpe": -3.208,
+        "max_dd": -45.0,
+        "notes": "A1 + Comp>0.45"
+      },
+      "A3": {
+        "n": 1,
+        "wr": 0.0,
+        "avg_pnl": -9.0,
+        "sharpe": -2.141,
+        "max_dd": -9.0,
+        "notes": "A2 + D>p80_D"
+      },
+      "A4": {
+        "n": 3,
+        "wr": 0.0,
+        "avg_pnl": -11.0,
+        "sharpe": -3.777,
+        "max_dd": -33.0,
+        "notes": "A2 + trigger-box breakout 3:21-3:35"
+      },
+      "A5": {
+        "n": 0,
+        "wr": 0.0,
+        "avg_pnl": 0.0,
+        "sharpe": null,
+        "max_dd": 0.0,
+        "notes": "A4 + price pos + AM extreme"
+      },
+      "B1": {
+        "n": 13,
+        "wr": 0.3846,
+        "avg_pnl": -1.31,
+        "sharpe": -1.021,
+        "max_dd": -27.0,
+        "notes": "r>0.3, market 3:00, 16tk stop"
+      },
+      "B2": {
+        "n": 21,
+        "wr": 0.381,
+        "avg_pnl": -1.38,
+        "sharpe": -1.374,
+        "max_dd": -54.0,
+        "notes": "r>0.2, market 3:00, 16tk stop"
+      },
+      "B3": {
+        "n": 6,
+        "wr": 0.3333,
+        "avg_pnl": -2.33,
+        "sharpe": -1.252,
+        "max_dd": -27.0,
+        "notes": "r>0.3 + mid_drift>0, market 3:00, 16tk stop"
+      },
+      "B4": {
+        "n": 4,
+        "wr": 0.0,
+        "avg_pnl": -11.0,
+        "sharpe": -4.403,
+        "max_dd": -44.0,
+        "notes": "r>0.3 + trigger-box breakout 3:21-3:35"
+      }
+    }
+  }
+}

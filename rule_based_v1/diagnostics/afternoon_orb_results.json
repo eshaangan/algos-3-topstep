@@ -1,0 +1,274 @@
+{
+  "in_sample": [
+    {
+      "label": "0: Morning-only 2c (baseline)",
+      "n": 29,
+      "wr": 0.5172,
+      "pnl": 1338.2,
+      "sharpe": 2.155,
+      "dd": -1204.31,
+      "pf": 1.41,
+      "exit_reasons": {
+        "stop_loss": 12,
+        "time_stop": 14,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.22,
+      "mll_ok": "True",
+      "am_n": 29,
+      "am_wr": 0.5172,
+      "pm_n": 0,
+      "pm_wr": 0.0,
+      "monte_carlo": {
+        "p_pass": 0.5423,
+        "p_pass_30d": 0.2491,
+        "p_pass_60d": 0.5423,
+        "p95_dd": -2202.69,
+        "median_days": 32,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "1: Afternoon-only 2c CDP",
+      "n": 34,
+      "wr": 0.3529,
+      "pnl": -933.44,
+      "sharpe": -2.607,
+      "dd": -1133.34,
+      "pf": 0.661,
+      "exit_reasons": {
+        "stop_loss": 18,
+        "profit_target": 6,
+        "time_stop": 4,
+        "session_close": 6
+      },
+      "trades_per_day": 0.258,
+      "mll_ok": "True",
+      "am_n": 0,
+      "am_wr": 0.0,
+      "pm_n": 34,
+      "pm_wr": 0.3529,
+      "monte_carlo": {
+        "p_pass": 0.0017,
+        "p_pass_30d": 0.0002,
+        "p_pass_60d": 0.0017,
+        "p95_dd": -2178.14,
+        "median_days": 43,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "2: Afternoon-only 2c no-CDP",
+      "n": 69,
+      "wr": 0.4058,
+      "pnl": 500.77,
+      "sharpe": 0.558,
+      "dd": -821.76,
+      "pf": 1.098,
+      "exit_reasons": {
+        "stop_loss": 32,
+        "profit_target": 13,
+        "time_stop": 15,
+        "session_close": 9
+      },
+      "trades_per_day": 0.523,
+      "mll_ok": "True",
+      "am_n": 0,
+      "am_wr": 0.0,
+      "pm_n": 69,
+      "pm_wr": 0.4058
+    },
+    {
+      "label": "3: AM + PM dual 2c CDP",
+      "n": 63,
+      "wr": 0.4286,
+      "pnl": 404.76,
+      "sharpe": 0.427,
+      "dd": -1691.91,
+      "pf": 1.067,
+      "exit_reasons": {
+        "stop_loss": 30,
+        "profit_target": 8,
+        "time_stop": 18,
+        "session_close": 7
+      },
+      "trades_per_day": 0.477,
+      "mll_ok": "True",
+      "am_n": 29,
+      "am_wr": 0.5172,
+      "pm_n": 34,
+      "pm_wr": 0.3529,
+      "monte_carlo": {
+        "p_pass": 0.1573,
+        "p_pass_30d": 0.0453,
+        "p_pass_60d": 0.1573,
+        "p95_dd": -2204.93,
+        "median_days": 40,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "4: AM + PM dual 3c CDP",
+      "n": 10,
+      "wr": 0.1,
+      "pnl": -2137.66,
+      "sharpe": -38.282,
+      "dd": -2137.65,
+      "pf": 0.12,
+      "exit_reasons": {
+        "stop_loss": 8,
+        "profit_target": 1,
+        "time_stop": 1
+      },
+      "trades_per_day": 0.076,
+      "mll_ok": "False",
+      "am_n": 5,
+      "am_wr": 0.0,
+      "pm_n": 5,
+      "pm_wr": 0.2,
+      "monte_carlo": {
+        "p_pass": 0.0,
+        "p_pass_30d": 0.0,
+        "p_pass_60d": 0.0,
+        "p95_dd": -2392.89,
+        "median_days": 60,
+        "n_paths": 10000
+      }
+    }
+  ],
+  "oos": [
+    {
+      "label": "0: Morning-only 2c (baseline)",
+      "n": 14,
+      "wr": 0.6429,
+      "pnl": 2024.39,
+      "sharpe": 5.63,
+      "dd": -826.04,
+      "pf": 2.195,
+      "exit_reasons": {
+        "stop_loss": 4,
+        "time_stop": 8,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.259,
+      "mll_ok": "True",
+      "am_n": 14,
+      "am_wr": 0.6429,
+      "pm_n": 0,
+      "pm_wr": 0.0,
+      "monte_carlo": {
+        "p_pass": 0.923,
+        "p_pass_30d": 0.7895,
+        "p_pass_60d": 0.923,
+        "p95_dd": -2080.65,
+        "median_days": 18,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "1: Afternoon-only 2c CDP",
+      "n": 10,
+      "wr": 0.2,
+      "pnl": -980.58,
+      "sharpe": -8.402,
+      "dd": -980.57,
+      "pf": 0.311,
+      "exit_reasons": {
+        "stop_loss": 7,
+        "time_stop": 3
+      },
+      "trades_per_day": 0.185,
+      "mll_ok": "True",
+      "am_n": 0,
+      "am_wr": 0.0,
+      "pm_n": 10,
+      "pm_wr": 0.2,
+      "monte_carlo": {
+        "p_pass": 0.0,
+        "p_pass_30d": 0.0,
+        "p_pass_60d": 0.0,
+        "p95_dd": -2264.6,
+        "median_days": 60,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "2: Afternoon-only 2c no-CDP",
+      "n": 26,
+      "wr": 0.3462,
+      "pnl": -1063.21,
+      "sharpe": -2.842,
+      "dd": -1998.54,
+      "pf": 0.653,
+      "exit_reasons": {
+        "time_stop": 7,
+        "stop_loss": 15,
+        "profit_target": 3,
+        "session_close": 1
+      },
+      "trades_per_day": 0.481,
+      "mll_ok": "True",
+      "am_n": 0,
+      "am_wr": 0.0,
+      "pm_n": 26,
+      "pm_wr": 0.3462
+    },
+    {
+      "label": "3: AM + PM dual 2c CDP",
+      "n": 24,
+      "wr": 0.4583,
+      "pnl": 1043.81,
+      "sharpe": 2.162,
+      "dd": -1294.86,
+      "pf": 1.335,
+      "exit_reasons": {
+        "stop_loss": 11,
+        "time_stop": 11,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.444,
+      "mll_ok": "True",
+      "am_n": 14,
+      "am_wr": 0.6429,
+      "pm_n": 10,
+      "pm_wr": 0.2,
+      "monte_carlo": {
+        "p_pass": 0.5187,
+        "p_pass_30d": 0.2545,
+        "p_pass_60d": 0.5187,
+        "p95_dd": -2256.89,
+        "median_days": 31,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "4: AM + PM dual 3c CDP",
+      "n": 24,
+      "wr": 0.4583,
+      "pnl": 1565.74,
+      "sharpe": 2.162,
+      "dd": -1942.3,
+      "pf": 1.335,
+      "exit_reasons": {
+        "stop_loss": 11,
+        "time_stop": 11,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.444,
+      "mll_ok": "True",
+      "am_n": 14,
+      "am_wr": 0.6429,
+      "pm_n": 10,
+      "pm_wr": 0.2,
+      "monte_carlo": {
+        "p_pass": 0.5148,
+        "p_pass_30d": 0.4379,
+        "p_pass_60d": 0.5148,
+        "p95_dd": -2432.25,
+        "median_days": 17,
+        "n_paths": 10000
+      }
+    }
+  ]
+}

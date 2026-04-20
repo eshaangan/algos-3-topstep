@@ -6,7 +6,7 @@ Loads trained model bundle and generates predictions from features.
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import joblib
 import numpy as np
@@ -47,6 +47,8 @@ class LiveModelPredictor:
         self.meta_model = self.bundle.get("meta_model")
         self.meta_preprocessor_state = self.bundle.get("meta_preprocessor")
         self.meta_feature_columns = self.bundle.get("meta_feature_columns")
+        self.bundle_decision_cfg = self.bundle.get("live_decision", {}) or {}
+        self.meta_routes = self._load_meta_routes()
 
         # Validate
         if self.model is None:
@@ -78,7 +80,9 @@ class LiveModelPredictor:
         logger.info(f"Preprocessor: impute={self.impute}, scaler={self.scaler}")
 
         if self.meta_model is not None:
-            logger.info("Meta model available")
+            logger.info("Legacy single meta model available")
+        if self.meta_routes:
+            logger.info("Loaded %d routed meta models", len(self.meta_routes))
 
         # Extract thresholds
         self.primary_threshold = self.thresholds.get('primary_threshold', 0.10)
@@ -89,6 +93,7 @@ class LiveModelPredictor:
         features: pd.Series,
         use_meta: bool = False,
         side: int | None = None,
+        combined_regime: int | None = None,
     ) -> Dict[str, float]:
         """
         Generate prediction from features.
@@ -355,16 +360,36 @@ class LiveModelPredictor:
                     'side': 1 if score > 0 else -1
                 }
 
-        # Generate meta prediction if requested
-        if use_meta and self.meta_model is not None:
+        # Generate routed meta prediction if requested.
+        if use_meta and self.meta_routes:
+            route_matches = self._predict_routed_meta(
+                features=features,
+                primary_prediction=pred,
+                combined_regime=combined_regime,
+            )
+            pred["meta_routes"] = route_matches
+            eligible_routes = [route for route in route_matches if route.get("eligible", False)]
+            if len(eligible_routes) > 1:
+                raise ValueError(
+                    "Multiple meta routes matched one live event: "
+                    f"{[route['name'] for route in eligible_routes]}"
+                )
+            if eligible_routes:
+                route = eligible_routes[0]
+                pred["meta_prob"] = float(route["meta_prob"])
+                pred["meta_route"] = route["name"]
+                pred["meta_threshold"] = float(route["threshold_meta"])
+                pred["meta_primary_threshold"] = float(route["threshold_primary"])
+            elif route_matches:
+                pred["meta_route_reason"] = ", ".join(
+                    f"{route['name']}:{route.get('reason', 'not_applied')}"
+                    for route in route_matches
+                )
+
+        # Generate legacy single-route meta prediction if requested
+        elif use_meta and self.meta_model is not None:
             # Add primary prediction to features for meta model
-            meta_features = pd.concat([
-                features[self.feature_columns],
-                pd.Series({
-                    'p_primary': pred['y_prob'],
-                    'p_primary_logit': np.log(pred['y_prob'] / (1 - pred['y_prob'] + 1e-8)),
-                })
-            ])
+            meta_features = self._build_meta_features(features, pred)
 
             X_meta = meta_features[self.meta_feature_columns].to_numpy(dtype=float, copy=False).reshape(1, -1)
             X_meta_scaled = self._preprocess_meta(X_meta)
@@ -377,6 +402,126 @@ class LiveModelPredictor:
                 pred['meta_prob'] = float(meta_pred[0])
 
         return pred
+
+    def _load_meta_routes(self) -> list[dict[str, Any]]:
+        raw_routes = self.bundle.get("meta_routes", []) or []
+        routes: list[dict[str, Any]] = []
+        for idx, route in enumerate(raw_routes):
+            if not route:
+                continue
+            model = route.get("model") or route.get("meta_model")
+            preprocessor = route.get("preprocessor") or route.get("meta_preprocessor")
+            feature_columns = route.get("feature_columns") or route.get("meta_feature_columns") or []
+            if model is None or not feature_columns:
+                logger.warning("Skipping incomplete meta route at index %d", idx)
+                continue
+            routes.append(
+                {
+                    "name": str(route.get("name", f"meta_route_{idx}")),
+                    "side": str(route.get("side", "both")).lower(),
+                    "regimes": [int(r) for r in (route.get("regimes", []) or [])],
+                    "threshold_primary": float(
+                        route.get(
+                            "threshold_primary",
+                            self.thresholds.get("primary_threshold", 0.10),
+                        )
+                    ),
+                    "threshold_meta": float(
+                        route.get(
+                            "threshold_meta",
+                            self.thresholds.get("meta_threshold", 0.50),
+                        )
+                    ),
+                    "model": model,
+                    "preprocessor": preprocessor,
+                    "feature_columns": list(feature_columns),
+                }
+            )
+        return routes
+
+    @staticmethod
+    def _route_side_matches(route_side: str, prediction_side: int) -> bool:
+        if route_side == "long":
+            return prediction_side > 0
+        if route_side == "short":
+            return prediction_side < 0
+        return prediction_side != 0
+
+    def _build_meta_features(
+        self,
+        features: pd.Series,
+        prediction: Dict[str, float],
+    ) -> pd.Series:
+        return pd.concat(
+            [
+                features[self.feature_columns],
+                pd.Series(
+                    {
+                        "p_primary": prediction["y_prob"],
+                        "p_primary_logit": np.log(
+                            prediction["y_prob"] / (1 - prediction["y_prob"] + 1e-8)
+                        ),
+                    }
+                ),
+            ]
+        )
+
+    def _predict_routed_meta(
+        self,
+        *,
+        features: pd.Series,
+        primary_prediction: Dict[str, float],
+        combined_regime: int | None,
+    ) -> list[dict[str, Any]]:
+        side = int(primary_prediction.get("side", 0) or 0)
+        if side == 0:
+            return []
+
+        meta_features = self._build_meta_features(features, primary_prediction)
+        route_results: list[dict[str, Any]] = []
+        for route in self.meta_routes:
+            result: dict[str, Any] = {
+                "name": route["name"],
+                "side": route["side"],
+                "regimes": route["regimes"],
+                "threshold_primary": route["threshold_primary"],
+                "threshold_meta": route["threshold_meta"],
+                "eligible": False,
+            }
+
+            if not self._route_side_matches(route["side"], side):
+                result["reason"] = "side_mismatch"
+                route_results.append(result)
+                continue
+            if route["regimes"] and combined_regime not in route["regimes"]:
+                result["reason"] = "regime_mismatch"
+                route_results.append(result)
+                continue
+            if float(primary_prediction.get("y_prob", 0.0)) < float(route["threshold_primary"]):
+                result["reason"] = "below_route_primary_threshold"
+                route_results.append(result)
+                continue
+
+            X_meta = (
+                meta_features[route["feature_columns"]]
+                .to_numpy(dtype=float, copy=False)
+                .reshape(1, -1)
+            )
+            X_meta_scaled = self._preprocess_meta(X_meta, route.get("preprocessor"))
+            model = route["model"]
+            if hasattr(model, "predict_proba"):
+                meta_proba = model.predict_proba(X_meta_scaled)
+                result["meta_prob"] = float(
+                    meta_proba[0, 1] if meta_proba.shape[1] > 1 else meta_proba[0, 0]
+                )
+            else:
+                meta_pred = model.predict(X_meta_scaled)
+                result["meta_prob"] = float(meta_pred[0])
+            result["eligible"] = True
+            result["reason"] = "eligible"
+            route_results.append(result)
+
+        return route_results
 
     def _preprocess(self, X):
         """
@@ -416,7 +561,11 @@ class LiveModelPredictor:
             return pd.DataFrame(X_scaled, columns=columns)
         return X_scaled
 
-    def _preprocess_meta(self, X: np.ndarray) -> np.ndarray:
+    def _preprocess_meta(
+        self,
+        X: np.ndarray,
+        preprocessor_state: Optional[dict] = None,
+    ) -> np.ndarray:
         """
         Apply preprocessing to meta features.
 
@@ -426,27 +575,28 @@ class LiveModelPredictor:
         Returns:
             Preprocessed meta feature matrix
         """
-        if self.meta_preprocessor_state is None:
+        state = preprocessor_state if preprocessor_state is not None else self.meta_preprocessor_state
+        if state is None:
             return X
 
-        impute = self.meta_preprocessor_state.get('impute', 'median')
-        scaler = self.meta_preprocessor_state.get('scaler', 'standard')
-        medians = np.array(self.meta_preprocessor_state['medians'])
-        means = np.array(self.meta_preprocessor_state['means'])
-        stds = np.array(self.meta_preprocessor_state['stds'])
+        impute = state.get('impute', 'median')
+        scaler = state.get('scaler', 'standard')
+        medians = np.array(state['medians']) if state.get("medians") is not None else None
+        means = np.array(state['means']) if state.get("means") is not None else None
+        stds = np.array(state['stds']) if state.get("stds") is not None else None
 
         # Ensure numeric
         X = X.astype(float, copy=False)
 
         # Impute
-        if impute == 'median':
+        if impute == 'median' and medians is not None:
             mask = np.isnan(X)
             X[mask] = np.take(medians, np.where(mask)[1])
         elif impute == 'zero':
             X = np.nan_to_num(X, 0.0)
 
         # Scale
-        if scaler == 'standard':
+        if scaler == 'standard' and means is not None and stds is not None:
             X_scaled = (X - means) / (stds + 1e-8)
         else:
             X_scaled = X
@@ -497,7 +647,7 @@ class LiveModelPredictor:
 
         # Use thresholds from arguments or defaults
         base_primary_thresh = primary_threshold or self.primary_threshold
-        meta_thresh = meta_threshold or 0.5
+        meta_thresh = meta_threshold or prediction.get("meta_threshold") or 0.5
 
         # Check for negative edge (sanity filter) - direction-aware
         if check_negative_edge:
@@ -601,7 +751,9 @@ class LiveModelPredictor:
             'model_type': type(self.model).__name__,
             'n_features': len(self.feature_columns),
             'primary_threshold': self.primary_threshold,
-            'has_meta_model': self.meta_model is not None,
+            'has_meta_model': self.meta_model is not None or bool(self.meta_routes),
+            'meta_route_count': len(self.meta_routes),
+            'meta_route_names': [route["name"] for route in self.meta_routes],
             'bundle_path': str(self.bundle_path),
         }
 

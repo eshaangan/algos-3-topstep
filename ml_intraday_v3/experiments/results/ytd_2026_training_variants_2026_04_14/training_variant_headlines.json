@@ -1,0 +1,56 @@
+[
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_recent_decay_dual_meta.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_training_variants_2026_04_14/training_standalone_topstep_recent_decay_dual_meta",
+    "total_pnl_usd": 3024.3611047281224,
+    "max_drawdown_usd": 1137.8293728588033,
+    "trades_count": 67,
+    "profit_factor": 1.5900073692273426,
+    "win_rate": 0.5522388059701493
+  },
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_side_specialized.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_training_variants_2026_04_14/training_standalone_topstep_side_specialized",
+    "total_pnl_usd": 671.5153501962543,
+    "max_drawdown_usd": 1608.0341759775984,
+    "trades_count": 86,
+    "profit_factor": 1.0785486460851121,
+    "win_rate": 0.4186046511627907
+  },
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_nocal.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_training_variants_2026_04_14/training_standalone_topstep_nocal",
+    "total_pnl_usd": -1055.6828461506252,
+    "max_drawdown_usd": 1607.6452103062766,
+    "trades_count": 50,
+    "profit_factor": 0.7810157699003458,
+    "win_rate": 0.42
+  },
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_recent_decay_short_veto.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_training_variants_2026_04_14/training_standalone_topstep_recent_decay_short_veto",
+    "total_pnl_usd": -440.60448118101334,
+    "max_drawdown_usd": 1598.2953683755768,
+    "trades_count": 95,
+    "profit_factor": 0.953362927357131,
+    "win_rate": 0.45263157894736844
+  },
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_recent_decay_short_veto_route_relabel.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_training_variants_2026_04_14/training_standalone_topstep_recent_decay_short_veto_route_relabel",
+    "total_pnl_usd": 378.0087598536852,
+    "max_drawdown_usd": 1744.9150087756425,
+    "trades_count": 93,
+    "profit_factor": 1.0414395512169279,
+    "win_rate": 0.4838709677419355
+  },
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_recent_decay.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_training_variants_2026_04_14/training_standalone_topstep_recent_decay",
+    "total_pnl_usd": 3227.156145616046,
+    "max_drawdown_usd": 933.3859818898054,
+    "trades_count": 80,
+    "profit_factor": 1.5353823170316458,
+    "win_rate": 0.525
+  }
+]

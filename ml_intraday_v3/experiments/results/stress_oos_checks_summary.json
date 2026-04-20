@@ -1,0 +1,11 @@
+{
+  "execution_spec_stress": "ml_intraday_v3/configs/live_dual_meta_mes_real/execution_spec_stress.yaml",
+  "ytd_threshold_sweep_dir": "ml_intraday_v3/experiments/results/decision_threshold_sweep_ytd_2026_stress",
+  "viability_output_dir": "ml_intraday_v3/experiments/results/stress_viability_baseline",
+  "viability_summary": {
+    "passed": false,
+    "passed_windows": 3,
+    "total_windows": 5,
+    "overall_total_pnl_usd": 3435.905178022076
+  }
+}

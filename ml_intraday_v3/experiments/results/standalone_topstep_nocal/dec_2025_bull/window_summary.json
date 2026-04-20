@@ -1,0 +1,48 @@
+{
+  "name": "dec_2025_bull",
+  "train_period": {
+    "start": "2025-06-03 23:59:59+00:00",
+    "end": "2025-11-30 23:59:59+00:00"
+  },
+  "test_period": {
+    "start": "2025-12-01 00:00:00+00:00",
+    "end": "2025-12-31 23:59:59+00:00"
+  },
+  "train_events": 1716,
+  "test_events": 171,
+  "classification": {
+    "test_auc": 0.6434229137199434,
+    "test_accuracy": 0.6549707602339181,
+    "brier_score": 0.22995619103785872,
+    "positive_prediction_rate": 0.40350877192982454,
+    "target_rate": 0.4093567251461988
+  },
+  "backtest_metrics": {
+    "total_pnl_usd": 0.0,
+    "max_drawdown_usd": null,
+    "win_rate": null,
+    "profit_factor": null,
+    "avg_trade_usd": null,
+    "trades_count": 0,
+    "skipped_count": 171,
+    "mtm_liquidations": 0,
+    "mtm_daily_loss_liquidations": 0,
+    "mtm_trailing_dd_liquidations": 0,
+    "cost_mode": "mixed",
+    "cost_mode_policy": "event_ret_net_preferred"
+  },
+  "direction_summary": {
+    "long_trades": 0,
+    "short_trades": 0,
+    "total_trades": 0,
+    "long_share": null,
+    "short_share": null
+  },
+  "test_event_direction_summary": {
+    "long_trades": 86,
+    "short_trades": 85,
+    "total_trades": 171,
+    "long_share": 0.5029239766081871,
+    "short_share": 0.49707602339181284
+  }
+}

@@ -26,6 +26,12 @@ class RiskManager:
         self.starting_balance = float(top.get("starting_balance", 0.0))
         self.equity = self.starting_balance
         self.hwm = self.starting_balance
+        try:
+            self.profit_target_usd = float(top.get("profit_target_usd", 0) or 0.0)
+        except (TypeError, ValueError):
+            self.profit_target_usd = 0.0
+        # Combine-style: once cumulative profit reaches target, block new entries (backtest + live RiskManager).
+        self.profit_target_met = False
 
         daily_cfg = risk_cfg.get("daily_loss_limit", {})
         self.daily_enabled = bool(daily_cfg.get("enabled", False))
@@ -69,6 +75,32 @@ class RiskManager:
         self.trades_today = 0
         self.consecutive_losses = 0
         self.last_trade_exit_ts = None
+
+    def apply_broker_snapshot(
+        self,
+        *,
+        equity: float,
+        daily_pnl: float,
+        timestamp: pd.Timestamp | None = None,
+    ) -> None:
+        """
+        Overwrite equity and session daily P&L from the broker API (TopstepX).
+
+        Use this in live mode so risk gates and dashboards match the combine account,
+        including manual trades outside the bot.
+        """
+        if timestamp is not None:
+            self._maybe_reset_day(timestamp)
+        self.equity = float(equity)
+        self.daily_pnl = float(daily_pnl)
+        self.hwm = max(self.hwm, self.equity)
+        self._refresh_profit_target()
+
+    def _refresh_profit_target(self) -> None:
+        if self.profit_target_usd <= 0:
+            return
+        if (self.equity - self.starting_balance) >= self.profit_target_usd:
+            self.profit_target_met = True
 
     @staticmethod
     def _normalize_ts(ts: pd.Timestamp | None) -> pd.Timestamp | None:
@@ -120,6 +152,9 @@ class RiskManager:
             return False, "invalid_timestamp"
         self._maybe_reset_day(entry_ts)
         self._maybe_clear_cooldown(entry_ts)
+        self._refresh_profit_target()
+        if self.profit_target_met:
+            return False, "profit_target"
         if self.cooldown_until_ts is not None:
             return False, "cooldown"
         if self.halted_today:
@@ -315,3 +350,4 @@ class RiskManager:
             self.halted_today = True
         if self.daily_profit_lock_usd and self.daily_pnl >= self.daily_profit_lock_usd:
             self.halted_today = True
+        self._refresh_profit_target()

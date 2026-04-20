@@ -1,0 +1,47 @@
+[
+  {
+    "feature_cfg": "ml_intraday_v3/configs/live_dual_meta_mes_real/features.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_feature_variants_2026_04_14/live_dual_meta_mes_real__features",
+    "total_pnl_usd": 3227.156145616046,
+    "max_drawdown_usd": 933.3859818898054,
+    "trades_count": 80,
+    "profit_factor": 1.5353823170316458,
+    "win_rate": 0.525
+  },
+  {
+    "feature_cfg": "ml_intraday_v3/configs/features_optimized.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_feature_variants_2026_04_14/features_optimized",
+    "total_pnl_usd": 23.146911645860428,
+    "max_drawdown_usd": 1661.2857991451601,
+    "trades_count": 112,
+    "profit_factor": 1.0020010474360286,
+    "win_rate": 0.45535714285714285
+  },
+  {
+    "feature_cfg": "ml_intraday_v3/configs/features_simplified.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_feature_variants_2026_04_14/features_simplified",
+    "total_pnl_usd": 23.146911645860428,
+    "max_drawdown_usd": 1661.2857991451601,
+    "trades_count": 112,
+    "profit_factor": 1.0020010474360286,
+    "win_rate": 0.45535714285714285
+  },
+  {
+    "feature_cfg": "ml_intraday_v3/configs/features_structure_context.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_feature_variants_2026_04_14/features_structure_context",
+    "total_pnl_usd": 3227.156145616046,
+    "max_drawdown_usd": 933.3859818898054,
+    "trades_count": 80,
+    "profit_factor": 1.5353823170316458,
+    "win_rate": 0.525
+  },
+  {
+    "feature_cfg": "ml_intraday_v3/configs/live_dual_meta_mes_real/features_hmm_experiment.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_feature_variants_2026_04_14/live_dual_meta_mes_real__features_hmm_experiment",
+    "total_pnl_usd": 3298.547364736908,
+    "max_drawdown_usd": 933.3859818898054,
+    "trades_count": 64,
+    "profit_factor": 1.7183470680020634,
+    "win_rate": 0.5625
+  }
+]

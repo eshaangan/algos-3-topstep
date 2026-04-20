@@ -1,0 +1,34 @@
+{
+  "purpose": "Relate YTD OOS ytd_2026_jan_apr PnL to contract count with proportional risk scaling (existing ytd_2026_contract_sweep).",
+  "source_aggregate": "ml_intraday_v3/experiments/results/ytd_2026_contract_sweep/aggregate_summary.json",
+  "gate_max_drawdown_usd": 3000,
+  "gate_min_total_pnl_usd": 3000,
+  "rows": [
+    {
+      "contracts": 1,
+      "total_pnl_usd": 1837.64,
+      "max_drawdown_usd": 1154.56,
+      "passes_dd_gate": true,
+      "passes_pnl_gate": false,
+      "notes": "Baseline features + backtest.yaml at time of sweep; single-lot YTD below $3k PnL target."
+    },
+    {
+      "contracts": 2,
+      "total_pnl_usd": 3675.28,
+      "max_drawdown_usd": 2309.12,
+      "passes_dd_gate": true,
+      "passes_pnl_gate": true,
+      "notes": "Meets both sample gates if sizing and prop rules allow ~2x notional with scaled risk."
+    },
+    {
+      "contracts": 3,
+      "total_pnl_usd": 5512.92,
+      "max_drawdown_usd": 3463.68,
+      "passes_dd_gate": false,
+      "passes_pnl_gate": true,
+      "notes": "Fails max_drawdown_usd gate at 3000; do not promote without higher risk budget or smaller size."
+    }
+  ],
+  "threshold_sweep_reference": "ml_intraday_v3/experiments/results/decision_threshold_sweep_ytd_2026_jan_apr/threshold_sweep_summary.json",
+  "threshold_sweep_note": "At 1 lot, several grid combos exceed $3k on YTD under min_trades=10 and max_DD=3000; see top_by_pnl. Live-aligned asymmetric thresholds (e.g. L0.33/S0.53) are nearer ~$2124 in that grid—validate before promoting aggressive symmetric cuts."
+}

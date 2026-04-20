@@ -1,0 +1,27 @@
+# Rule-based ORB (Opening Range) — runs next to dual-meta MES on the same VM.
+# Default CMD is paper (--dry-run). Override with --live --yes only if you accept
+# two automated systems on one Topstep account.
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app:/app/ml_intraday_v3
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY gcp_deploy/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY core/ /app/core/
+COPY ml_intraday_v3/ /app/ml_intraday_v3/
+COPY rule_based_v1/ /app/rule_based_v1/
+
+RUN mkdir -p /app/logs
+
+ENTRYPOINT ["python", "rule_based_v1/scripts/run_live.py"]
+CMD ["--dry-run", "--yes", "--config-dir", "/app/rule_based_v1/configs/vm_orb_sidecar", "-v"]

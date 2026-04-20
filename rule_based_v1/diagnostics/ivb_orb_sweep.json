@@ -1,0 +1,403 @@
+{
+  "model": "ivb_orb_sweep",
+  "instrument": "MES",
+  "filters": {
+    "min_trades": 30,
+    "max_drawdown": 500,
+    "min_profit_factor": 1.5
+  },
+  "total_configs_tested": 144,
+  "configs_passed": 15,
+  "top_configs": [
+    {
+      "params": {
+        "or_minutes": 40,
+        "target_range_mult": 1.0,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 31,
+      "win_rate": 0.6774193548387096,
+      "total_pnl": 1105.31,
+      "profit_factor": 2.6079575210939767,
+      "avg_trade": 35.65516129032258,
+      "avg_winner": 85.36714285714285,
+      "avg_loser": -68.74000000000001,
+      "sharpe_daily": 8.192711102312007,
+      "max_drawdown": 219.97999999999593,
+      "ending_equity": 51105.31,
+      "active_days": 24,
+      "worst_day": -129.99,
+      "best_day": 221.26999999999998,
+      "exit_breakdown": {
+        "target": 7,
+        "time_stop": 23,
+        "stop": 1
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 40,
+        "target_range_mult": 1.0,
+        "atr_stop_mult": 1.5,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 32,
+      "win_rate": 0.625,
+      "total_pnl": 847.9499999999998,
+      "profit_factor": 2.1069843342036547,
+      "avg_trade": 26.498437499999994,
+      "avg_winner": 80.69749999999999,
+      "avg_loser": -63.83333333333334,
+      "sharpe_daily": 6.499034651411791,
+      "max_drawdown": 201.14515793524333,
+      "ending_equity": 50847.95,
+      "active_days": 24,
+      "worst_day": -101.81319340787671,
+      "best_day": 221.26999999999998,
+      "exit_breakdown": {
+        "target": 6,
+        "time_stop": 18,
+        "stop": 8
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 40,
+        "target_range_mult": 1.5,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.0
+      },
+      "num_trades": 38,
+      "win_rate": 0.6578947368421053,
+      "total_pnl": 1004.1299999999999,
+      "profit_factor": 2.399737931611302,
+      "avg_trade": 26.424473684210522,
+      "avg_winner": 68.85999999999999,
+      "avg_loser": -55.182307692307695,
+      "sharpe_daily": 5.552994712480709,
+      "max_drawdown": 211.18999999998778,
+      "ending_equity": 51004.13,
+      "active_days": 31,
+      "worst_day": -129.99,
+      "best_day": 297.52,
+      "exit_breakdown": {
+        "time_stop": 33,
+        "stop": 2,
+        "target": 3
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 40,
+        "target_range_mult": 2.0,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.0
+      },
+      "num_trades": 38,
+      "win_rate": 0.6578947368421053,
+      "total_pnl": 1035.3799999999999,
+      "profit_factor": 2.443299831328324,
+      "avg_trade": 27.246842105263156,
+      "avg_winner": 70.10999999999999,
+      "avg_loser": -55.182307692307695,
+      "sharpe_daily": 5.266697953341497,
+      "max_drawdown": 211.18999999998778,
+      "ending_equity": 51035.38,
+      "active_days": 31,
+      "worst_day": -129.99,
+      "best_day": 383.77,
+      "exit_breakdown": {
+        "time_stop": 34,
+        "stop": 2,
+        "target": 2
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 40,
+        "target_range_mult": 1.0,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.0
+      },
+      "num_trades": 42,
+      "win_rate": 0.6190476190476191,
+      "total_pnl": 956.6699999999998,
+      "profit_factor": 1.9300790402395507,
+      "avg_trade": 22.77785714285714,
+      "avg_winner": 76.35615384615383,
+      "avg_loser": -64.28687500000001,
+      "sharpe_daily": 5.162761282528555,
+      "max_drawdown": 272.42999999998574,
+      "ending_equity": 50956.67,
+      "active_days": 31,
+      "worst_day": -129.99,
+      "best_day": 346.28,
+      "exit_breakdown": {
+        "target": 8,
+        "time_stop": 32,
+        "stop": 2
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 25,
+        "target_range_mult": 1.0,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 43,
+      "win_rate": 0.6046511627906976,
+      "total_pnl": 875.4299999999996,
+      "profit_factor": 1.6948794678647119,
+      "avg_trade": 20.358837209302315,
+      "avg_winner": 82.12538461538462,
+      "avg_loser": -74.10764705882355,
+      "sharpe_daily": 4.780376448099031,
+      "max_drawdown": 254.87999999997555,
+      "ending_equity": 50875.43,
+      "active_days": 28,
+      "worst_day": -129.99,
+      "best_day": 246.26,
+      "exit_breakdown": {
+        "target": 14,
+        "time_stop": 26,
+        "stop": 3
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 25,
+        "target_range_mult": 2.0,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 38,
+      "win_rate": 0.5526315789473685,
+      "total_pnl": 876.6299999999998,
+      "profit_factor": 1.7006985964126993,
+      "avg_trade": 23.069210526315782,
+      "avg_winner": 101.31952380952382,
+      "avg_loser": -73.5929411764706,
+      "sharpe_daily": 4.521116243703963,
+      "max_drawdown": 277.37999999997555,
+      "ending_equity": 50876.63,
+      "active_days": 28,
+      "worst_day": -129.99,
+      "best_day": 300.02,
+      "exit_breakdown": {
+        "time_stop": 31,
+        "stop": 3,
+        "target": 4
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 25,
+        "target_range_mult": 2.0,
+        "atr_stop_mult": 1.5,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 39,
+      "win_rate": 0.5128205128205128,
+      "total_pnl": 848.4499999999998,
+      "profit_factor": 1.6134851771511214,
+      "avg_trade": 21.7551282051282,
+      "avg_winner": 111.57250000000003,
+      "avg_loser": -72.78947368421052,
+      "sharpe_daily": 4.146300521971998,
+      "max_drawdown": 295.8855742844462,
+      "ending_equity": 50848.45,
+      "active_days": 28,
+      "worst_day": -157.61736194220654,
+      "best_day": 300.02,
+      "exit_breakdown": {
+        "time_stop": 20,
+        "stop": 15,
+        "target": 4
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 25,
+        "target_range_mult": 1.0,
+        "atr_stop_mult": 1.5,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 44,
+      "win_rate": 0.5454545454545454,
+      "total_pnl": 753.0699999999999,
+      "profit_factor": 1.5085149771763495,
+      "avg_trade": 17.11522727272727,
+      "avg_winner": 93.08291666666666,
+      "avg_loser": -74.046,
+      "sharpe_daily": 4.048016278505543,
+      "max_drawdown": 273.3855742844462,
+      "ending_equity": 50753.07,
+      "active_days": 28,
+      "worst_day": -157.61736194220654,
+      "best_day": 246.26,
+      "exit_breakdown": {
+        "target": 14,
+        "time_stop": 15,
+        "stop": 15
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 30,
+        "target_range_mult": 1.0,
+        "atr_stop_mult": 1.5,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 45,
+      "win_rate": 0.5333333333333333,
+      "total_pnl": 863.6799999999997,
+      "profit_factor": 1.573755571941992,
+      "avg_trade": 19.192888888888884,
+      "avg_winner": 98.70791666666666,
+      "avg_loser": -71.68142857142857,
+      "sharpe_daily": 3.865174541701405,
+      "max_drawdown": 380.2031312818799,
+      "ending_equity": 50863.68,
+      "active_days": 30,
+      "worst_day": -157.61736194220654,
+      "best_day": 278.76,
+      "exit_breakdown": {
+        "target": 11,
+        "time_stop": 18,
+        "stop": 16
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 25,
+        "target_range_mult": 1.5,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.1
+      },
+      "num_trades": 39,
+      "win_rate": 0.5641025641025641,
+      "total_pnl": 685.3699999999998,
+      "profit_factor": 1.5478226812034401,
+      "avg_trade": 17.57358974358974,
+      "avg_winner": 88.02045454545454,
+      "avg_loser": -73.5929411764706,
+      "sharpe_daily": 3.7489520970042753,
+      "max_drawdown": 277.37999999997555,
+      "ending_equity": 50685.37,
+      "active_days": 28,
+      "worst_day": -129.99,
+      "best_day": 291.895,
+      "exit_breakdown": {
+        "time_stop": 31,
+        "stop": 3,
+        "target": 5
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 40,
+        "target_range_mult": 1.5,
+        "atr_stop_mult": 1.5,
+        "min_volume_ratio": 1.0
+      },
+      "num_trades": 39,
+      "win_rate": 0.5641025641025641,
+      "total_pnl": 622.9199999999998,
+      "profit_factor": 1.617639184968519,
+      "avg_trade": 15.97230769230769,
+      "avg_winner": 74.15772727272726,
+      "avg_loser": -59.32647058823529,
+      "sharpe_daily": 3.6898521407654092,
+      "max_drawdown": 374.30656249085587,
+      "ending_equity": 50622.92,
+      "active_days": 31,
+      "worst_day": -101.81319340787671,
+      "best_day": 297.52,
+      "exit_breakdown": {
+        "time_stop": 23,
+        "stop": 13,
+        "target": 3
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 40,
+        "target_range_mult": 2.0,
+        "atr_stop_mult": 1.5,
+        "min_volume_ratio": 1.0
+      },
+      "num_trades": 39,
+      "win_rate": 0.5641025641025641,
+      "total_pnl": 654.1699999999998,
+      "profit_factor": 1.6486242625551533,
+      "avg_trade": 16.77358974358974,
+      "avg_winner": 75.5781818181818,
+      "avg_loser": -59.32647058823529,
+      "sharpe_daily": 3.5336503752084356,
+      "max_drawdown": 374.30656249085587,
+      "ending_equity": 50654.17,
+      "active_days": 31,
+      "worst_day": -101.81319340787671,
+      "best_day": 383.77,
+      "exit_breakdown": {
+        "time_stop": 24,
+        "stop": 13,
+        "target": 2
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 35,
+        "target_range_mult": 1.5,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.0
+      },
+      "num_trades": 40,
+      "win_rate": 0.6,
+      "total_pnl": 642.27,
+      "profit_factor": 1.582642378939347,
+      "avg_trade": 16.05675,
+      "avg_winner": 72.69208333333333,
+      "avg_loser": -68.89625000000001,
+      "sharpe_daily": 3.136514403210768,
+      "max_drawdown": 383.67999999998574,
+      "ending_equity": 50642.27,
+      "active_days": 33,
+      "worst_day": -202.49,
+      "best_day": 254.39499999999998,
+      "exit_breakdown": {
+        "time_stop": 33,
+        "stop": 4,
+        "target": 3
+      }
+    },
+    {
+      "params": {
+        "or_minutes": 35,
+        "target_range_mult": 2.0,
+        "atr_stop_mult": 0.0,
+        "min_volume_ratio": 1.0
+      },
+      "num_trades": 39,
+      "win_rate": 0.5897435897435898,
+      "total_pnl": 557.8899999999998,
+      "profit_factor": 1.5060961227933303,
+      "avg_trade": 14.304871794871788,
+      "avg_winner": 72.18391304347826,
+      "avg_loser": -68.89625000000001,
+      "sharpe_daily": 2.8211247747622696,
+      "max_drawdown": 383.67999999998574,
+      "ending_equity": 50557.89,
+      "active_days": 33,
+      "worst_day": -202.49,
+      "best_day": 225.01,
+      "exit_breakdown": {
+        "time_stop": 34,
+        "stop": 4,
+        "target": 1
+      }
+    }
+  ]
+}

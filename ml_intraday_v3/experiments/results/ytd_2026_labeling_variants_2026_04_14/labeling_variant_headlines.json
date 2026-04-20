@@ -1,0 +1,22 @@
+[
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_recent_decay.yaml",
+    "labeling_cfg": "ml_intraday_v3/configs/labeling.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_labeling_variants_2026_04_14/labeling",
+    "total_pnl_usd": 3227.156145616046,
+    "max_drawdown_usd": 933.3859818898054,
+    "trades_count": 80,
+    "profit_factor": 1.5353823170316458,
+    "win_rate": 0.525
+  },
+  {
+    "training_cfg": "ml_intraday_v3/configs/training_standalone_topstep_recent_decay.yaml",
+    "labeling_cfg": "ml_intraday_v3/configs/labeling_cusum.yaml",
+    "out_dir": "/Users/eshaanganguly/Documents/projects/algos 3 topstep/ml_intraday_v3/experiments/results/ytd_2026_labeling_variants_2026_04_14/labeling_cusum",
+    "total_pnl_usd": -1499.279821591057,
+    "max_drawdown_usd": 1609.3198215911107,
+    "trades_count": 21,
+    "profit_factor": 0.23375194865968857,
+    "win_rate": 0.42857142857142855
+  }
+]

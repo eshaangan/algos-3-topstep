@@ -1,0 +1,41 @@
+{
+  "events": {
+    "es": 910,
+    "mes": 29,
+    "oos": 6,
+    "mnq": 12
+  },
+  "es_mode_split": {
+    "rejection": 74,
+    "acceptance": 836
+  },
+  "best_config": {
+    "N": 40,
+    "WR": 0.775,
+    "E": 161.93,
+    "PnL": 6477.25,
+    "Sharpe": 7.764,
+    "MaxDD": -889.59,
+    "sm": 0.75,
+    "ts": 18,
+    "mode": "rejection",
+    "dir": "long",
+    "strong": false
+  },
+  "best_stats": {
+    "N": 40,
+    "WR": 0.775,
+    "E": 161.93,
+    "PnL": 6477.25,
+    "Sharpe": 7.764,
+    "MaxDD": -889.59
+  },
+  "stress": {
+    "2018-2019": 6.25,
+    "2020": 806.25,
+    "2022": 1493.75
+  },
+  "stress_survivors": 5,
+  "criteria_passed": 5,
+  "verdict": "STRONG \u2014 test live deployment"
+}

@@ -1,0 +1,497 @@
+{
+  "run_config": {
+    "acceptance": "ml_intraday_v3/experiments/_ytd_2026_contract_sweep_config.yaml",
+    "preset": "custom",
+    "windows": [
+      "ytd_2026_jan_apr"
+    ],
+    "grid_sizes": {
+      "meta": 3,
+      "long": 1,
+      "short": 1,
+      "require_meta": 2,
+      "max_trades_per_day": 1
+    },
+    "total_backtests": 6,
+    "constraints": {
+      "min_trades": 10,
+      "max_drawdown_usd": 2000.0
+    }
+  },
+  "marginal_mean_pnl_by_combo_aggregate": {
+    "meta_threshold": [
+      {
+        "meta_threshold": 0.4,
+        "n": 2,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 107.08868005636108
+      },
+      {
+        "meta_threshold": 0.45,
+        "n": 2,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 107.08868005636108
+      },
+      {
+        "meta_threshold": 0.5,
+        "n": 2,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 107.08868005636108
+      }
+    ],
+    "primary_long": [
+      {
+        "primary_long": 0.43,
+        "n": 6,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 82.95053488512423
+      }
+    ],
+    "primary_short": [
+      {
+        "primary_short": 0.58,
+        "n": 6,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 82.95053488512423
+      }
+    ],
+    "require_meta_for_trade": [
+      {
+        "require_meta_for_trade": false,
+        "n": 3,
+        "mean": 3173.7632567024666,
+        "median": 3173.7632567024666,
+        "std": 0.0
+      },
+      {
+        "require_meta_for_trade": true,
+        "n": 3,
+        "mean": 3022.3169929901273,
+        "median": 3022.3169929901273,
+        "std": 0.0
+      }
+    ]
+  },
+  "marginal_mean_pnl_per_window": {
+    "meta_threshold": [
+      {
+        "meta_threshold": 0.4,
+        "n": 2,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 107.08868005636108
+      },
+      {
+        "meta_threshold": 0.45,
+        "n": 2,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 107.08868005636108
+      },
+      {
+        "meta_threshold": 0.5,
+        "n": 2,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 107.08868005636108
+      }
+    ],
+    "primary_long": [
+      {
+        "primary_long": 0.43,
+        "n": 6,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 82.95053488512423
+      }
+    ],
+    "primary_short": [
+      {
+        "primary_short": 0.58,
+        "n": 6,
+        "mean": 3098.0401248462967,
+        "median": 3098.0401248462967,
+        "std": 82.95053488512423
+      }
+    ],
+    "require_meta_for_trade": [
+      {
+        "require_meta_for_trade": false,
+        "n": 3,
+        "mean": 3173.7632567024666,
+        "median": 3173.7632567024666,
+        "std": 0.0
+      },
+      {
+        "require_meta_for_trade": true,
+        "n": 3,
+        "mean": 3022.3169929901273,
+        "median": 3022.3169929901273,
+        "std": 0.0
+      }
+    ]
+  },
+  "top_25_by_total_pnl": [
+    {
+      "combo": "m0.45_L0.43_S0.58_rm0",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.4_L0.43_S0.58_rm0",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm0",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.45_L0.43_S0.58_rm1",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    },
+    {
+      "combo": "m0.4_L0.43_S0.58_rm1",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm1",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    }
+  ],
+  "top_25_by_pnl_over_mdd": [
+    {
+      "combo": "m0.45_L0.43_S0.58_rm1",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    },
+    {
+      "combo": "m0.4_L0.43_S0.58_rm1",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm1",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    },
+    {
+      "combo": "m0.45_L0.43_S0.58_rm0",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.4_L0.43_S0.58_rm0",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm0",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    }
+  ],
+  "passed_constraints_count": 6,
+  "top_passed_by_pnl": [
+    {
+      "combo": "m0.4_L0.43_S0.58_rm0",
+      "window": "ytd_2026_jan_apr",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "max_trades_per_day": null,
+      "trades_count": 54,
+      "total_pnl_usd": 3173.7632567024666,
+      "max_drawdown_usd": 1252.8662740830841,
+      "profit_factor": 1.9383038288526222,
+      "win_rate": 0.5740740740740741,
+      "avg_trade_usd": 58.77339364263827,
+      "passes_constraints": true
+    },
+    {
+      "combo": "m0.45_L0.43_S0.58_rm0",
+      "window": "ytd_2026_jan_apr",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "max_trades_per_day": null,
+      "trades_count": 54,
+      "total_pnl_usd": 3173.7632567024666,
+      "max_drawdown_usd": 1252.8662740830841,
+      "profit_factor": 1.9383038288526222,
+      "win_rate": 0.5740740740740741,
+      "avg_trade_usd": 58.77339364263827,
+      "passes_constraints": true
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm0",
+      "window": "ytd_2026_jan_apr",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "max_trades_per_day": null,
+      "trades_count": 54,
+      "total_pnl_usd": 3173.7632567024666,
+      "max_drawdown_usd": 1252.8662740830841,
+      "profit_factor": 1.9383038288526222,
+      "win_rate": 0.5740740740740741,
+      "avg_trade_usd": 58.77339364263827,
+      "passes_constraints": true
+    },
+    {
+      "combo": "m0.4_L0.43_S0.58_rm1",
+      "window": "ytd_2026_jan_apr",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "max_trades_per_day": null,
+      "trades_count": 11,
+      "total_pnl_usd": 3022.3169929901273,
+      "max_drawdown_usd": 49.9800000000032,
+      "profit_factor": 61.470528071030955,
+      "win_rate": 0.9090909090909091,
+      "avg_trade_usd": 274.75609027182975,
+      "passes_constraints": true
+    },
+    {
+      "combo": "m0.45_L0.43_S0.58_rm1",
+      "window": "ytd_2026_jan_apr",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "max_trades_per_day": null,
+      "trades_count": 11,
+      "total_pnl_usd": 3022.3169929901273,
+      "max_drawdown_usd": 49.9800000000032,
+      "profit_factor": 61.470528071030955,
+      "win_rate": 0.9090909090909091,
+      "avg_trade_usd": 274.75609027182975,
+      "passes_constraints": true
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm1",
+      "window": "ytd_2026_jan_apr",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "max_trades_per_day": null,
+      "trades_count": 11,
+      "total_pnl_usd": 3022.3169929901273,
+      "max_drawdown_usd": 49.9800000000032,
+      "profit_factor": 61.470528071030955,
+      "win_rate": 0.9090909090909091,
+      "avg_trade_usd": 274.75609027182975,
+      "passes_constraints": true
+    }
+  ],
+  "pareto_frontier_row_count": 6,
+  "pareto_sample": [
+    {
+      "combo": "m0.45_L0.43_S0.58_rm0",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.45_L0.43_S0.58_rm1",
+      "meta_threshold": 0.45,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    },
+    {
+      "combo": "m0.4_L0.43_S0.58_rm0",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.4_L0.43_S0.58_rm1",
+      "meta_threshold": 0.4,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm0",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": false,
+      "windows": 1,
+      "total_pnl_sum": 3173.7632567024666,
+      "mean_pnl_per_window": 3173.7632567024666,
+      "max_drawdown_worst": 1252.8662740830841,
+      "trades_sum": 54,
+      "mean_trades_per_window": 54.0,
+      "pnl_over_mdd": 2.533201924543144
+    },
+    {
+      "combo": "m0.5_L0.43_S0.58_rm1",
+      "meta_threshold": 0.5,
+      "primary_long": 0.43,
+      "primary_short": 0.58,
+      "require_meta_for_trade": true,
+      "windows": 1,
+      "total_pnl_sum": 3022.3169929901273,
+      "mean_pnl_per_window": 3022.3169929901273,
+      "max_drawdown_worst": 49.9800000000032,
+      "trades_sum": 11,
+      "mean_trades_per_window": 11.0,
+      "pnl_over_mdd": 60.47052807102708
+    }
+  ]
+}

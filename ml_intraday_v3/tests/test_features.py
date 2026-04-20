@@ -26,6 +26,7 @@ from features import (
     write_feature_schema,
     compute_schema_hash,
 )
+from features.crt_tbs import build_crt_tbs_features
 
 
 @pytest.fixture
@@ -326,6 +327,214 @@ class TestFeatureBuild:
                 assert np.isclose(
                     feat_at_24_before[col], feat_at_24_after[col], atol=1e-10
                 ), f"Feature {col} changed at time 24 when modifying future prices!"
+
+    def test_optional_structure_context_features_compute_when_enabled(self):
+        timestamps = pd.date_range(
+            "2025-01-15 15:30:00",
+            periods=260,
+            freq="5min",
+            tz="UTC",
+        )
+        base = np.linspace(100.0, 104.0, len(timestamps))
+        df = pd.DataFrame(
+            {
+                "open": base - 0.05,
+                "high": base + 0.20,
+                "low": base - 0.20,
+                "close": base,
+                "volume": np.linspace(100, 500, len(timestamps)),
+                "is_synthetic": np.zeros(len(timestamps), dtype=bool),
+            },
+            index=timestamps,
+        )
+
+        config = {
+            "computation": {"nan_policy": "keep_with_mask", "eps": 1e-8},
+            "returns": {
+                "lookback_bars": {"1m": [3, 6], "5m": [2, 4]},
+                "enable_multi_horizon": True,
+                "multi_horizon_bars": [6, 12, 24],
+            },
+            "volatility": {"atr_period": 14, "enable_regime_features": True, "vol_regime_lookback": 50},
+            "trend": {
+                "ema_fast_period": 13,
+                "ema_slow_period": 34,
+                "enable_advanced_features": True,
+                "sma_long_period": 30,
+                "anchor_context": {
+                    "enabled": True,
+                    "fast_wma_period": 13,
+                    "mid_wma_period": 48,
+                    "anchor_wma_period": 200,
+                },
+            },
+            "momentum": {"enabled": False},
+            "microstructure": {
+                "enabled": True,
+                "vwap_context": {"enabled": True, "zscore_lookback": 20},
+            },
+            "structure": {"enabled": True},
+            "time": {
+                "enabled": True,
+                "minutes_per_session": 1440,
+                "session_windows": {
+                    "enabled": True,
+                    "timezone": "America/Chicago",
+                    "rth_open_time": "09:30",
+                    "rth_close_time": "15:55",
+                    "opening_window_minutes": 45,
+                    "midday_start_time": "11:30",
+                    "midday_end_time": "13:30",
+                    "closing_window_minutes": 60,
+                },
+            },
+            "output": {"include_synthetic_flag": True},
+        }
+
+        registry_names = [spec.name for spec in get_feature_registry(config)]
+        assert "vwap_zscore" in registry_names
+        assert "vwap_band_distance" in registry_names
+        assert "close_vs_wma_200_atr" in registry_names
+        assert "wma_ladder_score" in registry_names
+        assert "is_opening_window" in registry_names
+        assert "is_midday_window" in registry_names
+        assert "is_closing_window" in registry_names
+
+        features_df = build_features(df, "5m", config)
+
+        assert "vwap_zscore" in features_df.columns
+        assert "vwap_band_distance" in features_df.columns
+        assert "close_vs_wma_200_atr" in features_df.columns
+        assert "wma_ladder_score" in features_df.columns
+        assert "is_opening_window" in features_df.columns
+        assert "is_midday_window" in features_df.columns
+        assert "is_closing_window" in features_df.columns
+        assert np.isfinite(features_df["vwap_zscore"].iloc[-1])
+        assert np.isfinite(features_df["close_vs_wma_200_atr"].iloc[-1])
+        assert features_df.loc[timestamps[0], "is_opening_window"] == 1
+        assert features_df.loc[pd.Timestamp("2025-01-15 18:00:00", tz="UTC"), "is_midday_window"] == 1
+        assert features_df.loc[pd.Timestamp("2025-01-15 21:15:00", tz="UTC"), "is_closing_window"] == 1
+
+    def test_crt_tbs_features_detect_sweep_reclaim_setups(self):
+        timestamps = pd.date_range(
+            "2025-01-15 15:30:00",
+            periods=14,
+            freq="5min",
+            tz="UTC",
+        )
+        df = pd.DataFrame(
+            {
+                "open": [100.0] * len(timestamps),
+                "high": [101.0] * len(timestamps),
+                "low": [99.0] * len(timestamps),
+                "close": [100.0] * len(timestamps),
+                "volume": [100] * len(timestamps),
+            },
+            index=timestamps,
+        )
+        df.loc[timestamps[10], ["open", "high", "low", "close"]] = [
+            100.0,
+            100.5,
+            98.5,
+            99.5,
+        ]
+        df.loc[timestamps[11], ["open", "high", "low", "close"]] = [
+            100.0,
+            102.0,
+            99.5,
+            100.5,
+        ]
+
+        features_df = build_crt_tbs_features(df, range_lookback=5)
+
+        assert features_df.loc[timestamps[10], "tbs_long_setup"] == 1
+        assert features_df.loc[timestamps[10], "tbs_short_setup"] == 0
+        assert features_df.loc[timestamps[10], "tbs_reclaim_confirmed"] == 1
+        assert features_df.loc[timestamps[10], "tbs_sweep_distance_atr"] > 0
+
+        assert features_df.loc[timestamps[11], "tbs_short_setup"] == 1
+        assert features_df.loc[timestamps[11], "tbs_long_setup"] == 0
+        assert features_df.loc[timestamps[11], "tbs_reclaim_confirmed"] == -1
+        assert features_df.loc[timestamps[11], "tbs_sweep_distance_atr"] < 0
+
+    def test_crt_tbs_features_available_through_registry_and_builder(self):
+        timestamps = pd.date_range(
+            "2025-01-15 15:30:00",
+            periods=80,
+            freq="5min",
+            tz="UTC",
+        )
+        base = np.linspace(100.0, 101.0, len(timestamps))
+        df = pd.DataFrame(
+            {
+                "open": base - 0.05,
+                "high": base + 0.25,
+                "low": base - 0.25,
+                "close": base,
+                "volume": [100] * len(timestamps),
+                "is_synthetic": np.zeros(len(timestamps), dtype=bool),
+            },
+            index=timestamps,
+        )
+        config = {
+            "computation": {"nan_policy": "keep_with_mask", "eps": 1e-8},
+            "returns": {
+                "lookback_bars": {"1m": [3, 6], "5m": [2, 4]},
+                "enable_multi_horizon": False,
+            },
+            "volatility": {"atr_period": 14, "enable_regime_features": False},
+            "trend": {
+                "ema_fast_period": 13,
+                "ema_slow_period": 34,
+                "enable_advanced_features": False,
+            },
+            "momentum": {"enabled": False},
+            "microstructure": {"enabled": False},
+            "structure": {"enabled": True},
+            "crt_tbs": {"enabled": True, "range_lookback": 5},
+            "time": {"enabled": False},
+            "output": {"include_synthetic_flag": True},
+        }
+
+        registry_names = [spec.name for spec in get_feature_registry(config)]
+        assert "crt_range_pos" in registry_names
+        assert "tbs_long_setup" in registry_names
+        assert "tbs_short_setup" in registry_names
+
+        features_df = build_features(df, "5m", config)
+
+        assert "crt_range_pos" in features_df.columns
+        assert "tbs_reclaim_confirmed" in features_df.columns
+        assert features_df["crt_range_pos"].iloc[:5].isna().all()
+        assert np.isfinite(features_df["crt_body_quality"].iloc[-1])
+
+    def test_crt_tbs_features_are_causal(self):
+        timestamps = pd.date_range(
+            "2025-01-15 15:30:00",
+            periods=40,
+            freq="5min",
+            tz="UTC",
+        )
+        df = pd.DataFrame(
+            {
+                "open": [100.0] * len(timestamps),
+                "high": [101.0] * len(timestamps),
+                "low": [99.0] * len(timestamps),
+                "close": [100.0] * len(timestamps),
+            },
+            index=timestamps,
+        )
+
+        original = build_crt_tbs_features(df, range_lookback=5)
+        modified_df = df.copy()
+        modified_df.loc[timestamps[21]:, ["open", "high", "low", "close"]] += 25.0
+        modified = build_crt_tbs_features(modified_df, range_lookback=5)
+
+        pd.testing.assert_frame_equal(
+            original.iloc[:21],
+            modified.iloc[:21],
+            check_dtype=False,
+        )
 
 
 class TestFuturePerturbation:

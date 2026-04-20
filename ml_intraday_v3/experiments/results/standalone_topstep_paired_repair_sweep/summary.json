@@ -1,0 +1,1033 @@
+{
+  "baseline": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 2163.9473710254015,
+      "overall_direction_summary": {
+        "long_trades": 96,
+        "short_trades": 80,
+        "total_trades": 176,
+        "long_share": 0.5454545454545454,
+        "short_share": 0.45454545454545453
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.09090909090909091,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9090909090909091,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 487.4705214006567,
+        "profit_factor": 1.289021002114557,
+        "win_rate": 0.5227272727272727,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 4,
+          "short_trades": 40,
+          "total_trades": 44,
+          "long_share": 0.09090909090909091,
+          "short_share": 0.9090909090909091
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 771.7119824243321,
+        "profit_factor": 1.3693201623638864,
+        "win_rate": 0.5681818181818182,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 35,
+          "short_trades": 9,
+          "total_trades": 44,
+          "long_share": 0.7954545454545454,
+          "short_share": 0.20454545454545456
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        }
+      }
+    },
+    "threshold_schedule": []
+  },
+  "pair_l6_s0_044": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 2,
+      "total_windows": 5,
+      "pass_ratio": 0.4,
+      "overall_total_pnl_usd": 2183.41094510487,
+      "overall_direction_summary": {
+        "long_trades": 98,
+        "short_trades": 78,
+        "total_trades": 176,
+        "long_share": 0.5568181818181818,
+        "short_share": 0.4431818181818182
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 2,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.4,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.11363636363636363,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.8863636363636364,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 830.023461712582,
+        "profit_factor": 1.5441074470769205,
+        "win_rate": 0.5454545454545454,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 5,
+          "short_trades": 39,
+          "total_trades": 44,
+          "long_share": 0.11363636363636363,
+          "short_share": 0.8863636363636364
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.8181818181818182,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.18181818181818182,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": 448.62261619187495,
+        "profit_factor": 1.2001126970070561,
+        "win_rate": 0.5454545454545454,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 36,
+          "short_trades": 8,
+          "total_trades": 44,
+          "long_share": 0.8181818181818182,
+          "short_share": 0.18181818181818182
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        }
+      }
+    },
+    "threshold_schedule": [
+      {
+        "name": "relax_high_vol_downtrend_longs",
+        "regimes": [
+          6
+        ],
+        "side": "long",
+        "threshold": 0.33,
+        "reason": "relax_high_vol_downtrend_longs"
+      },
+      {
+        "name": "relax_low_vol_downtrend_shorts",
+        "regimes": [
+          0
+        ],
+        "side": "short",
+        "threshold": 0.44,
+        "reason": "relax_low_vol_downtrend_shorts"
+      }
+    ]
+  },
+  "pair_l6_s1_044": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 1982.8341879773398,
+      "overall_direction_summary": {
+        "long_trades": 97,
+        "short_trades": 82,
+        "total_trades": 179,
+        "long_share": 0.5418994413407822,
+        "short_share": 0.4581005586592179
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 746.1910431035967,
+        "profit_factor": 1.5877678155953798,
+        "win_rate": 0.5357142857142857,
+        "trades_count": 28,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 18,
+          "total_trades": 28,
+          "long_share": 0.35714285714285715,
+          "short_share": 0.6428571428571429
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.11363636363636363,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.8863636363636364,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 830.023461712582,
+        "profit_factor": 1.5441074470769205,
+        "win_rate": 0.5454545454545454,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 5,
+          "short_trades": 39,
+          "total_trades": 44,
+          "long_share": 0.11363636363636363,
+          "short_share": 0.8863636363636364
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 518.5625027524374,
+        "profit_factor": 1.2313100972781468,
+        "win_rate": 0.5555555555555556,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 36,
+          "short_trades": 9,
+          "total_trades": 45,
+          "long_share": 0.8,
+          "short_share": 0.2
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -1241.1599961812212,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -26.981739047417854,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7152751660892332,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.41304347826086957,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1647.520114273153,
+            "expected": "<= 1200.0"
+          }
+        ],
+        "total_pnl_usd": -1241.1599961812212,
+        "profit_factor": 0.7152751660892332,
+        "win_rate": 0.41304347826086957,
+        "trades_count": 46,
+        "direction_summary": {
+          "long_trades": 36,
+          "short_trades": 10,
+          "total_trades": 46,
+          "long_share": 0.782608695652174,
+          "short_share": 0.21739130434782608
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        }
+      }
+    },
+    "threshold_schedule": [
+      {
+        "name": "relax_high_vol_downtrend_longs",
+        "regimes": [
+          6
+        ],
+        "side": "long",
+        "threshold": 0.33,
+        "reason": "relax_high_vol_downtrend_longs"
+      },
+      {
+        "name": "relax_low_vol_sideways_shorts",
+        "regimes": [
+          1
+        ],
+        "side": "short",
+        "threshold": 0.44,
+        "reason": "relax_low_vol_sideways_shorts"
+      }
+    ]
+  },
+  "pair_l6_s0s1_044": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 1982.8341879773398,
+      "overall_direction_summary": {
+        "long_trades": 97,
+        "short_trades": 82,
+        "total_trades": 179,
+        "long_share": 0.5418994413407822,
+        "short_share": 0.4581005586592179
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 746.1910431035967,
+        "profit_factor": 1.5877678155953798,
+        "win_rate": 0.5357142857142857,
+        "trades_count": 28,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 18,
+          "total_trades": 28,
+          "long_share": 0.35714285714285715,
+          "short_share": 0.6428571428571429
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.11363636363636363,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.8863636363636364,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 830.023461712582,
+        "profit_factor": 1.5441074470769205,
+        "win_rate": 0.5454545454545454,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 5,
+          "short_trades": 39,
+          "total_trades": 44,
+          "long_share": 0.11363636363636363,
+          "short_share": 0.8863636363636364
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 518.5625027524374,
+        "profit_factor": 1.2313100972781468,
+        "win_rate": 0.5555555555555556,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 36,
+          "short_trades": 9,
+          "total_trades": 45,
+          "long_share": 0.8,
+          "short_share": 0.2
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -1241.1599961812212,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -26.981739047417854,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7152751660892332,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.41304347826086957,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1647.520114273153,
+            "expected": "<= 1200.0"
+          }
+        ],
+        "total_pnl_usd": -1241.1599961812212,
+        "profit_factor": 0.7152751660892332,
+        "win_rate": 0.41304347826086957,
+        "trades_count": 46,
+        "direction_summary": {
+          "long_trades": 36,
+          "short_trades": 10,
+          "total_trades": 46,
+          "long_share": 0.782608695652174,
+          "short_share": 0.21739130434782608
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        }
+      }
+    },
+    "threshold_schedule": [
+      {
+        "name": "relax_high_vol_downtrend_longs",
+        "regimes": [
+          6
+        ],
+        "side": "long",
+        "threshold": 0.33,
+        "reason": "relax_high_vol_downtrend_longs"
+      },
+      {
+        "name": "relax_low_vol_downtrend_shorts",
+        "regimes": [
+          0
+        ],
+        "side": "short",
+        "threshold": 0.44,
+        "reason": "relax_low_vol_downtrend_shorts"
+      },
+      {
+        "name": "relax_low_vol_sideways_shorts",
+        "regimes": [
+          1
+        ],
+        "side": "short",
+        "threshold": 0.44,
+        "reason": "relax_low_vol_sideways_shorts"
+      }
+    ]
+  },
+  "pair_l6_s3_final048": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 1945.070255426217,
+      "overall_direction_summary": {
+        "long_trades": 98,
+        "short_trades": 80,
+        "total_trades": 178,
+        "long_share": 0.550561797752809,
+        "short_share": 0.449438202247191
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.11363636363636363,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.8863636363636364,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 830.023461712582,
+        "profit_factor": 1.5441074470769205,
+        "win_rate": 0.5454545454545454,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 5,
+          "short_trades": 39,
+          "total_trades": 44,
+          "long_share": 0.11363636363636363,
+          "short_share": 0.8863636363636364
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 210.28192651322252,
+        "profit_factor": 1.0847845859680485,
+        "win_rate": 0.5217391304347826,
+        "trades_count": 46,
+        "direction_summary": {
+          "long_trades": 36,
+          "short_trades": 10,
+          "total_trades": 46,
+          "long_share": 0.782608695652174,
+          "short_share": 0.21739130434782608
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        }
+      }
+    },
+    "threshold_schedule": [
+      {
+        "name": "relax_high_vol_downtrend_longs",
+        "regimes": [
+          6
+        ],
+        "side": "long",
+        "threshold": 0.33,
+        "reason": "relax_high_vol_downtrend_longs"
+      },
+      {
+        "name": "relax_med_vol_downtrend_shorts_to_final_048",
+        "regimes": [
+          3
+        ],
+        "side": "short",
+        "threshold": 0.45,
+        "reason": "relax_med_vol_downtrend_shorts_to_final_048"
+      }
+    ]
+  },
+  "pair_l6_s0s1_046_s3_final048": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 1911.183215785614,
+      "overall_direction_summary": {
+        "long_trades": 98,
+        "short_trades": 82,
+        "total_trades": 180,
+        "long_share": 0.5444444444444444,
+        "short_share": 0.45555555555555555
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 659.5252166477251,
+        "profit_factor": 1.519501941897853,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.11363636363636363,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.8863636363636364,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 830.023461712582,
+        "profit_factor": 1.5441074470769205,
+        "win_rate": 0.5454545454545454,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 5,
+          "short_trades": 39,
+          "total_trades": 44,
+          "long_share": 0.11363636363636363,
+          "short_share": 0.8863636363636364
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 280.22181307378514,
+        "profit_factor": 1.1129839867582856,
+        "win_rate": 0.5319148936170213,
+        "trades_count": 47,
+        "direction_summary": {
+          "long_trades": 36,
+          "short_trades": 11,
+          "total_trades": 47,
+          "long_share": 0.7659574468085106,
+          "short_share": 0.23404255319148937
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -987.804452238423,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -21.474009831270063,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7721593766032833,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.41304347826086957,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8043478260869565,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.1956521739130435,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -987.804452238423,
+        "profit_factor": 0.7721593766032833,
+        "win_rate": 0.41304347826086957,
+        "trades_count": 46,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 9,
+          "total_trades": 46,
+          "long_share": 0.8043478260869565,
+          "short_share": 0.1956521739130435
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        }
+      }
+    },
+    "threshold_schedule": [
+      {
+        "name": "relax_high_vol_downtrend_longs",
+        "regimes": [
+          6
+        ],
+        "side": "long",
+        "threshold": 0.33,
+        "reason": "relax_high_vol_downtrend_longs"
+      },
+      {
+        "name": "relax_low_vol_downtrend_shorts_gentle",
+        "regimes": [
+          0
+        ],
+        "side": "short",
+        "threshold": 0.46,
+        "reason": "relax_low_vol_downtrend_shorts_gentle"
+      },
+      {
+        "name": "relax_low_vol_sideways_shorts_gentle",
+        "regimes": [
+          1
+        ],
+        "side": "short",
+        "threshold": 0.46,
+        "reason": "relax_low_vol_sideways_shorts_gentle"
+      },
+      {
+        "name": "relax_med_vol_downtrend_shorts_to_final_048",
+        "regimes": [
+          3
+        ],
+        "side": "short",
+        "threshold": 0.45,
+        "reason": "relax_med_vol_downtrend_shorts_to_final_048"
+      }
+    ]
+  }
+}

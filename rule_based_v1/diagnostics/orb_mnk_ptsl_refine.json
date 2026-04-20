@@ -1,0 +1,12 @@
+{
+  "description": "PT/SL refinement on cached MNK RTH 5m (same window as orb_mnk_sweep_results.json). OR fixed: or_end=10:04, min_or_bars=7, min_range_atr=0.30.",
+  "bars": 12272,
+  "grid": [
+    {"pt_mult": 2.0, "sl_mult": 1.0, "num_trades": 56, "total_pnl": -318, "sharpe": -1.25, "max_drawdown": -787, "combine_pass_likely": false, "win_rate": 0.321},
+    {"pt_mult": 2.5, "sl_mult": 1.25, "num_trades": 54, "total_pnl": -92, "sharpe": -0.31, "max_drawdown": -801, "combine_pass_likely": false, "win_rate": 0.37},
+    {"pt_mult": 3.0, "sl_mult": 1.5, "num_trades": 51, "total_pnl": 116, "sharpe": 0.36, "max_drawdown": -904, "combine_pass_likely": true, "win_rate": 0.412},
+    {"pt_mult": 3.5, "sl_mult": 1.75, "num_trades": 49, "total_pnl": 766, "sharpe": 2.24, "max_drawdown": -723, "combine_pass_likely": true, "win_rate": 0.51},
+    {"pt_mult": 4.0, "sl_mult": 2.0, "num_trades": 49, "total_pnl": 515, "sharpe": 1.53, "max_drawdown": -857, "combine_pass_likely": true, "win_rate": 0.551}
+  ],
+  "recommended_live": {"profit_target_atr": 3.5, "stop_loss_atr": 1.75}
+}

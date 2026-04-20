@@ -1,0 +1,67 @@
+# Backtest config for the dual-meta standalone candidate.
+# Keeps the recent-decay thresholds and overlay, while restoring the narrow
+# January long-threshold relaxations that work well with the new March veto.
+
+decision:
+  use_meta: false
+  primary_score_column: "y_prob"
+  primary_threshold: 0.38
+  primary_threshold_by_side:
+    long: 0.38
+    short: 0.48
+  meta_threshold: 0.50
+  require_meta_for_trade: false
+
+  volatility_filter:
+    enabled: false
+    min_sigma: 0.0
+    max_sigma: 0.0
+
+  regime_filter:
+    enabled: true
+    vol_window: 20
+    trend_window: 50
+    skip_regimes: []
+    threshold_boost_regimes: []
+    threshold_boost: 0.0
+    enable_shorts: false
+    threshold_schedule:
+      - name: "relax_med_vol_sideways_longs"
+        regimes: [4]
+        side: "long"
+        threshold: 0.28
+        reason: "relax_med_vol_sideways_longs"
+      - name: "relax_high_vol_downtrend_longs"
+        regimes: [6]
+        side: "long"
+        threshold: 0.33
+        reason: "relax_high_vol_downtrend_longs"
+    overlay_rules:
+      - name: "tighten_weak_long_regimes"
+        regimes: [1, 2, 3, 4]
+        side: "long"
+        threshold_boost: 0.10
+      - name: "tighten_medvol_downtrend_shorts"
+        regimes: [3]
+        side: "short"
+        threshold_boost: 0.03
+
+sizing:
+  contracts: 1
+  max_concurrent_positions: 1
+
+costs:
+  use_execution_spec: true
+  use_event_ret_net: true
+
+risk:
+  use_risk_yaml: true
+
+session:
+  flatten_time_chicago: "15:55"
+  trade_start_time_chicago: "09:30"
+  trade_end_time_chicago: "16:00"
+
+outputs:
+  write_trade_log: true
+  write_equity_curve: true

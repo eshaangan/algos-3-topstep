@@ -1,0 +1,28 @@
+# MES IVB ORB — 3 contracts.
+# 2026 YTD MaxDD at 3 contracts = $660 (well within $2k combine limit).
+# NOTE: historically (2022-2026) 3 contracts had MaxDD $3,484 in bad regimes.
+# Monitor closely and scale back to 1 contract if daily loss approaches $500.
+
+position:
+  contracts: 2              # P0-D: reduced from 3 — only 8 live trades YTD, too small sample to size at 3c; risk.yaml warns of -$3,484 hist MaxDD at 3c
+  instrument: "MES"
+  tick_size: 0.25
+  tick_value: 1.25
+  point_value: 5.0
+  commission_per_side: 0.62
+
+daily_limits:
+  max_daily_loss: -900.0       # Stop for the day at -$900 (combine daily limit is -$1,000)
+  per_trade_max_loss: 500.0    # Hard cap per trade at 3 contracts
+
+circuit_breaker:
+  max_consecutive_losses: 2    # More aggressive than MNQ ORB given regime sensitivity
+  cooldown_bars: 5
+
+session:
+  flatten_minutes_before_close: 10
+  session_close: "16:00"
+  max_trades_per_day: 3
+
+drawdown:
+  buffer_from_max: 1800.0     # Stop trading if trailing drawdown hits $1,800 (buffer before combine's $2,000)

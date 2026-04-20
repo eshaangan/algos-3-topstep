@@ -1,0 +1,3 @@
+combo,meta_threshold,primary_long,primary_short,require_meta_for_trade,windows,total_pnl_sum,mean_pnl_per_window,max_drawdown_worst,trades_sum,mean_trades_per_window,pnl_over_mdd
+m0.35_L0.28_S0.53_rm1,0.35,0.28,0.53,True,1,3392.948226270162,3392.948226270162,49.9800000000032,16,16.0,67.88611897298809
+m0.45_L0.28_S0.53_rm1,0.45,0.28,0.53,True,1,3392.948226270162,3392.948226270162,49.9800000000032,16,16.0,67.88611897298809

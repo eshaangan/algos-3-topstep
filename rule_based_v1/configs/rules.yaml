@@ -10,9 +10,11 @@ opening_range_breakout:
   entry_cutoff_time: "12:00"    # No new entries after noon
   atr_period: 14
   use_close_for_signal: true    # Trigger on close > range_high (confirmed break)
-  long_only: true               # LONG-only: SHORT WR=33% in 2026 YTD, LONG WR=67%
-  require_prev_vwap: true       # Only trade when yesterday close > yesterday VWAP
-                                # OOS: WR=68.4%, DD=-$1,143, P(pass/30d)=78.1% vs 41.8% baseline
+  long_only: true               # SHORT side WR=33% (2026 YTD) — below breakeven for 3.0/1.5 system; long-only confirmed best
+  require_prev_vwap: true       # PrevVWAP gate: only trade days where prior close > prior VWAP (bullish alignment)
+                                # Extended 162d: PrevVWAP+SkipGapUp = WR=52.6%, Sharpe=6.02, DD=-$906, P(pass)=84.7%
+  skip_gap_up_pct: 0.003        # Skip days where today opened >0.3% above prior close (overextended opens
+                                # that revert instead of break). Extended 162d validation: key to P(pass)=84.7%
   require_gex_explosive: false  # GEX proxy filter — DISABLED for combine (N=10 too small); enable on PRACTICE only
                                 # Backtest: PrevVWAP+GEX = 10t, 80% WR, Sharpe=10.08, DD=-$796
 
@@ -25,9 +27,9 @@ time_of_day:
   lunch_end: "13:00"
 
 exit_strategy:
-  profit_target_atr: 2.0         # Changed from 3.0 — regime_quality_sweep: PT=2x Sharpe=8.78 vs 8.29 at PT=3x
-                                  # Exit dist at PT=2x: 5 TP (31%), 8 time-stops (50%), 3 SL (19%)
-                                  # Exit dist at PT=3x: 1 TP  (6%), 12 time-stops (75%), 3 SL (19%)
+  profit_target_atr: 3.0         # Reverted to 3.0 — extended 162d test (Aug25-Mar26):
+                                  # PT=3.0x: Sharpe=6.02, DD=-$906 (with PrevVWAP+SkipGapUp)
+                                  # PT=2.0x was overfitted to 2026 YTD bear regime (Sharpe→ -2.11 on extended data)
   stop_loss_atr: 1.5
   time_stop_bars: 24
   trailing_activation_atr: 999.0  # DISABLED - trailing stop cuts winners
@@ -35,7 +37,7 @@ exit_strategy:
 
 msite:
   enabled: true
-  n_contracts: 12
+  n_contracts: 15             # scaled from 12x — sweep: no DD change, +$999 PnL, Sharpe 5.50→5.61
   pt_mult: 2.0
   sl_frac: 0.55
   afternoon_cutoff: [14, 0]
@@ -47,6 +49,6 @@ gire:
   clv_thresh: 0.8          # CLV_y ≥ 0.8 for SHORT, ≤ 0.2 for LONG
   use_opening_failure: true
   time_stop_hour: 12       # time stop at 12:00 ET
-  n_contracts: 1           # 1 MNQ contract
+  n_contracts: 6           # scaled from 5x — sweep: no DD change, +$378 PnL, Sharpe 5.50→5.65
   time_stop_bars: 48       # fallback bar count
   afternoon_cutoff: [12, 0]

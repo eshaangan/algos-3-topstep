@@ -1,6 +1,6 @@
 numpy
 pandas
-scikit-learn
+scikit-learn==1.5.2
 joblib
 tables
 python-dotenv
@@ -10,3 +10,4 @@ matplotlib
 seaborn
 lightgbm
 pytz
+hmmlearn>=0.3.0

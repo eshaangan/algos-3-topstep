@@ -1,0 +1,23 @@
+{
+  "short_events": 75,
+  "long_events": 121,
+  "best_short_sharpe": {
+    "N": 43,
+    "WR": 0.5349,
+    "E": 27.71,
+    "PnL": 1191.64,
+    "Sharpe": 2.649,
+    "MaxDD": -778.37,
+    "stop_m": 0.75,
+    "tp_r": 0.5,
+    "ts": 2,
+    "fs_t": 0.8,
+    "tp_mode": "vwap"
+  },
+  "best_stress_survivor": null,
+  "stress_survivor_count": 0,
+  "long_viable": false,
+  "orb_wr_on_pss_days": 0.4,
+  "orb_wr_off_pss_days": 0.5175,
+  "orb_filter_viable": true
+}

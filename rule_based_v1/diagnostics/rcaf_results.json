@@ -1,0 +1,227 @@
+{
+  "verdict": "KILL",
+  "criteria": {
+    "train_sharpe_gt_1p5": false,
+    "oos_sharpe_gt_0": false,
+    "neg_regime_wr_ge_52pct": false
+  },
+  "regime_distribution_train": {
+    "negative": 14,
+    "chop": 37,
+    "trend": 55
+  },
+  "regime_distribution_oos": {
+    "negative": 2,
+    "chop": 3,
+    "trend": 17
+  },
+  "regime_distribution_mnq": {
+    "negative": 9,
+    "chop": 7,
+    "trend": 35
+  },
+  "train_stats": {
+    "all": {
+      "N": 45,
+      "n_day": 27,
+      "WR": 0.3111,
+      "AvgW": 41.03,
+      "AvgL": -16.21,
+      "PF": 1.143,
+      "PnL": 71.95,
+      "Sharpe": 1.19,
+      "MaxDD": -124.03
+    },
+    "negative": {
+      "N": 11,
+      "n_day": 6,
+      "WR": 0.4545,
+      "AvgW": 43.86,
+      "AvgL": -30.44,
+      "PF": 1.201,
+      "PnL": 36.65,
+      "Sharpe": 2.137,
+      "MaxDD": -101.08
+    },
+    "chop": {
+      "N": 34,
+      "n_day": 21,
+      "WR": 0.2647,
+      "AvgW": 39.46,
+      "AvgL": -12.79,
+      "PF": 1.11,
+      "PnL": 35.3,
+      "Sharpe": 0.831,
+      "MaxDD": -119.88
+    },
+    "trend": {
+      "N": 0,
+      "n_day": 0,
+      "WR": 0,
+      "AvgW": 0,
+      "AvgL": 0,
+      "PF": 0,
+      "PnL": 0,
+      "Sharpe": 0,
+      "MaxDD": 0
+    },
+    "neg_short": {
+      "N": 11,
+      "n_day": 6,
+      "WR": 0.4545,
+      "AvgW": 43.86,
+      "AvgL": -30.44,
+      "PF": 1.201,
+      "PnL": 36.65,
+      "Sharpe": 2.137,
+      "MaxDD": -101.08
+    },
+    "neg_long_cap": {
+      "N": 0,
+      "n_day": 0,
+      "WR": 0,
+      "AvgW": 0,
+      "AvgL": 0,
+      "PF": 0,
+      "PnL": 0,
+      "Sharpe": 0,
+      "MaxDD": 0
+    },
+    "chop_fade": {
+      "N": 34,
+      "n_day": 21,
+      "WR": 0.2647,
+      "AvgW": 39.46,
+      "AvgL": -12.79,
+      "PF": 1.11,
+      "PnL": 35.3,
+      "Sharpe": 0.831,
+      "MaxDD": -119.88
+    },
+    "trend_cont": {
+      "N": 0,
+      "n_day": 0,
+      "WR": 0,
+      "AvgW": 0,
+      "AvgL": 0,
+      "PF": 0,
+      "PnL": 0,
+      "Sharpe": 0,
+      "MaxDD": 0
+    }
+  },
+  "oos_stats": {
+    "all": {
+      "N": 5,
+      "n_day": 3,
+      "WR": 0.0,
+      "AvgW": 0.0,
+      "AvgL": -17.57,
+      "PF": 0.0,
+      "PnL": -87.87,
+      "Sharpe": -364.032,
+      "MaxDD": -60.32
+    },
+    "negative": {
+      "N": 1,
+      "n_day": 1,
+      "WR": 0.0,
+      "AvgW": 0.0,
+      "AvgL": -27.55,
+      "PF": 0.0,
+      "PnL": -27.55,
+      "Sharpe": 0.0,
+      "MaxDD": 0.0
+    },
+    "chop": {
+      "N": 4,
+      "n_day": 2,
+      "WR": 0.0,
+      "AvgW": 0.0,
+      "AvgL": -15.08,
+      "PF": 0.0,
+      "PnL": -60.32,
+      "Sharpe": -1139.941,
+      "MaxDD": -45.45
+    },
+    "trend": {
+      "N": 0,
+      "n_day": 0,
+      "WR": 0,
+      "AvgW": 0,
+      "AvgL": 0,
+      "PF": 0,
+      "PnL": 0,
+      "Sharpe": 0,
+      "MaxDD": 0
+    }
+  },
+  "mnq_stats": {
+    "all": {
+      "N": 16,
+      "n_day": 10,
+      "WR": 0.3125,
+      "AvgW": 86.64,
+      "AvgL": -42.94,
+      "PF": 0.917,
+      "PnL": -39.18,
+      "Sharpe": -0.699,
+      "MaxDD": -190.69
+    },
+    "negative": {
+      "N": 7,
+      "n_day": 5,
+      "WR": 0.2857,
+      "AvgW": 82.23,
+      "AvgL": -59.39,
+      "PF": 0.554,
+      "PnL": -132.5,
+      "Sharpe": -4.309,
+      "MaxDD": -133.54
+    },
+    "chop": {
+      "N": 9,
+      "n_day": 5,
+      "WR": 0.3333,
+      "AvgW": 89.58,
+      "AvgL": -29.24,
+      "PF": 1.532,
+      "PnL": 93.32,
+      "Sharpe": 4.071,
+      "MaxDD": -101.65
+    },
+    "trend": {
+      "N": 0,
+      "n_day": 0,
+      "WR": 0,
+      "AvgW": 0,
+      "AvgL": 0,
+      "PF": 0,
+      "PnL": 0,
+      "Sharpe": 0,
+      "MaxDD": 0
+    }
+  },
+  "failure_score_monotonicity": {
+    "neg_shorts_total": 11,
+    "mono_pass": true
+  },
+  "monte_carlo": {
+    "p_pass": 0.0,
+    "p_bust": 0.0,
+    "median_days_to_pass": 60,
+    "n_paths": 10000,
+    "n_days": 60,
+    "profit_target": 3000,
+    "trail_dd_limit": -2000,
+    "daily_dd_limit": -1000
+  },
+  "orb_baseline": {
+    "label": "ORB baseline (OOS Jan-Feb 2026, MNQ n=2)",
+    "N": 32,
+    "WR": 0.562,
+    "PnL": 922.0,
+    "Sharpe": 3.46,
+    "MaxDD": -574.0
+  }
+}

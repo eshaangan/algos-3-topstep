@@ -1,0 +1,40 @@
+# Micro Nikkei 225 (USD) — CME symbol MNK — ORB sidecar to run alongside MES ML on another process/VM.
+# U.S. session ORB: opening range from session_start through or_end (Eastern), same clock as MNQ ORB.
+# Set TOPSTEPX_CONTRACT_ID to the MNK front-month id from TopstepX (e.g. CON.F.US.MNK.H26).
+#
+# Tuned vs Databento GLBX MNK.c.0 RTH 5m, ~Jun 2024–Apr 2026: OR grid + PT/SL sweep in
+# rule_based_v1/diagnostics/orb_mnk_research.py (see orb_mnk_sweep_results.json).
+# Key: min_or_bars=7 required; PT/SL 3.5/1.75 ATR beat baseline 3.0/1.5 on that sample.
+
+opening_range_breakout:
+  session_start_time: "09:30"
+  or_end_time: "10:04"
+  min_or_bars: 7
+  min_range_atr: 0.30
+  entry_cutoff_time: "12:00"
+  atr_period: 14
+  use_close_for_signal: true
+  long_only: true
+  require_prev_vwap: true
+  skip_gap_up_pct: 0.003
+  require_gex_explosive: false
+
+time_of_day:
+  session_start: "09:35"
+  session_end: "15:45"
+  lunch_filter_enabled: false
+  lunch_start: "12:00"
+  lunch_end: "13:00"
+
+exit_strategy:
+  profit_target_atr: 3.5
+  stop_loss_atr: 1.75
+  time_stop_bars: 24
+  trailing_activation_atr: 999.0
+  trailing_distance_atr: 0.75
+
+msite:
+  enabled: false
+
+gire:
+  enabled: false

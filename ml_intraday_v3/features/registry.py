@@ -297,6 +297,29 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 description="Position within Bollinger Bands (0=lower, 1=upper)",
             ),
         ])
+        anchor_cfg = config.get("trend", {}).get("anchor_context", {})
+        if anchor_cfg.get("enabled", False):
+            anchor_period = int(anchor_cfg.get("anchor_wma_period", 200))
+            registry.extend([
+                FeatureSpec(
+                    name=f"close_vs_wma_{anchor_period}_atr",
+                    lookback_bars=anchor_period,
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description=f"ATR-normalized distance between close and WMA{anchor_period}",
+                ),
+                FeatureSpec(
+                    name="wma_ladder_score",
+                    lookback_bars=anchor_period,
+                    uses_rolling_stats=True,
+                    requires_scaling=False,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="Trend-state score from close/WMA fast-mid-anchor ladder ordering",
+                ),
+            ])
 
     # -------------------------------------------------------------------------
     # 4. MOMENTUM (RSI, MACD, derived)
@@ -452,6 +475,29 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 description="Binary: 1 if |return| > 2x vol_20, else 0",
             ),
         ])
+        vwap_ctx_cfg = config.get("microstructure", {}).get("vwap_context", {})
+        if vwap_ctx_cfg.get("enabled", False):
+            zscore_lookback = int(vwap_ctx_cfg.get("zscore_lookback", 20))
+            registry.extend([
+                FeatureSpec(
+                    name="vwap_zscore",
+                    lookback_bars=50 + zscore_lookback,
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="Z-score of price_vs_vwap using rolling VWAP deviation volatility",
+                ),
+                FeatureSpec(
+                    name="vwap_band_distance",
+                    lookback_bars=50 + zscore_lookback,
+                    uses_rolling_stats=True,
+                    requires_scaling=True,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="Signed distance beyond the 1-sigma VWAP band",
+                ),
+            ])
 
     # -------------------------------------------------------------------------
     # 5. STRUCTURE (Candle features)
@@ -517,6 +563,93 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
             )
         )
 
+    if config.get("crt_tbs", {}).get("enabled", False):
+        crt_tbs_lookback = int(config.get("crt_tbs", {}).get("range_lookback", 20))
+        atr_period = int(config.get("volatility", {}).get("atr_period", 14))
+        registry.extend([
+            FeatureSpec(
+                name="crt_range_pos",
+                lookback_bars=crt_tbs_lookback,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Close position versus prior shifted range low/high",
+            ),
+            FeatureSpec(
+                name="crt_close_vs_mid",
+                lookback_bars=crt_tbs_lookback,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Close distance from prior shifted range midpoint",
+            ),
+            FeatureSpec(
+                name="crt_body_quality",
+                lookback_bars=0,
+                uses_rolling_stats=False,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Absolute candle body divided by candle range",
+            ),
+            FeatureSpec(
+                name="crt_close_location",
+                lookback_bars=0,
+                uses_rolling_stats=False,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Close location inside current candle range",
+            ),
+            FeatureSpec(
+                name="crt_displacement_atr",
+                lookback_bars=atr_period,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Absolute candle body divided by ATR",
+            ),
+            FeatureSpec(
+                name="tbs_long_setup",
+                lookback_bars=crt_tbs_lookback,
+                uses_rolling_stats=True,
+                requires_scaling=False,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Prior range low swept and reclaimed on current bar",
+            ),
+            FeatureSpec(
+                name="tbs_short_setup",
+                lookback_bars=crt_tbs_lookback,
+                uses_rolling_stats=True,
+                requires_scaling=False,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Prior range high swept and reclaimed on current bar",
+            ),
+            FeatureSpec(
+                name="tbs_sweep_distance_atr",
+                lookback_bars=crt_tbs_lookback,
+                uses_rolling_stats=True,
+                requires_scaling=True,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Signed sweep distance normalized by ATR",
+            ),
+            FeatureSpec(
+                name="tbs_reclaim_confirmed",
+                lookback_bars=crt_tbs_lookback,
+                uses_rolling_stats=True,
+                requires_scaling=False,
+                fit_on_train_only=False,
+                bar_sizes_supported=["1m", "5m"],
+                description="Directional reclaim flag: 1 long, -1 short, 0 none",
+            ),
+        ])
+
     # -------------------------------------------------------------------------
     # 6. TIME (Cyclical encodings)
     # -------------------------------------------------------------------------
@@ -556,6 +689,37 @@ def get_feature_registry(config: dict) -> List[FeatureSpec]:
                 description="Day of week (0=Monday, 6=Sunday)",
             )
         )
+        session_cfg = config.get("time", {}).get("session_windows", {})
+        if session_cfg.get("enabled", False):
+            registry.extend([
+                FeatureSpec(
+                    name="is_opening_window",
+                    lookback_bars=0,
+                    uses_rolling_stats=False,
+                    requires_scaling=False,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="Binary flag for the configured opening session window",
+                ),
+                FeatureSpec(
+                    name="is_midday_window",
+                    lookback_bars=0,
+                    uses_rolling_stats=False,
+                    requires_scaling=False,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="Binary flag for the configured midday session window",
+                ),
+                FeatureSpec(
+                    name="is_closing_window",
+                    lookback_bars=0,
+                    uses_rolling_stats=False,
+                    requires_scaling=False,
+                    fit_on_train_only=False,
+                    bar_sizes_supported=["1m", "5m"],
+                    description="Binary flag for the configured closing session window",
+                ),
+            ])
 
     # Optional structural break features
     if config.get("structural_breaks", {}).get("enabled", False):

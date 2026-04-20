@@ -68,6 +68,11 @@ class MetricsTracker:
         # Kelly sizing tracking
         self.kelly_sizing_log: List[Dict] = []
 
+        # TopstepX combine (from Account/search); optional, live only
+        self.broker_balance: Optional[float] = None
+        self.broker_realized_pnl: Optional[float] = None
+        self.broker_open_pnl: Optional[float] = None
+
         logger.info(f"MetricsTracker initialized: {output_dir}")
 
     def set_starting_equity(self, equity: float):
@@ -206,6 +211,18 @@ class MetricsTracker:
         """Update count of open positions."""
         self.open_positions = open_positions
 
+    def set_broker_account_fields(
+        self,
+        *,
+        balance: float,
+        realized_pnl: float,
+        open_pnl: float,
+    ) -> None:
+        """Mirror TopstepX account row for dashboard (combine balance / RP&L / UP&L)."""
+        self.broker_balance = float(balance)
+        self.broker_realized_pnl = float(realized_pnl)
+        self.broker_open_pnl = float(open_pnl)
+
     def snapshot(self) -> Dict:
         """
         Get current metrics snapshot.
@@ -268,6 +285,11 @@ class MetricsTracker:
             'signals_rejected': self.signals_rejected,
             'execution_rate': (self.signals_executed / self.signals_generated * 100) if self.signals_generated > 0 else 0.0,
         }
+
+        if self.broker_balance is not None:
+            snapshot['broker_balance'] = self.broker_balance
+            snapshot['broker_realized_pnl'] = self.broker_realized_pnl
+            snapshot['broker_open_pnl'] = self.broker_open_pnl
 
         return snapshot
 

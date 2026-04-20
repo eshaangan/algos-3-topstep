@@ -1,0 +1,369 @@
+{
+  "best_config": {
+    "u_percentile": 88,
+    "alpha": 0.3,
+    "lambda": 0.2
+  },
+  "training_stats": {
+    "N": 531,
+    "n_days": 127,
+    "trades_per_day": 4.18,
+    "wr": 36.7,
+    "avg_win": 10.87,
+    "avg_loss": -10.13,
+    "total_pnl": -1283.95,
+    "sharpe": -7.316,
+    "max_intraday_dd": -78.21,
+    "max_trade_loss": -73.24
+  },
+  "oos_stats": {
+    "N": 114,
+    "n_days": 27,
+    "trades_per_day": 4.22,
+    "wr": 33.3,
+    "avg_win": 11.58,
+    "avg_loss": -11.61,
+    "total_pnl": -442.09,
+    "sharpe": -10.907,
+    "max_intraday_dd": -62.22,
+    "max_trade_loss": -31.24
+  },
+  "oos_wr_diff_pp": 3.4,
+  "monotonicity": {
+    "z_buckets": {
+      "B1_low": {
+        "N": 175,
+        "wr": 34.3,
+        "avg_pnl": -2.53
+      },
+      "B2_mid": {
+        "N": 175,
+        "wr": 30.9,
+        "avg_pnl": -3.53
+      },
+      "B3_high": {
+        "N": 181,
+        "wr": 44.8,
+        "avg_pnl": -1.23
+      }
+    },
+    "w_buckets": {
+      "A_weak": {
+        "N": 115,
+        "wr": 33.0,
+        "avg_pnl": -4.17
+      },
+      "B_mod": {
+        "N": 161,
+        "wr": 39.8,
+        "avg_pnl": -1.31
+      },
+      "C_strong": {
+        "N": 255,
+        "wr": 36.5,
+        "avg_pnl": -2.33
+      }
+    },
+    "z_wr_monotone": false,
+    "z_pnl_monotone": false,
+    "w_wr_monotone": false,
+    "z_mono_pass": false
+  },
+  "per_day_analysis": {
+    "trades_per_day": {
+      "min": 2,
+      "p25": 3,
+      "median": 4,
+      "p75": 5,
+      "max": 8
+    },
+    "worst_5_sessions": [
+      {
+        "date": "2025-10-16",
+        "pnl": -78.21
+      },
+      {
+        "date": "2025-11-21",
+        "pnl": -51.72
+      },
+      {
+        "date": "2025-10-22",
+        "pnl": -49.47
+      },
+      {
+        "date": "2025-11-04",
+        "pnl": -49.47
+      },
+      {
+        "date": "2025-11-10",
+        "pnl": -44.97
+      }
+    ],
+    "best_5_sessions": [
+      {
+        "date": "2025-12-05",
+        "pnl": 64.62
+      },
+      {
+        "date": "2025-11-24",
+        "pnl": 49.11
+      },
+      {
+        "date": "2025-08-15",
+        "pnl": 44.09
+      },
+      {
+        "date": "2025-08-19",
+        "pnl": 43.65
+      },
+      {
+        "date": "2025-07-31",
+        "pnl": 38.37
+      }
+    ],
+    "long": {
+      "N": 287,
+      "wr": 40.1,
+      "avg_pnl": -2.26
+    },
+    "short": {
+      "N": 244,
+      "wr": 32.8,
+      "avg_pnl": -2.61
+    }
+  },
+  "monte_carlo": {
+    "n_paths": 10000,
+    "p_pass_pct": 0.0,
+    "p_bust_pct": 0.0,
+    "median_days_to_pass": null
+  },
+  "top15_sweep": [
+    {
+      "N": 531,
+      "n_days": 127,
+      "trades_per_day": 4.18,
+      "wr": 36.7,
+      "avg_win": 10.87,
+      "avg_loss": -10.13,
+      "total_pnl": -1283.95,
+      "sharpe": -7.316,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 88,
+      "alpha": 0.3,
+      "lambda": 0.2
+    },
+    {
+      "N": 547,
+      "n_days": 127,
+      "trades_per_day": 4.31,
+      "wr": 38.4,
+      "avg_win": 10.2,
+      "avg_loss": -10.12,
+      "total_pnl": -1267.52,
+      "sharpe": -7.319,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 88,
+      "alpha": 0.4,
+      "lambda": 0.2
+    },
+    {
+      "N": 479,
+      "n_days": 127,
+      "trades_per_day": 3.77,
+      "wr": 39.5,
+      "avg_win": 9.81,
+      "avg_loss": -10.52,
+      "total_pnl": -1195.19,
+      "sharpe": -7.36,
+      "max_intraday_dd": -71.93,
+      "max_trade_loss": -73.24,
+      "u_percentile": 88,
+      "alpha": 0.3,
+      "lambda": 0.4
+    },
+    {
+      "N": 582,
+      "n_days": 127,
+      "trades_per_day": 4.58,
+      "wr": 34.7,
+      "avg_win": 12.3,
+      "avg_loss": -10.55,
+      "total_pnl": -1524.86,
+      "sharpe": -7.385,
+      "max_intraday_dd": -75.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 75,
+      "alpha": 0.5,
+      "lambda": 0.2
+    },
+    {
+      "N": 571,
+      "n_days": 127,
+      "trades_per_day": 4.5,
+      "wr": 33.6,
+      "avg_win": 12.62,
+      "avg_loss": -10.5,
+      "total_pnl": -1558.17,
+      "sharpe": -7.591,
+      "max_intraday_dd": -75.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 75,
+      "alpha": 0.4,
+      "lambda": 0.2
+    },
+    {
+      "N": 552,
+      "n_days": 127,
+      "trades_per_day": 4.35,
+      "wr": 38.8,
+      "avg_win": 9.59,
+      "avg_loss": -10.13,
+      "total_pnl": -1371.35,
+      "sharpe": -7.661,
+      "max_intraday_dd": -86.97,
+      "max_trade_loss": -73.24,
+      "u_percentile": 88,
+      "alpha": 0.5,
+      "lambda": 0.2
+    },
+    {
+      "N": 575,
+      "n_days": 127,
+      "trades_per_day": 4.53,
+      "wr": 38.4,
+      "avg_win": 9.77,
+      "avg_loss": -10.12,
+      "total_pnl": -1423.93,
+      "sharpe": -7.725,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 85,
+      "alpha": 0.5,
+      "lambda": 0.2
+    },
+    {
+      "N": 556,
+      "n_days": 127,
+      "trades_per_day": 4.38,
+      "wr": 35.6,
+      "avg_win": 11.23,
+      "avg_loss": -10.08,
+      "total_pnl": -1385.61,
+      "sharpe": -7.836,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 85,
+      "alpha": 0.3,
+      "lambda": 0.2
+    },
+    {
+      "N": 567,
+      "n_days": 127,
+      "trades_per_day": 4.46,
+      "wr": 37.4,
+      "avg_win": 10.28,
+      "avg_loss": -10.12,
+      "total_pnl": -1411.03,
+      "sharpe": -7.858,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 85,
+      "alpha": 0.4,
+      "lambda": 0.2
+    },
+    {
+      "N": 500,
+      "n_days": 127,
+      "trades_per_day": 3.94,
+      "wr": 36.6,
+      "avg_win": 10.36,
+      "avg_loss": -10.14,
+      "total_pnl": -1319.05,
+      "sharpe": -7.937,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 88,
+      "alpha": 0.3,
+      "lambda": 0.3
+    },
+    {
+      "N": 516,
+      "n_days": 127,
+      "trades_per_day": 4.06,
+      "wr": 38.4,
+      "avg_win": 9.63,
+      "avg_loss": -10.16,
+      "total_pnl": -1323.99,
+      "sharpe": -8.044,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 88,
+      "alpha": 0.4,
+      "lambda": 0.3
+    },
+    {
+      "N": 556,
+      "n_days": 127,
+      "trades_per_day": 4.38,
+      "wr": 31.7,
+      "avg_win": 13.25,
+      "avg_loss": -10.57,
+      "total_pnl": -1683.45,
+      "sharpe": -8.057,
+      "max_intraday_dd": -75.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 75,
+      "alpha": 0.3,
+      "lambda": 0.2
+    },
+    {
+      "N": 511,
+      "n_days": 127,
+      "trades_per_day": 4.02,
+      "wr": 38.2,
+      "avg_win": 10.18,
+      "avg_loss": -10.76,
+      "total_pnl": -1414.71,
+      "sharpe": -8.115,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 85,
+      "alpha": 0.3,
+      "lambda": 0.4
+    },
+    {
+      "N": 549,
+      "n_days": 127,
+      "trades_per_day": 4.32,
+      "wr": 38.3,
+      "avg_win": 9.66,
+      "avg_loss": -10.14,
+      "total_pnl": -1409.49,
+      "sharpe": -8.263,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 85,
+      "alpha": 0.4,
+      "lambda": 0.3
+    },
+    {
+      "N": 574,
+      "n_days": 127,
+      "trades_per_day": 4.52,
+      "wr": 34.7,
+      "avg_win": 11.93,
+      "avg_loss": -10.42,
+      "total_pnl": -1533.3,
+      "sharpe": -8.266,
+      "max_intraday_dd": -78.21,
+      "max_trade_loss": -73.24,
+      "u_percentile": 80,
+      "alpha": 0.4,
+      "lambda": 0.2
+    }
+  ],
+  "verdict": "KILL"
+}

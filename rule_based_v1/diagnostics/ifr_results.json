@@ -1,0 +1,152 @@
+{
+  "training": {
+    "orb": {
+      "N": 24,
+      "n_day": 24,
+      "WR": 0.5,
+      "AvgW": 71.05,
+      "AvgL": -69.58,
+      "PF": 1.021,
+      "PnL": 17.62,
+      "Sharpe": 0.127,
+      "MaxDD": -391.86
+    },
+    "ifr": {
+      "N": 15,
+      "n_day": 14,
+      "WR": 0.7333,
+      "AvgW": 54.55,
+      "AvgL": -44.57,
+      "PF": 3.366,
+      "PnL": 421.8,
+      "Sharpe": 7.089,
+      "MaxDD": -113.28
+    },
+    "ifr_short": {
+      "N": 15,
+      "n_day": 14,
+      "WR": 0.7333,
+      "AvgW": 54.55,
+      "AvgL": -44.57,
+      "PF": 3.366,
+      "PnL": 421.8,
+      "Sharpe": 7.089,
+      "MaxDD": -113.28
+    },
+    "ifr_long": {
+      "N": 0,
+      "n_day": 0,
+      "WR": 0.0,
+      "AvgW": 0.0,
+      "AvgL": 0.0,
+      "PF": 0.0,
+      "PnL": 0.0,
+      "Sharpe": 0.0,
+      "MaxDD": 0.0
+    },
+    "ifr_neg": {
+      "N": 3,
+      "n_day": 3,
+      "WR": 1.0,
+      "AvgW": 121.44,
+      "AvgL": 0.0,
+      "PF": 36433000000.0,
+      "PnL": 364.33,
+      "Sharpe": 31.828,
+      "MaxDD": 0.0
+    },
+    "ifr_chop": {
+      "N": 12,
+      "n_day": 11,
+      "WR": 0.6667,
+      "AvgW": 29.47,
+      "AvgL": -44.57,
+      "PF": 1.322,
+      "PnL": 57.47,
+      "Sharpe": 1.904,
+      "MaxDD": -140.15
+    },
+    "exit_distribution": {
+      "time": 8,
+      "tp": 4,
+      "stop": 3
+    },
+    "correlation_all_days": 0.0039,
+    "combined_sharpe": 2.1841,
+    "overlap_pct": 0.0714,
+    "ifr_on_orb_loss": {
+      "N": 1,
+      "n_day": 1,
+      "WR": 0.0,
+      "AvgW": 0.0,
+      "AvgL": -3.12,
+      "PF": 0.0,
+      "PnL": -3.12,
+      "Sharpe": 0.0,
+      "MaxDD": 0.0
+    },
+    "ifr_on_orb_notrade": {
+      "N": 14,
+      "n_day": 13,
+      "WR": 0.7857,
+      "AvgW": 54.55,
+      "AvgL": -58.39,
+      "PF": 3.426,
+      "PnL": 424.92,
+      "Sharpe": 7.482,
+      "MaxDD": -113.28
+    }
+  },
+  "oos_mes": {
+    "orb": {
+      "N": 4,
+      "n_day": 4,
+      "WR": 0.75,
+      "AvgW": 104.38,
+      "AvgL": -73.12,
+      "PF": 4.283,
+      "PnL": 240.02,
+      "Sharpe": 10.241,
+      "MaxDD": -73.12
+    },
+    "ifr": {
+      "N": 0,
+      "n_day": 0,
+      "WR": 0.0,
+      "AvgW": 0.0,
+      "AvgL": 0.0,
+      "PF": 0.0,
+      "PnL": 0.0,
+      "Sharpe": 0.0,
+      "MaxDD": 0.0
+    },
+    "combined_sharpe": 10.2407
+  },
+  "mnq": {
+    "orb": {
+      "N": 16,
+      "n_day": 16,
+      "WR": 0.75,
+      "AvgW": 184.59,
+      "AvgL": -244.12,
+      "PF": 2.268,
+      "PnL": 1238.58,
+      "Sharpe": 5.725,
+      "MaxDD": -471.12
+    },
+    "ifr": {
+      "N": 4,
+      "n_day": 3,
+      "WR": 0.25,
+      "AvgW": 24.88,
+      "AvgL": -68.09,
+      "PF": 0.122,
+      "PnL": -179.38,
+      "Sharpe": -21.947,
+      "MaxDD": -93.24
+    },
+    "combined_sharpe": 4.3393
+  },
+  "acceptance_criteria_passed": 2,
+  "verdict": "REVISE \u2014 partial signal, re-examine entry logic"
+}

@@ -17,15 +17,10 @@ import pytz
 # Import ProjectX client with a robust fallback for test environments
 import sys
 from pathlib import Path
-# Try to find project root (different structure in Docker vs local)
-# Local: algos 3 topstep/ml_intraday_v3/live_trading/ -> parents[2]
-# Docker: /app/live_trading/ -> parents[1]
+# Repo root / Docker app root: .../ml_intraday_v3/live_trading/ -> parents[2]
+# (Always /app in the ORB image; never use ml_intraday_v3/core — that package is unrelated
+# to ProjectX and would shadow the real core/ under /app/core.)
 project_root = Path(__file__).resolve().parents[2]
-docker_root = Path(__file__).resolve().parents[1]
-
-# Check if core exists at parents[1] (Docker) or parents[2] (local)
-if (docker_root / "core").exists():
-    project_root = docker_root
 
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
@@ -148,11 +143,14 @@ class TopstepXRestDataFetcher:
         logger.info("Initializing buffer with historical bars...")
 
         end_time = datetime.now(timezone.utc)
-        
-        # Fetch 7 days of data to handle weekends/holidays
-        # This ensures we get enough RTH bars even on Monday morning
-        # 7 days = 10,080 minutes
-        minutes_back = 7 * 24 * 60
+
+        # Fetch enough history to fill the desired lookback AFTER RTH filtering.
+        # For 5m bars, there are ~78 RTH bars per session (6.5h * 60 / 5).
+        # We add a buffer for weekends/holidays and any missing bars.
+        bars_per_rth_day = max(1, int((6.5 * 60) / max(1, self.bar_size_minutes)))
+        days_needed = int(self.lookback_bars / bars_per_rth_day) + 5
+        days_back = max(7, min(60, days_needed))
+        minutes_back = days_back * 24 * 60
         start_time = end_time - timedelta(minutes=minutes_back)
 
         try:
@@ -162,7 +160,7 @@ class TopstepXRestDataFetcher:
                 end_time=end_time,
                 unit=2,  # 2 = minutes
                 unit_number=self.bar_size_minutes,
-                limit=1000,  # Increased from 200 to handle 7 days
+                limit=8000,  # Enough to cover extended backfill windows
                 include_partial_bar=False,
                 live=False,  # Use historical data mode
             )

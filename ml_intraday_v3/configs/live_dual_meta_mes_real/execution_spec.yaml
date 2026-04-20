@@ -1,0 +1,70 @@
+# Execution specification aligned to 2 MES live rollout (position cap below).
+
+instrument:
+  symbol: "MES"
+  tick_size_points: 0.25
+  contract_multiplier_usd_per_point: 5.0
+
+fill_model:
+  fill_price: "next_bar_open"
+  touch_ordering: "ohlc_path"
+
+costs:
+  slippage_ticks:
+    "1m": 1.0
+    "5m": 1.5
+  commission_per_contract: 0.62
+
+position_limits:
+  max_contracts_per_position: 2
+  max_concurrent_positions: 1
+  rounding: "floor"
+
+session_rules:
+  allowed_sessions:
+    - name: "rth"
+      start_time: "09:30"
+      end_time: "16:00"
+      timezone: "America/Chicago"
+  no_entry_before_close_bars:
+    "1m": 30
+    "5m": 6
+  force_flatten_at_close: true
+
+holding_constraints:
+  max_holding_bars:
+    "1m": 24
+    "5m": 24
+  force_exit_at_max: true
+
+decision:
+  # P0.4 (2026-04-16): backtest.yaml::decision is the canonical runtime source
+  # (live reads thresholds via build_live_decision_config(backtest_cfg=...)).
+  # These fields are retained only for tooling that reads execution_spec
+  # directly (e.g., bundle exporters, diagnostic scripts) and MUST stay in
+  # sync with backtest.yaml. A parity guard in run_standalone_topstep_candidate
+  # raises ValueError on drift. Source: analysis/decision_parity.py.
+  use_meta: true
+  primary_threshold: 0.28
+  meta_threshold: 0.35
+  require_meta_for_trade: true
+
+filters:
+  confidence:
+    enabled: false
+    min_probability_distance: 0.55
+  volatility:
+    enabled: false
+    min_percentile: 30
+    max_percentile: 70
+    lookback_bars: 100
+    vol_column: "vol_20"
+  time_of_day:
+    enabled: false
+    start_hour: 9
+    start_minute: 30
+    end_hour: 13
+    end_minute: 30
+    timezone: "America/Chicago"
+
+spec_version: "1.0.0"

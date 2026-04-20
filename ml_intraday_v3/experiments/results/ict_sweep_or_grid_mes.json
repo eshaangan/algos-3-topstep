@@ -1,0 +1,59 @@
+{
+  "grid": [
+    {
+      "long_only": false,
+      "min_sweep_atr": 0.0,
+      "num_trades": 391,
+      "total_pnl": -4133.23,
+      "win_rate": 0.353,
+      "profit_factor": 0.758,
+      "max_drawdown": -4539.53
+    },
+    {
+      "long_only": false,
+      "min_sweep_atr": 0.1,
+      "num_trades": 374,
+      "total_pnl": -3891.03,
+      "win_rate": 0.366,
+      "profit_factor": 0.758,
+      "max_drawdown": -4299.77
+    },
+    {
+      "long_only": false,
+      "min_sweep_atr": 0.2,
+      "num_trades": 344,
+      "total_pnl": -3278.48,
+      "win_rate": 0.375,
+      "profit_factor": 0.775,
+      "max_drawdown": -3412.47
+    },
+    {
+      "long_only": true,
+      "min_sweep_atr": 0.0,
+      "num_trades": 226,
+      "total_pnl": -601.97,
+      "win_rate": 0.42,
+      "profit_factor": 0.935,
+      "max_drawdown": -1368.87
+    },
+    {
+      "long_only": true,
+      "min_sweep_atr": 0.1,
+      "num_trades": 213,
+      "total_pnl": -841.32,
+      "win_rate": 0.427,
+      "profit_factor": 0.902,
+      "max_drawdown": -1577.2
+    },
+    {
+      "long_only": true,
+      "min_sweep_atr": 0.2,
+      "num_trades": 196,
+      "total_pnl": -839.18,
+      "win_rate": 0.429,
+      "profit_factor": 0.895,
+      "max_drawdown": -1253.74
+    }
+  ],
+  "instrument": "MES"
+}

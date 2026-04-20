@@ -1,0 +1,135 @@
+# Dedicated live configuration for the promoted MES dual-meta strategy.
+# Decision gates: aligned with multi-year holdout (sweep_winner_L028_S043_reqmeta).
+# Size: 2 MES — risk.yaml / execution_spec scaled 2x vs 1-lot baseline.
+
+trading:
+  environment: "live"
+  enabled: true
+  dry_run: false
+  bar_size: "5m"
+  model_bundle_path: "ml_intraday_v3/models/live/dual_meta_mes_live_bundle.pkl"
+
+data:
+  provider: "topstep"
+  symbol: "MES"
+  schema: "ohlcv-1m"
+  update_frequency_seconds: 60
+  # HMM regime features need at least hmm_regime.min_train_samples (500) and ideally
+  # rolling_window_size (800). Keep enough history in the live buffer.
+  lookback_bars: 900
+  enable_rth_filter: true
+
+features:
+  features_config_path: "features_hmm_experiment.yaml"
+
+topstep:
+  base_url: "https://api.topstepx.com"
+  # How often to refresh equity / balance / daily PnL from TopstepX Account/search
+  account_refresh_seconds: 15
+  # Default to the current front-month at deployment time; override with
+  # --contract-id if Topstep rolls before the image is rebuilt.
+  contract_id: "CON.F.US.MES.M26"
+  account_id_env_var: "TOPSTEPX_ACCOUNT_ID"
+  api_key_env_var: "TOPSTEPX_PROJECTX_API_KEY"
+  session_token_env_var: "TOPSTEPX_SESSION_TOKEN"
+  order:
+    type: "MARKET"
+    time_in_force: "DAY"
+    use_brackets: true
+
+circuit_breaker:
+  enabled: false
+
+regime_detector:
+  enabled: false
+
+regime_filter:
+  enabled: false
+
+volatility_filter:
+  enabled: false
+
+signals:
+  # INFO logs: CUSUM skip reasons each bar; execution pre-checks when a signal reaches the broker layer.
+  decision_trace: true
+  use_meta_model: false
+  primary_threshold: 0.28
+  primary_threshold_long: 0.28
+  primary_threshold_short: 0.58
+  require_meta_approval: false
+  max_primary_threshold: 0.60
+  volatility_filter:
+    enabled: false
+    min_sigma: 0.0
+  event_filter:
+    enabled: true
+    atr_period: 14
+    cusum_threshold_atr_mult: 0.8
+    min_cusum_threshold: 6.0
+
+direction_change:
+  enabled: true
+  high_confidence_threshold: 0.45
+
+positions:
+  contracts_per_trade: 2
+  max_concurrent: 1
+  flatten_at_close: true
+  session_close_time: "16:00"
+  flatten_buffer_minutes: 5
+
+kelly_sizing:
+  enabled: false
+
+risk:
+  use_risk_yaml: true
+  use_risk_manager: false
+  risk_config_path: "ml_intraday_v3/configs/live_dual_meta_mes_real/risk.yaml"
+  equity_floor: 0.90
+  max_loss_per_trade: 300
+  halt_on_consecutive_losses: 4
+  auto_resume_after_halt: false
+
+monitoring:
+  log_level: "INFO"
+  log_file: "logs/live_trading_{timestamp}.log"
+  trade_log: "logs/trades_{timestamp}.csv"
+  equity_log: "logs/equity_{timestamp}.csv"
+  alerts:
+    alert_on_trade: true
+    alert_on_risk_breach: true
+    alert_on_error: true
+    method: "log"
+
+health:
+  api_check_interval_seconds: 300
+  model_check_interval_bars: 60
+  check_feature_quality: true
+  halt_on_health_failure: true
+
+reconciliation:
+  sync_interval_seconds: 60
+  reconcile_pnl: true
+  halt_on_mismatch: true
+  pnl_mismatch_tolerance: 10.0
+
+startup:
+  checks:
+    - "api_connection"
+    - "model_loaded"
+    - "risk_config_valid"
+    - "data_connection"
+    - "broker_account_valid"
+  require_manual_confirmation: false
+  display_account_status: true
+
+session:
+  sessions:
+    - name: "rth"
+      start_time: "09:30"
+      end_time: "16:00"
+      timezone: "America/Chicago"
+  no_entry_before_close_minutes: 30
+
+version: "1.0.0"
+last_updated: "2026-04-13"

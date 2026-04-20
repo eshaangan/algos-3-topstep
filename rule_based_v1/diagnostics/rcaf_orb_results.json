@@ -1,0 +1,109 @@
+{
+  "verdict": "ADDITIVE",
+  "checks": {
+    "combined_sharpe_better": true,
+    "combined_dd_not_worse": true,
+    "rcaf_positive_sharpe": true,
+    "overlap_lt_30pct": true,
+    "oos_combined_positive": true
+  },
+  "training_mes": {
+    "orb_standalone": {
+      "N": 16,
+      "WR": 0.5,
+      "Sharpe": -0.26244709155923723,
+      "PnL": -82.5,
+      "MaxDD": -397.5,
+      "day_WR": 0.5
+    },
+    "rcaf_standalone": {
+      "N": 45,
+      "WR": 0.3111,
+      "Sharpe": 0.5474938651696203,
+      "PnL": 71.95,
+      "MaxDD": -102.62,
+      "day_WR": 0.4444
+    },
+    "rcaf_chop": {
+      "N": 34,
+      "WR": 0.2647,
+      "Sharpe": 0.831,
+      "PnL": 35.3,
+      "MaxDD": -119.88
+    },
+    "rcaf_negative": {
+      "N": 11,
+      "WR": 0.4545,
+      "Sharpe": 2.137,
+      "PnL": 36.65,
+      "MaxDD": -101.08
+    },
+    "combined": {
+      "N_active_days": 41,
+      "day_WR": 0.4878,
+      "PnL": -10.55,
+      "Sharpe": -0.032,
+      "MaxDD": -452.05
+    },
+    "delta_sharpe": 0.23,
+    "delta_pnl": 71.95,
+    "delta_dd": -54.55,
+    "overlap_days": 2,
+    "overlap_pct": 0.0741,
+    "correlation_both_active": null
+  },
+  "oos_mes": {
+    "orb_standalone": {
+      "N": 4,
+      "Sharpe": 3.307,
+      "PnL": 232.5,
+      "MaxDD": -75.0
+    },
+    "rcaf_standalone": {
+      "N": 5,
+      "Sharpe": -5.606,
+      "PnL": -87.87,
+      "MaxDD": -87.87
+    },
+    "combined": {
+      "N_active_days": 7,
+      "day_WR": 0.4286,
+      "PnL": 144.63,
+      "Sharpe": 1.977,
+      "MaxDD": -162.87
+    }
+  },
+  "mnq_transfer": {
+    "orb_standalone": {
+      "N": 16,
+      "Sharpe": 2.914,
+      "PnL": 1232.5,
+      "MaxDD": -471.5
+    },
+    "rcaf_standalone": {
+      "N": 15,
+      "Sharpe": 0.041,
+      "PnL": 5.32,
+      "MaxDD": -199.19
+    },
+    "combined": {
+      "N_active_days": 22,
+      "day_WR": 0.7273,
+      "PnL": 1237.82,
+      "Sharpe": 2.909,
+      "MaxDD": -471.5
+    }
+  },
+  "monte_carlo_combined": {
+    "p_pass": 0.0,
+    "p_bust_dd": 0.0,
+    "p_bust_daily": 0.0,
+    "median_days_to_pass": 60
+  },
+  "monte_carlo_orb_only": {
+    "p_pass": 0.0,
+    "p_bust_dd": 0.0,
+    "p_bust_daily": 0.0,
+    "median_days_to_pass": 60
+  }
+}

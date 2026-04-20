@@ -1,0 +1,29 @@
+# IVB ORB — MES, 3 contracts.
+# Best config from 2026 YTD sweep: or_minutes=40, vol_ratio=1.1, target_mult=1.0
+# Stop: OR-floor (min(VAL, or_low) - tick). Target: entry + 1.0 * or_range.
+
+ivb_orb:
+  or_minutes: 40
+  entry_cutoff_time: "14:00"
+  min_volume_ratio: 1.1
+  reload_tolerance_ticks: 4
+  target_range_mult: 1.0
+  mode: "both"
+  skip_monday: true    # Monday loses every year across 7yr history — skip entirely
+  min_body_ratio: 0.35          # do not relax — sweep showed 0.25 hurts edge across all regimes
+  min_vix_to_trade: 20.0        # P1-A VIX gate: only trade when prior-day VIX >= 20
+                                # 7yr backtest: VIX>=20 → Sharpe 1.30 / MaxDD $1,617 vs 0.15 / $3,787 ungated
+
+time_of_day:
+  session_start: "09:30"
+  session_end: "15:50"
+  lunch_filter_enabled: false
+
+exit_strategy:
+  time_stop_bars: 12          # P0-C: reduced from 18 — backtest: 15 trades/73%WR/$1,285 vs 8 trades/50%WR/$274 at 18 bars
+
+msite:
+  enabled: false
+
+gire:
+  enabled: false

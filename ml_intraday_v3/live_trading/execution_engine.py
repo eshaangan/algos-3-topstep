@@ -29,7 +29,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 try:
-    from core.projectx_client import BracketInstruction, ProjectXClient, OrderState
+    from core.projectx_client import AccountState, BracketInstruction, ProjectXClient, OrderState
 except ModuleNotFoundError:
     project_root = Path(__file__).resolve().parents[2]
     core_path = project_root / "core" / "projectx_client.py"
@@ -42,6 +42,7 @@ except ModuleNotFoundError:
     ProjectXClient = module.ProjectXClient
     OrderState = module.OrderState
     BracketInstruction = module.BracketInstruction
+    AccountState = module.AccountState
 from backtesting_v3.risk import RiskManager
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,9 @@ class LiveExecutionEngine:
         self.max_drawdown_limit = cb_cfg.get("max_drawdown_limit", 1500.0) # Stop before $2000
         logger.info(f"Circuit Breaker Config: enabled={self.circuit_breaker_enabled}, limit=${self.max_drawdown_limit}")
 
+        signals_cfg = self.config.get("signals", {}) or {}
+        self.decision_trace = bool(signals_cfg.get("decision_trace", False))
+
         # Initialize risk manager
         self.risk_manager = RiskManager(risk_cfg)
 
@@ -148,6 +152,10 @@ class LiveExecutionEngine:
         # Trade log
         self.trade_log: List[Dict] = []
 
+        # TopstepX account/search snapshot (live only); source of truth for dashboard + risk sync
+        self.last_account_state: Optional[AccountState] = None
+        self._broker_open_positions: Optional[int] = None
+
         logger.info(f"LiveExecutionEngine initialized (dry_run={dry_run})")
 
     def execute_signal(
@@ -176,6 +184,15 @@ class LiveExecutionEngine:
         Returns:
             (success, reason) tuple
         """
+        if self.decision_trace:
+            logger.info(
+                "execute_signal entry: direction=%s contracts=%s score_ev=%.4f open_positions=%d",
+                direction,
+                contracts,
+                float(prediction.get("score_ev", 0.0) or 0.0),
+                len(self.open_positions),
+            )
+
         # Check risk gates
         can_trade, reason = self.risk_manager.can_trade(timestamp)
         # Log if we can trade or not, to trace flow
@@ -195,8 +212,17 @@ class LiveExecutionEngine:
         regime = current_regime
         if regime is None and 'regime' in bars_df.columns and not bars_df.empty:
             regime = bars_df.iloc[-1]['regime']
-        
-        logger.info(f"DEBUG EXECUTION: FilterEnabled={self.regime_filter_enabled}, Regime={regime}, Direction={direction}")
+
+        if self.decision_trace:
+            logger.info(
+                "Execution filters: regime_filter_enabled=%s regime=%s direction=%s "
+                "volatility_filter_enabled=%s direction_change_enabled=%s",
+                self.regime_filter_enabled,
+                regime,
+                direction,
+                self.volatility_filter_enabled,
+                self.direction_change_enabled,
+            )
 
         if self.regime_filter_enabled:
             # Apply filter logic if regime is known
@@ -616,8 +642,13 @@ class LiveExecutionEngine:
         Returns:
             Dictionary with status information
         """
+        open_pos_display = (
+            int(self._broker_open_positions)
+            if not self.dry_run and self._broker_open_positions is not None
+            else len(self.open_positions)
+        )
         return {
-            'open_positions': len(self.open_positions),
+            'open_positions': open_pos_display,
             'equity': self.get_equity(),
             'daily_pnl': self.get_daily_pnl(),
             'drawdown': self.get_drawdown(),
@@ -625,6 +656,38 @@ class LiveExecutionEngine:
             'consecutive_losses': self.risk_manager.consecutive_losses,
             'halted': self.risk_manager.halted_today,
         }
+
+    def refresh_account_from_api(self) -> bool:
+        """
+        Pull equity, daily PnL, and open position count from TopstepX Account/search.
+
+        Updates internal RiskManager so limits align with the combine (incl. manual trades).
+        """
+        if self.dry_run or self.client is None:
+            return False
+        try:
+            state = self.client.get_account_state()
+        except Exception as exc:
+            logger.warning("TopstepX account refresh failed: %s", exc)
+            return False
+
+        self.last_account_state = state
+        self._broker_open_positions = int(state.open_positions)
+
+        ts = pd.Timestamp.now(tz="UTC")
+        self.risk_manager.apply_broker_snapshot(
+            equity=state.equity,
+            daily_pnl=state.daily_pnl,
+            timestamp=ts,
+        )
+        logger.debug(
+            "Broker snapshot: equity=%.2f daily_pnl=%.2f balance=%.2f open_pos=%s",
+            state.equity,
+            state.daily_pnl,
+            state.balance,
+            state.open_positions,
+        )
+        return True
 
     def get_net_position_direction(self) -> str:
         """
@@ -730,6 +793,14 @@ class LiveExecutionEngine:
         try:
             # Try to fetch account info
             account = self.client.get_account_state()
+            self.last_account_state = account
+            self._broker_open_positions = int(account.open_positions)
+            ts = pd.Timestamp.now(tz="UTC")
+            self.risk_manager.apply_broker_snapshot(
+                equity=account.equity,
+                daily_pnl=account.daily_pnl,
+                timestamp=ts,
+            )
             logger.info(f"API connection healthy: account={account.account_id}, equity=${account.equity:,.2f}")
             return True
         except Exception as e:

@@ -106,6 +106,66 @@ def compute_regime_at_events(
     return events_out
 
 
+def _overlay_side_mask(side_series: pd.Series, side_name: str) -> pd.Series:
+    if side_name == "long":
+        return side_series.fillna(1).astype(float) >= 0
+    if side_name == "short":
+        return side_series.fillna(1).astype(float) < 0
+    return pd.Series(True, index=side_series.index)
+
+
+def _normalize_regime_overlay_rules(regime_filter_cfg: dict) -> list[dict]:
+    rules = []
+
+    explicit_rules = regime_filter_cfg.get("overlay_rules", []) or []
+    for idx, rule in enumerate(explicit_rules):
+        if not rule:
+            continue
+        normalized = dict(rule)
+        normalized["name"] = normalized.get("name", f"overlay_rule_{idx}")
+        normalized["regimes"] = [int(r) for r in (normalized.get("regimes", []) or [])]
+        normalized["side"] = str(normalized.get("side", "both")).lower()
+        normalized["threshold_boost"] = float(normalized.get("threshold_boost", 0.0) or 0.0)
+        normalized["block"] = bool(normalized.get("block", False))
+        normalized["reason"] = normalized.get(
+            "reason",
+            "regime_overlay_block" if normalized["block"] else "regime_threshold_boost",
+        )
+        rules.append(normalized)
+
+    legacy_regimes = regime_filter_cfg.get("threshold_boost_regimes", []) or []
+    legacy_boost = float(regime_filter_cfg.get("threshold_boost", 0.0) or 0.0)
+    if legacy_regimes and legacy_boost > 0.0:
+        rules.append(
+            {
+                "name": "legacy_threshold_boost",
+                "regimes": [int(r) for r in legacy_regimes],
+                "side": "both",
+                "threshold_boost": legacy_boost,
+                "block": False,
+                "reason": "regime_threshold_boost",
+            }
+        )
+
+    return rules
+
+
+def _normalize_regime_threshold_schedule(regime_filter_cfg: dict) -> list[dict]:
+    rules = []
+    explicit_rules = regime_filter_cfg.get("threshold_schedule", []) or []
+    for idx, rule in enumerate(explicit_rules):
+        if not rule or rule.get("threshold") is None:
+            continue
+        normalized = dict(rule)
+        normalized["name"] = normalized.get("name", f"threshold_schedule_rule_{idx}")
+        normalized["regimes"] = [int(r) for r in (normalized.get("regimes", []) or [])]
+        normalized["side"] = str(normalized.get("side", "both")).lower()
+        normalized["threshold"] = float(normalized.get("threshold"))
+        normalized["reason"] = normalized.get("reason", "regime_threshold_schedule")
+        rules.append(normalized)
+    return rules
+
+
 def decide_trades(
     events_df: pd.DataFrame,
     primary_preds: pd.DataFrame,
@@ -126,6 +186,7 @@ def decide_trades(
     use_meta = bool(decision_cfg.get("use_meta", False))
     score_col = decision_cfg.get("primary_score_column")
     primary_threshold = float(decision_cfg.get("primary_threshold", 0.5))
+    side_threshold_cfg = decision_cfg.get("primary_threshold_by_side", {}) or {}
     meta_threshold = float(decision_cfg.get("meta_threshold", 0.5))
     require_meta = bool(decision_cfg.get("require_meta_for_trade", True))
 
@@ -137,32 +198,136 @@ def decide_trades(
         cols.extend(extra)
         preds = primary_preds[cols].rename(columns={score_col: "p_primary"})
     else:
-        preds = primary_preds[["event_id", "y_prob"]].rename(
-            columns={"y_prob": "p_primary"}
-        )
+        preds = primary_preds[["event_id", "y_prob"]].rename(columns={"y_prob": "p_primary"})
+
     merged = events_df.merge(preds, on="event_id", how="left")
+    merged["decision_reason"] = ""
+
     missing_primary = merged["p_primary"].isna()
     if missing_primary.any():
         logger.warning(
             "Missing primary predictions for %d events; marking as skipped",
             int(missing_primary.sum()),
         )
-
-    merged["proposed"] = merged["p_primary"] >= primary_threshold
-    merged["accept"] = merged["proposed"].copy()
-    merged["decision_reason"] = ""
-    if missing_primary.any():
-        merged.loc[missing_primary, "accept"] = False
         merged.loc[missing_primary, "decision_reason"] = "missing_primary"
 
     if "predicted_side" in merged.columns:
         merged["side"] = merged["predicted_side"].fillna(merged.get("side", 1))
         no_side = merged["predicted_side"] == 0
         if no_side.any():
-            merged.loc[no_side, "accept"] = False
             merged.loc[no_side & (merged["decision_reason"] == ""), "decision_reason"] = "no_positive_ev"
 
-    # Volatility filter (only trade in high-vol regimes)
+    if "side" not in merged.columns:
+        merged["side"] = 1
+
+    regime_filter_cfg = decision_cfg.get("regime_filter", {})
+    regime_enabled = bool(regime_filter_cfg.get("enabled", False)) and bars_df is not None
+    if regime_enabled:
+        vol_window = int(regime_filter_cfg.get("vol_window", 20))
+        trend_window = int(regime_filter_cfg.get("trend_window", 50))
+        merged = compute_regime_at_events(merged, bars_df, vol_window, trend_window)
+
+        if bool(regime_filter_cfg.get("enable_shorts", False)):
+            downtrend_regimes = regime_filter_cfg.get("downtrend_regimes", [0, 3, 6])
+            is_downtrend = merged["combined_regime"].isin(downtrend_regimes)
+            merged.loc[is_downtrend, "side"] = -1
+            merged.loc[~is_downtrend, "side"] = 1
+    else:
+        merged["vol_regime"] = None
+        merged["trend_regime"] = None
+        merged["combined_regime"] = None
+        merged["regime_label"] = None
+
+    long_threshold = float(side_threshold_cfg.get("long", primary_threshold))
+    short_threshold = float(side_threshold_cfg.get("short", primary_threshold))
+    merged["default_primary_threshold"] = np.where(
+        merged["side"].fillna(1).astype(float) >= 0,
+        long_threshold,
+        short_threshold,
+    )
+    merged["base_primary_threshold"] = merged["default_primary_threshold"].astype(float)
+    merged["regime_threshold_schedule_applied"] = False
+    merged["regime_threshold_schedule_reason"] = ""
+    merged["regime_threshold_adjustment"] = 0.0
+    merged["regime_overlay_reason"] = ""
+    merged["regime_blocked"] = False
+
+    if regime_enabled:
+        for rule in _normalize_regime_threshold_schedule(regime_filter_cfg):
+            if not rule["regimes"]:
+                continue
+            mask = merged["combined_regime"].isin(rule["regimes"])
+            mask &= _overlay_side_mask(merged["side"], rule["side"])
+            if not mask.any():
+                continue
+
+            merged.loc[mask, "base_primary_threshold"] = rule["threshold"]
+            merged.loc[mask, "regime_threshold_schedule_applied"] = True
+            merged.loc[mask, "regime_threshold_schedule_reason"] = rule["reason"]
+
+        for rule in _normalize_regime_overlay_rules(regime_filter_cfg):
+            if not rule["regimes"]:
+                continue
+            mask = merged["combined_regime"].isin(rule["regimes"])
+            mask &= _overlay_side_mask(merged["side"], rule["side"])
+            if not mask.any():
+                continue
+
+            if rule["block"]:
+                merged.loc[mask, "regime_blocked"] = True
+                empty_reason = mask & (merged["regime_overlay_reason"] == "")
+                merged.loc[empty_reason, "regime_overlay_reason"] = rule["reason"]
+
+            threshold_boost = float(rule.get("threshold_boost", 0.0) or 0.0)
+            if threshold_boost > 0.0:
+                stronger = mask & (merged["regime_threshold_adjustment"] < threshold_boost)
+                merged.loc[stronger, "regime_threshold_adjustment"] = threshold_boost
+                merged.loc[stronger, "regime_overlay_reason"] = rule["reason"]
+
+    merged["applied_primary_threshold"] = (
+        merged["base_primary_threshold"] + merged["regime_threshold_adjustment"]
+    )
+    merged["proposed"] = merged["p_primary"] >= merged["applied_primary_threshold"]
+    merged["accept"] = merged["proposed"].copy()
+
+    if missing_primary.any():
+        merged.loc[missing_primary, "accept"] = False
+    if "predicted_side" in merged.columns:
+        no_side = merged["predicted_side"] == 0
+        if no_side.any():
+            merged.loc[no_side, "accept"] = False
+
+    schedule_reject = (
+        merged["regime_threshold_schedule_applied"]
+        & (merged["base_primary_threshold"] > merged["default_primary_threshold"])
+        & (merged["p_primary"] >= merged["default_primary_threshold"])
+        & (merged["p_primary"] < merged["base_primary_threshold"])
+    )
+    if schedule_reject.any():
+        reason_mask = schedule_reject & (merged["decision_reason"] == "")
+        merged.loc[reason_mask, "decision_reason"] = merged.loc[
+            reason_mask, "regime_threshold_schedule_reason"
+        ].replace("", "regime_threshold_schedule")
+
+    overlay_reject = (
+        (merged["regime_threshold_adjustment"] > 0.0)
+        & (merged["p_primary"] >= merged["base_primary_threshold"])
+        & (merged["p_primary"] < merged["applied_primary_threshold"])
+    )
+    if overlay_reject.any():
+        reason_mask = overlay_reject & (merged["decision_reason"] == "")
+        merged.loc[reason_mask, "decision_reason"] = merged.loc[
+            reason_mask, "regime_overlay_reason"
+        ].replace("", "regime_threshold_boost")
+
+    blocked = merged["regime_blocked"] & merged["accept"]
+    if blocked.any():
+        merged.loc[blocked, "accept"] = False
+        reason_mask = blocked & (merged["decision_reason"] == "")
+        merged.loc[reason_mask, "decision_reason"] = merged.loc[
+            reason_mask, "regime_overlay_reason"
+        ].replace("", "regime_overlay_block")
+
     vol_filter_cfg = decision_cfg.get("volatility_filter", {})
     if vol_filter_cfg.get("enabled", False):
         min_sigma = float(vol_filter_cfg.get("min_sigma", 0.0))
@@ -193,96 +358,31 @@ def decide_trades(
         else:
             logger.warning("Volatility filter enabled but sigma column not found in events")
 
-    # Regime filter (reduce trades during dangerous regimes)
-    regime_filter_cfg = decision_cfg.get("regime_filter", {})
-    if regime_filter_cfg.get("enabled", False) and bars_df is not None:
-        vol_window = int(regime_filter_cfg.get("vol_window", 20))
-        trend_window = int(regime_filter_cfg.get("trend_window", 50))
-        skip_regimes = regime_filter_cfg.get("skip_regimes", [6])  # Default: high_vol_downtrend
-        threshold_boost_regimes = regime_filter_cfg.get("threshold_boost_regimes", [3, 7])  # med_vol_down, high_vol_sideways
-        threshold_boost = float(regime_filter_cfg.get("threshold_boost", 0.10))  # Add this to threshold
-
-        # NEW: Regime-based side selection (short in downtrends, long in uptrends)
-        enable_shorts = bool(regime_filter_cfg.get("enable_shorts", False))
-        downtrend_regimes = regime_filter_cfg.get("downtrend_regimes", [0, 3, 6])  # All downtrend regimes
-        uptrend_regimes = regime_filter_cfg.get("uptrend_regimes", [2, 5, 8])  # All uptrend regimes
-
-        # Compute regime for each event
-        merged = compute_regime_at_events(merged, bars_df, vol_window, trend_window)
-
-        # Regime-based side selection: Short in downtrends, Long in uptrends
-        if enable_shorts:
-            # Set side based on trend regime
-            # trend_regime: 0=downtrend, 1=sideways, 2=uptrend
-            is_downtrend = merged["trend_regime"] == 0
-            is_uptrend = merged["trend_regime"] == 2
-            is_sideways = merged["trend_regime"] == 1
-
-            # Default to long
-            merged["side"] = 1
-
-            # Short in downtrends
-            merged.loc[is_downtrend, "side"] = -1
-
-            # In sideways, keep long (model predicts direction)
-            # Could also skip sideways if desired
-
-            n_shorts = (is_downtrend & merged["accept"]).sum()
-            n_longs = ((is_uptrend | is_sideways) & merged["accept"]).sum()
-            logger.info(
-                "Regime-based sides: %d shorts (downtrend), %d longs (uptrend/sideways)",
-                int(n_shorts),
-                int(n_longs),
-            )
-
-            # Remove downtrend regimes from skip_regimes since we're now shorting them
-            skip_regimes = [r for r in skip_regimes if r not in downtrend_regimes]
-
-        # Skip trades in dangerous regimes entirely (only if not shorting those regimes)
+    if regime_enabled:
+        skip_regimes = regime_filter_cfg.get("skip_regimes", []) or []
         if skip_regimes:
             in_skip_regime = merged["combined_regime"].isin(skip_regimes)
-            n_skip = (in_skip_regime & merged["accept"]).sum()
+            n_skip = int((in_skip_regime & merged["accept"]).sum())
             if n_skip > 0:
                 merged.loc[in_skip_regime & merged["accept"], "accept"] = False
                 merged.loc[in_skip_regime & (merged["decision_reason"] == ""), "decision_reason"] = "regime_skip"
                 logger.info(
                     "Regime filter: skipped %d trades in dangerous regimes %s",
-                    int(n_skip),
+                    n_skip,
                     skip_regimes,
                 )
 
-        # Require higher threshold in risky regimes
-        if threshold_boost_regimes and threshold_boost > 0:
-            in_boost_regime = merged["combined_regime"].isin(threshold_boost_regimes)
-            boosted_threshold = primary_threshold + threshold_boost
-            below_boosted = (merged["p_primary"] < boosted_threshold) & (merged["p_primary"] >= primary_threshold)
-            regime_boost_reject = in_boost_regime & below_boosted & merged["accept"]
-            n_boost_reject = regime_boost_reject.sum()
-            if n_boost_reject > 0:
-                merged.loc[regime_boost_reject, "accept"] = False
-                merged.loc[regime_boost_reject & (merged["decision_reason"] == ""), "decision_reason"] = "regime_threshold_boost"
-                logger.info(
-                    "Regime filter: rejected %d trades in risky regimes (threshold boosted to %.2f)",
-                    int(n_boost_reject),
-                    boosted_threshold,
-                )
-
-        # Log regime distribution
         if merged["accept"].any():
             accepted_regimes = merged.loc[merged["accept"], "regime_label"].value_counts()
             logger.info("Accepted trades by regime:\n%s", accepted_regimes.to_string())
 
-            # Log side distribution if shorts enabled
-            if enable_shorts:
+            if bool(regime_filter_cfg.get("enable_shorts", False)):
                 side_counts = merged.loc[merged["accept"], "side"].value_counts()
-                logger.info("Trade sides: %d longs, %d shorts",
-                           side_counts.get(1, 0), side_counts.get(-1, 0))
-    else:
-        # Add empty regime columns if not computed
-        merged["vol_regime"] = None
-        merged["trend_regime"] = None
-        merged["combined_regime"] = None
-        merged["regime_label"] = None
+                logger.info(
+                    "Trade sides: %d longs, %d shorts",
+                    side_counts.get(1, 0),
+                    side_counts.get(-1, 0),
+                )
 
     if use_meta:
         if meta_preds is None:
@@ -297,22 +397,35 @@ def decide_trades(
 
         meta_accept = merged["p_meta"] >= meta_threshold
         if require_meta:
-            merged["accept"] = merged["proposed"] & meta_accept
-            merged.loc[~merged["proposed"], "decision_reason"] = "threshold_primary"
+            pre_meta_accept = merged["accept"].copy()
+            merged["accept"] = merged["accept"] & meta_accept
             merged.loc[
-                merged["proposed"] & ~meta_accept, "decision_reason"
+                ~merged["proposed"] & (merged["decision_reason"] == ""),
+                "decision_reason",
+            ] = "threshold_primary"
+            merged.loc[
+                pre_meta_accept & ~meta_accept & (merged["decision_reason"] == ""),
+                "decision_reason",
             ] = "threshold_meta"
         else:
-            merged["accept"] = merged["proposed"] & (
-                meta_accept | merged["p_meta"].isna()
-            )
-            merged.loc[~merged["proposed"], "decision_reason"] = "threshold_primary"
+            pre_meta_accept = merged["accept"].copy()
+            merged["accept"] = merged["accept"] & (meta_accept | merged["p_meta"].isna())
             merged.loc[
-                merged["proposed"] & ~meta_accept & ~merged["p_meta"].isna(),
+                ~merged["proposed"] & (merged["decision_reason"] == ""),
+                "decision_reason",
+            ] = "threshold_primary"
+            merged.loc[
+                pre_meta_accept
+                & ~meta_accept
+                & ~merged["p_meta"].isna()
+                & (merged["decision_reason"] == ""),
                 "decision_reason",
             ] = "threshold_meta"
     else:
-        merged.loc[~merged["proposed"], "decision_reason"] = "threshold_primary"
+        merged.loc[
+            ~merged["proposed"] & (merged["decision_reason"] == ""),
+            "decision_reason",
+        ] = "threshold_primary"
 
     if "p_meta" not in merged.columns:
         merged["p_meta"] = None

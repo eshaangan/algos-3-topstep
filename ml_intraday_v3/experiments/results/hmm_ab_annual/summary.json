@@ -1,0 +1,26 @@
+{
+  "windows_config": "ml_intraday_v3/experiments/_oos_long_history_annual.yaml",
+  "baseline_features": "ml_intraday_v3/configs/live_dual_meta_mes_real/features.yaml",
+  "hmm_features": "ml_intraday_v3/configs/live_dual_meta_mes_real/features_hmm_experiment.yaml",
+  "baseline": {
+    "passed": true,
+    "passed_windows": 4,
+    "total_windows": 4,
+    "pass_ratio": 1.0,
+    "overall_total_pnl_usd": 4756.907961985168,
+    "overall_total_trades": 356,
+    "overall_failures": []
+  },
+  "hmm": {
+    "passed": true,
+    "passed_windows": 4,
+    "total_windows": 4,
+    "pass_ratio": 1.0,
+    "overall_total_pnl_usd": -2663.723810037828,
+    "overall_total_trades": 251,
+    "overall_failures": []
+  },
+  "delta_pnl_usd": -7420.631772022996,
+  "seconds_baseline": 18.610917806625366,
+  "seconds_hmm": 3316.623936891556
+}

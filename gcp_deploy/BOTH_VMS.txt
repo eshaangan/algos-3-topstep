@@ -1,0 +1,29 @@
+GCP layout (two instances at once)
+
+1) topstep-dual-meta-mes-vm  — ML dual-meta MES live runner:
+     python ml_intraday_v3/live_trading/live_runner.py
+     Deploy: gcp_deploy/deploy.sh
+     Image: gcr.io/<project>/topstep-dual-meta-mes:latest
+     TOPSTEPX_ACCOUNT_ID must be the combine account (~$52k), not a PRAC account (~$151k). Repo .env uses 19619469 for dual-meta; keep VM/container env in sync.
+     On the VM, ~/topstep_dual_meta.env is refreshed from the running dual-meta container (docker inspect) so the next docker run --env-file ~/topstep_dual_meta.env matches the last good config.
+     After Cloud Build, if the VM is not a managed container host: bash gcp_deploy/recreate_dual_meta_docker_on_vm.sh (pull + docker run with that env file).
+     If docker pull reports unauthorized on gcr.io, run once on the VM as your login user (not root): docker-credential-gcr configure-docker --registries=gcr.io
+
+2) topstep-trading-vm        — Rule-based ORB live runner (NOT the ML runner):
+     python rule_based_v1/scripts/run_live.py
+     Image: gcr.io/<project>/topstep-orb:latest (Dockerfile.orb)
+     Build: gcp_deploy/deploy_orb.sh
+     Provision (if missing): ORB_VM_NAME=topstep-trading-vm bash gcp_deploy/provision_orb_vm.sh
+     Config dirs: vm_orb_sidecar (MNQ, default image CMD) or vm_orb_mnk (Micro Nikkei, US-morning ORB) or vm_orb_mnk_asia (Tokyo-clock ORB; needs ETH bars — see rules header).
+     Run both MES ML + ORB at once: keep dual-meta on topstep-dual-meta-mes-vm; run ORB on topstep-trading-vm
+     with a single orb-live container per symbol — for Micro Nikkei use a second container name (e.g. orb-mnk-live),
+     TOPSTEPX_CONTRACT_ID=CON.F.US.MNK.<front>, and --config-dir /app/rule_based_v1/configs/vm_orb_mnk (same account is OK: different instruments).
+
+Default zone for topstep-trading-vm: us-central1-b (migrated from us-central1-a for capacity; override ORB_ZONE if yours differs).
+
+If docker is missing on topstep-trading-vm after a disk migration, install once: copy gcp_deploy/orb_vm_startup.sh to the VM and run sudo bash orb_vm_startup.sh (installs docker.io and enables the service).
+
+If topstep-orb-vm is also running: it is a second ORB-capable instance (e.g. from an older provision or ORB_VM_NAME=topstep-orb-vm). Use only one ORB live process for the same account and symbol — running topstep-orb:latest on both VMs risks duplicate orders. Canonical ORB host: topstep-trading-vm. If you do not need the duplicate, stop or delete topstep-orb-vm after moving any env files or docker state you still want.
+
+ORB env file: set TOPSTEPX_CONTRACT_ID to the traded contract (MNQ or MNK front month). Dual-meta VM uses MES.
+Research script for MNK ORB grid: python rule_based_v1/diagnostics/orb_mnk_research.py (writes rule_based_v1/diagnostics/orb_mnk_sweep_results.json).

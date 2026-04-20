@@ -73,6 +73,8 @@ class LiveRunner:
         self.last_trade_direction: int = 0     # 1=LONG, -1=SHORT
         self.time_stop_bars: int = self.rules_cfg.get("exit_strategy", {}).get("time_stop_bars", 24)
         self.require_prev_vwap: bool = self.rules_cfg.get("opening_range_breakout", {}).get("require_prev_vwap", False)
+        self.long_only: bool = self.rules_cfg.get("opening_range_breakout", {}).get("long_only", False)
+        self.skip_gap_up_pct: float | None = self.rules_cfg.get("opening_range_breakout", {}).get("skip_gap_up_pct", None)
         self.require_gex_explosive: bool = self.rules_cfg.get("opening_range_breakout", {}).get("require_gex_explosive", False)
         self.session_gex_explosive: bool | None = None  # computed once per day
 
@@ -155,6 +157,8 @@ class LiveRunner:
 
         orb_cfg = cfg["opening_range_breakout"]
         primary = OpeningRangeBreakoutRule(
+            session_timezone=orb_cfg.get("session_timezone", "US/Eastern"),
+            session_start_time=orb_cfg.get("session_start_time", "09:30"),
             or_end_time=orb_cfg["or_end_time"],
             min_or_bars=orb_cfg.get("min_or_bars", 4),
             min_range_atr=orb_cfg["min_range_atr"],
@@ -169,6 +173,9 @@ class LiveRunner:
             session_start=tod_cfg["session_start"],
             session_end=tod_cfg["session_end"],
             lunch_filter_enabled=tod_cfg.get("lunch_filter_enabled", False),
+            lunch_start=tod_cfg.get("lunch_start", "12:00"),
+            lunch_end=tod_cfg.get("lunch_end", "13:00"),
+            clock_timezone=tod_cfg.get("clock_timezone"),
         )]
 
         self.aggregator = SignalAggregator(
@@ -220,14 +227,18 @@ class LiveRunner:
     def _is_trading_time(self) -> bool:
         """Check if current time is within trading session."""
         now = datetime.now().astimezone()
+        tod = self.rules_cfg.get("time_of_day", {})
+        tz_name = tod.get("clock_timezone")
         try:
-            now_et = now.astimezone(pd.Timestamp.now(tz="US/Eastern").tzinfo)
+            if tz_name:
+                t = now.astimezone(pd.Timestamp.now(tz=tz_name).tzinfo).time()
+            else:
+                t = now.astimezone(pd.Timestamp.now(tz="US/Eastern").tzinfo).time()
         except Exception:
             return True  # default to allowing if timezone fails
 
-        t = now_et.time()
-        session_start = pd.Timestamp(self.rules_cfg["time_of_day"]["session_start"]).time()
-        session_end   = pd.Timestamp(self.rules_cfg["time_of_day"]["session_end"]).time()
+        session_start = pd.Timestamp(tod["session_start"]).time()
+        session_end = pd.Timestamp(tod["session_end"]).time()
         return session_start <= t <= session_end
 
     def _place_order(self, direction_str: str, entry_price: float,
@@ -420,6 +431,76 @@ class LiveRunner:
         finally:
             self.active_trade = None
 
+    def _pss_veto_active(self, bars_df: pd.DataFrame) -> bool:
+        """Return True if a prior-session-high sweep with strong rejection occurred today.
+
+        Scans post-OR bars (timestamp >= 10:05 ET) in the current session for any bar
+        whose high exceeded the prior session high AND showed high failure quality
+        (FS >= 0.80: poor close location, large upper wick, bear body).
+
+        Derived from 15-year ES validation: on days a PSS event fires, ORB WR drops
+        from 51.7% to 40.0% (-11.7% delta). Fires ~0.67x per year — very selective.
+
+        Returns False (allow ORB) when:
+          - Not enough buffer data to determine prior session high
+          - No qualifying sweep bar found in today's session
+        """
+        if bars_df is None or len(bars_df) < 14:
+            return False
+
+        today = bars_df.index[-1].date()
+        today_bars = bars_df[bars_df.index.map(lambda t: t.date()) == today]
+        prev_bars  = bars_df[bars_df.index.map(lambda t: t.date()) < today]
+
+        if len(prev_bars) < 5 or len(today_bars) < 8:
+            return False
+
+        prev_day      = prev_bars.index[-1].date()
+        prev_day_bars = prev_bars[prev_bars.index.map(lambda t: t.date()) == prev_day]
+        if len(prev_day_bars) < 5:
+            return False
+
+        prev_sess_high = float(prev_day_bars["high"].max())
+
+        # Only scan post-OR bars (after 10:04 ET)
+        post_or = today_bars[
+            (today_bars.index.hour > 10)
+            | ((today_bars.index.hour == 10) & (today_bars.index.minute >= 5))
+        ]
+
+        for ts, bar in post_or.iterrows():
+            h = float(bar["high"])
+            l = float(bar["low"])
+            c = float(bar["close"])
+            o = float(bar["open"])
+
+            if h <= prev_sess_high:
+                continue
+
+            rng = h - l + 1e-6
+            cl_val    = (c - l) / rng          # close location (0=bottom, 1=top)
+            body_frac = abs(c - o) / rng
+
+            if cl_val >= 0.45 or body_frac >= 0.55:
+                continue
+
+            # Failure score: CLV + wick asymmetry + directional pressure
+            clv         = (2 * c - h - l) / rng
+            uw          = h - max(o, c)
+            lw          = min(o, c) - l
+            body_signed = c - o
+            fs          = -clv + (uw - lw) / rng - body_signed / rng
+
+            if fs >= 0.80:
+                logger.info(
+                    f"PSS veto: prior-session-high sweep detected at {ts} "
+                    f"(bar_high={h:.2f} > prev_sess_high={prev_sess_high:.2f}, "
+                    f"FS={fs:.2f}, cl={cl_val:.2f}) — blocking ORB entry"
+                )
+                return True
+
+        return False
+
     def _compute_prev_vwap_bullish(self, bars_df: pd.DataFrame) -> bool | None:
         """Return True if yesterday's session closed above yesterday's session VWAP.
 
@@ -451,6 +532,33 @@ class LiveRunner:
             f"bullish={result}"
         )
         return result
+
+    def _compute_opening_gap_pct(self, bars_df: pd.DataFrame) -> float | None:
+        """Return today's opening gap as a fraction of prior day's close.
+
+        Positive = gap up, negative = gap down.
+        Returns None when prior-day data is unavailable.
+        """
+        if bars_df is None or len(bars_df) < 2:
+            return None
+
+        today = bars_df.index[-1].date()
+        prev_bars = bars_df[bars_df.index.map(lambda t: t.date()) < today]
+        if len(prev_bars) == 0:
+            return None
+
+        prev_close = float(prev_bars["close"].iloc[-1])
+        if prev_close == 0:
+            return None
+
+        today_bars = bars_df[bars_df.index.map(lambda t: t.date()) == today]
+        if today_bars.empty:
+            return None
+
+        today_open = float(today_bars["open"].iloc[0])
+        gap_pct = (today_open - prev_close) / prev_close
+        logger.debug(f"Opening gap: open={today_open:.2f}  prev_close={prev_close:.2f}  gap={gap_pct*100:.3f}%")
+        return gap_pct
 
     def _compute_gex_explosive(self) -> bool:
         """
@@ -521,11 +629,23 @@ class LiveRunner:
             logger.info(f"Risk block: {reason}")
             return
 
-        # PrevVWAP filter: skip if yesterday closed below session VWAP
+        # PrevVWAP filter: long_only mode gates entire session; bidirectional mode stores for later direction check
+        _pv_session: bool | None = None
         if self.require_prev_vwap:
-            pv = self._compute_prev_vwap_bullish(bars_df)
-            if pv is False:
-                logger.info("PrevVWAP filter: yesterday bearish — no trade today")
+            _pv_session = self._compute_prev_vwap_bullish(bars_df)
+            if self.long_only and _pv_session is False:
+                logger.info("PrevVWAP filter: yesterday bearish — no long trade today")
+                return
+
+        # Skip gap-up filter: skip days where today opened >threshold above prior close
+        # (overextended opens tend to revert rather than continue through the OR breakout)
+        if self.skip_gap_up_pct is not None:
+            gap = self._compute_opening_gap_pct(bars_df)
+            if gap is not None and gap > self.skip_gap_up_pct:
+                logger.info(
+                    f"SkipGapUp filter: gap={gap*100:.2f}% > threshold={self.skip_gap_up_pct*100:.1f}% "
+                    f"— overextended open, no trade today"
+                )
                 return
 
         # GEX proxy filter: skip if VXN >= 60d mean (dealers not in explosive regime)
@@ -536,12 +656,26 @@ class LiveRunner:
                 logger.info("GEX filter: VXN above 60d mean — non-explosive regime, no trade today")
                 return
 
+        # PSS veto: prior-session-high sweep with strong rejection → ORB likely to fail
+        if self._pss_veto_active(bars_df):
+            return
+
         # Evaluate rules
         decision = self.aggregator.evaluate(bars_df)
         logger.info(f"Signal: {decision.summary}")
 
         if not decision.should_trade:
             return
+
+        # PrevVWAP direction alignment for bidirectional mode:
+        # bullish day (pv=True) → only LONG; bearish day (pv=False) → only SHORT
+        if self.require_prev_vwap and not self.long_only and _pv_session is not None:
+            if _pv_session is True and decision.direction == -1:
+                logger.info("PrevVWAP direction filter: bullish day — skipping SHORT signal")
+                return
+            if _pv_session is False and decision.direction == 1:
+                logger.info("PrevVWAP direction filter: bearish day — skipping LONG signal")
+                return
 
         # ATR for position sizing
         current_atr = atr(bars_df["high"], bars_df["low"], bars_df["close"]).iloc[-1]
@@ -1043,6 +1177,9 @@ class LiveRunner:
                     self.active_trade = None
                     self.last_trade_direction = 0
                     self.session_gex_explosive = None  # recompute each day
+                    # Reset per-session flags on subclasses (e.g. IVBLiveRunner body_ratio update)
+                    if hasattr(self, "_body_ratio_updated_today"):
+                        del self._body_ratio_updated_today
                     if self.msite_engine is not None:
                         self.msite_engine.reset_day(0.0)
                     self.msite_active_trade = None

@@ -1,0 +1,82 @@
+event_generation:
+  policy: cusum
+  balance_events: true
+  target_long_ratio: 0.5
+  balance_method: undersample
+model:
+  kind: lgbm
+  params:
+    objective: binary
+    n_estimators: 250
+    learning_rate: 0.03
+    num_leaves: 31
+    max_depth: 5
+    min_child_samples: 100
+    subsample: 0.8
+    subsample_freq: 5
+    colsample_bytree: 0.8
+    reg_alpha: 0.2
+    reg_lambda: 0.2
+    class_weight: balanced
+target:
+  column: y
+  mode: binary
+  classes:
+  - -1
+  - 1
+  positive_label: 1
+  flip_sign: false
+  flip_ret_net: false
+sample_weight:
+  column: w_final
+  enabled: true
+sample_decay:
+  enabled: true
+  lambda: 0.02
+  reference_date: null
+preprocessing:
+  scaler: standard
+  impute: median
+eval:
+  threshold: 0.5
+side_specialization:
+  enabled: false
+  min_side_train_samples: 250
+  min_side_positive_samples: 25
+  min_side_negative_samples: 25
+  fallback_to_global: true
+calibration:
+  enabled: false
+  method: isotonic
+  calibration_fraction: 0.2
+  recalibrate_score_ev: false
+  save_calibrator: false
+  calibration_seed: 42
+meta:
+  enabled: true
+  threshold_primary: 0.52
+  threshold_meta: 0.55
+  require_meta_for_trade: false
+  target:
+    kind: ret_net_positive
+  features:
+    include_original_features: true
+    include_primary_prob: true
+    include_primary_logit: true
+  route:
+    name: short_veto_256_tp052_tm055
+    side: short
+    regimes:
+    - 2
+    - 5
+    - 6
+    min_train_samples: 80
+    min_positive_samples: 10
+    min_negative_samples: 10
+  model:
+    params:
+      C: 1.0
+      solver: lbfgs
+      max_iter: 300
+      class_weight: balanced
+seed: 42

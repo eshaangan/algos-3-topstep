@@ -1,0 +1,603 @@
+{
+  "veb": {
+    "VEB comp<70% PT=3.0x LONG": {
+      "n": 11,
+      "wr": 0.45454545454545453,
+      "pnl": -515.79,
+      "sharpe": -2.647,
+      "dd": -800.58,
+      "mll": true,
+      "pf": 0.675,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 4,
+        "profit_target": 1,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<70% PT=4.0x LONG": {
+      "n": 11,
+      "wr": 0.45454545454545453,
+      "pnl": -527.58,
+      "sharpe": -2.723,
+      "dd": -812.37,
+      "mll": true,
+      "pf": 0.667,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 5,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<70% PT=5.0x LONG": {
+      "n": 11,
+      "wr": 0.45454545454545453,
+      "pnl": -527.58,
+      "sharpe": -2.723,
+      "dd": -812.37,
+      "mll": true,
+      "pf": 0.667,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 5,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<80% PT=3.0x LONG": {
+      "n": 16,
+      "wr": 0.375,
+      "pnl": -1903.04,
+      "sharpe": -6.939,
+      "dd": -2142.35,
+      "mll": false,
+      "pf": 0.374,
+      "exit_reasons": {
+        "stop_loss": 9,
+        "time_stop": 5,
+        "profit_target": 1,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<80% PT=4.0x LONG": {
+      "n": 16,
+      "wr": 0.375,
+      "pnl": -1914.83,
+      "sharpe": -7.015,
+      "dd": -2154.14,
+      "mll": false,
+      "pf": 0.37,
+      "exit_reasons": {
+        "stop_loss": 9,
+        "time_stop": 6,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<80% PT=5.0x LONG": {
+      "n": 16,
+      "wr": 0.375,
+      "pnl": -1914.83,
+      "sharpe": -7.015,
+      "dd": -2154.14,
+      "mll": false,
+      "pf": 0.37,
+      "exit_reasons": {
+        "stop_loss": 9,
+        "time_stop": 6,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<85% PT=3.0x LONG": {
+      "n": 21,
+      "wr": 0.42857142857142855,
+      "pnl": -1728.51,
+      "sharpe": -4.558,
+      "dd": -2192.45,
+      "mll": false,
+      "pf": 0.529,
+      "exit_reasons": {
+        "stop_loss": 11,
+        "time_stop": 8,
+        "profit_target": 1,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<85% PT=4.0x LONG": {
+      "n": 21,
+      "wr": 0.42857142857142855,
+      "pnl": -1740.3,
+      "sharpe": -4.602,
+      "dd": -2204.24,
+      "mll": false,
+      "pf": 0.526,
+      "exit_reasons": {
+        "stop_loss": 11,
+        "time_stop": 9,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<85% PT=5.0x LONG": {
+      "n": 21,
+      "wr": 0.42857142857142855,
+      "pnl": -1740.3,
+      "sharpe": -4.602,
+      "dd": -2204.24,
+      "mll": false,
+      "pf": 0.526,
+      "exit_reasons": {
+        "stop_loss": 11,
+        "time_stop": 9,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<90% PT=3.0x LONG": {
+      "n": 16,
+      "wr": 0.4375,
+      "pnl": -1273.44,
+      "sharpe": -3.927,
+      "dd": -2105.66,
+      "mll": false,
+      "pf": 0.57,
+      "exit_reasons": {
+        "stop_loss": 8,
+        "time_stop": 7,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<90% PT=4.0x LONG": {
+      "n": 16,
+      "wr": 0.4375,
+      "pnl": -1273.44,
+      "sharpe": -3.927,
+      "dd": -2105.66,
+      "mll": false,
+      "pf": 0.57,
+      "exit_reasons": {
+        "stop_loss": 8,
+        "time_stop": 7,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    },
+    "VEB comp<90% PT=5.0x LONG": {
+      "n": 16,
+      "wr": 0.4375,
+      "pnl": -1273.44,
+      "sharpe": -3.927,
+      "dd": -2105.66,
+      "mll": false,
+      "pf": 0.57,
+      "exit_reasons": {
+        "stop_loss": 8,
+        "time_stop": 7,
+        "profit_target": 0,
+        "session_close": 0,
+        "eod_close": 1
+      }
+    }
+  },
+  "noon_reversal": {
+    "Noon mv>0.3% rev=30% exit=13h": {
+      "n": 108,
+      "wr": 0.37962962962962965,
+      "pnl": -2232.61,
+      "sharpe": -1.719,
+      "dd": -2440.25,
+      "mll": false,
+      "pf": 0.776,
+      "exit_reasons": {
+        "stop_loss": 56,
+        "time_exit": 27,
+        "profit_target": 24,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=30% exit=14h": {
+      "n": 108,
+      "wr": 0.3425925925925926,
+      "pnl": -1876.41,
+      "sharpe": -1.248,
+      "dd": -2084.06,
+      "mll": false,
+      "pf": 0.832,
+      "exit_reasons": {
+        "stop_loss": 70,
+        "time_exit": 5,
+        "profit_target": 32,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=30% exit=15h": {
+      "n": 108,
+      "wr": 0.3425925925925926,
+      "pnl": -1287.18,
+      "sharpe": -0.825,
+      "dd": -1703.83,
+      "mll": true,
+      "pf": 0.885,
+      "exit_reasons": {
+        "stop_loss": 71,
+        "time_exit": 2,
+        "profit_target": 34,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=40% exit=13h": {
+      "n": 108,
+      "wr": 0.3425925925925926,
+      "pnl": -2743.55,
+      "sharpe": -1.939,
+      "dd": -3194.53,
+      "mll": false,
+      "pf": 0.745,
+      "exit_reasons": {
+        "stop_loss": 60,
+        "time_exit": 31,
+        "profit_target": 16,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=40% exit=14h": {
+      "n": 108,
+      "wr": 0.2777777777777778,
+      "pnl": -3105.72,
+      "sharpe": -1.921,
+      "dd": -3467.67,
+      "mll": false,
+      "pf": 0.747,
+      "exit_reasons": {
+        "stop_loss": 76,
+        "time_exit": 10,
+        "profit_target": 21,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=40% exit=15h": {
+      "n": 108,
+      "wr": 0.28703703703703703,
+      "pnl": -1814.79,
+      "sharpe": -1.026,
+      "dd": -2384.51,
+      "mll": false,
+      "pf": 0.853,
+      "exit_reasons": {
+        "stop_loss": 77,
+        "time_exit": 6,
+        "profit_target": 24,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=50% exit=13h": {
+      "n": 108,
+      "wr": 0.3148148148148148,
+      "pnl": -3850.12,
+      "sharpe": -2.586,
+      "dd": -3850.13,
+      "mll": false,
+      "pf": 0.665,
+      "exit_reasons": {
+        "stop_loss": 62,
+        "time_exit": 36,
+        "profit_target": 9,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=50% exit=14h": {
+      "n": 108,
+      "wr": 0.2222222222222222,
+      "pnl": -5210.59,
+      "sharpe": -3.184,
+      "dd": -5210.61,
+      "mll": false,
+      "pf": 0.613,
+      "exit_reasons": {
+        "stop_loss": 82,
+        "time_exit": 11,
+        "profit_target": 14,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.3% rev=50% exit=15h": {
+      "n": 108,
+      "wr": 0.23148148148148148,
+      "pnl": -4054.66,
+      "sharpe": -2.271,
+      "dd": -4054.68,
+      "mll": false,
+      "pf": 0.699,
+      "exit_reasons": {
+        "stop_loss": 83,
+        "time_exit": 8,
+        "profit_target": 16,
+        "session_close": 1
+      }
+    },
+    "Noon mv>0.5% rev=30% exit=13h": {
+      "n": 75,
+      "wr": 0.30666666666666664,
+      "pnl": -2963.67,
+      "sharpe": -3.031,
+      "dd": -2963.67,
+      "mll": false,
+      "pf": 0.641,
+      "exit_reasons": {
+        "stop_loss": 43,
+        "time_exit": 20,
+        "profit_target": 12,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=30% exit=14h": {
+      "n": 75,
+      "wr": 0.26666666666666666,
+      "pnl": -2787.29,
+      "sharpe": -2.425,
+      "dd": -2787.3,
+      "mll": false,
+      "pf": 0.699,
+      "exit_reasons": {
+        "stop_loss": 54,
+        "time_exit": 5,
+        "profit_target": 16,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=30% exit=15h": {
+      "n": 75,
+      "wr": 0.26666666666666666,
+      "pnl": -2198.06,
+      "sharpe": -1.826,
+      "dd": -2198.07,
+      "mll": false,
+      "pf": 0.764,
+      "exit_reasons": {
+        "stop_loss": 55,
+        "time_exit": 2,
+        "profit_target": 18,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=40% exit=13h": {
+      "n": 75,
+      "wr": 0.29333333333333333,
+      "pnl": -2773.26,
+      "sharpe": -2.61,
+      "dd": -2773.26,
+      "mll": false,
+      "pf": 0.673,
+      "exit_reasons": {
+        "stop_loss": 44,
+        "time_exit": 23,
+        "profit_target": 8,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=40% exit=14h": {
+      "n": 75,
+      "wr": 0.25333333333333335,
+      "pnl": -2676.38,
+      "sharpe": -2.168,
+      "dd": -2676.39,
+      "mll": false,
+      "pf": 0.718,
+      "exit_reasons": {
+        "stop_loss": 55,
+        "time_exit": 9,
+        "profit_target": 11,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=40% exit=15h": {
+      "n": 75,
+      "wr": 0.25333333333333335,
+      "pnl": -1503.95,
+      "sharpe": -1.096,
+      "dd": -1896.94,
+      "mll": true,
+      "pf": 0.842,
+      "exit_reasons": {
+        "stop_loss": 56,
+        "time_exit": 5,
+        "profit_target": 14,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=50% exit=13h": {
+      "n": 75,
+      "wr": 0.29333333333333333,
+      "pnl": -2328.36,
+      "sharpe": -2.042,
+      "dd": -2328.36,
+      "mll": false,
+      "pf": 0.725,
+      "exit_reasons": {
+        "stop_loss": 44,
+        "time_exit": 25,
+        "profit_target": 6,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=50% exit=14h": {
+      "n": 75,
+      "wr": 0.24,
+      "pnl": -2784.6,
+      "sharpe": -2.213,
+      "dd": -2784.61,
+      "mll": false,
+      "pf": 0.71,
+      "exit_reasons": {
+        "stop_loss": 56,
+        "time_exit": 10,
+        "profit_target": 9,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.5% rev=50% exit=15h": {
+      "n": 75,
+      "wr": 0.24,
+      "pnl": -1747.17,
+      "sharpe": -1.26,
+      "dd": -1825.74,
+      "mll": true,
+      "pf": 0.819,
+      "exit_reasons": {
+        "stop_loss": 57,
+        "time_exit": 7,
+        "profit_target": 11,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=30% exit=13h": {
+      "n": 52,
+      "wr": 0.25,
+      "pnl": -3788.9,
+      "sharpe": -5.522,
+      "dd": -3788.9,
+      "mll": false,
+      "pf": 0.444,
+      "exit_reasons": {
+        "stop_loss": 33,
+        "time_exit": 15,
+        "profit_target": 4,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=30% exit=14h": {
+      "n": 52,
+      "wr": 0.23076923076923078,
+      "pnl": -3098.08,
+      "sharpe": -3.618,
+      "dd": -3098.09,
+      "mll": false,
+      "pf": 0.585,
+      "exit_reasons": {
+        "stop_loss": 39,
+        "time_exit": 5,
+        "profit_target": 8,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=30% exit=15h": {
+      "n": 52,
+      "wr": 0.23076923076923078,
+      "pnl": -2508.85,
+      "sharpe": -2.758,
+      "dd": -2697.17,
+      "mll": false,
+      "pf": 0.666,
+      "exit_reasons": {
+        "stop_loss": 40,
+        "time_exit": 2,
+        "profit_target": 10,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=40% exit=13h": {
+      "n": 52,
+      "wr": 0.25,
+      "pnl": -3521.45,
+      "sharpe": -4.791,
+      "dd": -3521.45,
+      "mll": false,
+      "pf": 0.483,
+      "exit_reasons": {
+        "stop_loss": 33,
+        "time_exit": 16,
+        "profit_target": 3,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=40% exit=14h": {
+      "n": 52,
+      "wr": 0.23076923076923078,
+      "pnl": -3158.23,
+      "sharpe": -3.556,
+      "dd": -3158.24,
+      "mll": false,
+      "pf": 0.577,
+      "exit_reasons": {
+        "stop_loss": 39,
+        "time_exit": 9,
+        "profit_target": 4,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=40% exit=15h": {
+      "n": 52,
+      "wr": 0.23076923076923078,
+      "pnl": -1985.8,
+      "sharpe": -1.938,
+      "dd": -2648.87,
+      "mll": false,
+      "pf": 0.735,
+      "exit_reasons": {
+        "stop_loss": 40,
+        "time_exit": 5,
+        "profit_target": 7,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=50% exit=13h": {
+      "n": 52,
+      "wr": 0.25,
+      "pnl": -3138.65,
+      "sharpe": -3.903,
+      "dd": -3138.65,
+      "mll": false,
+      "pf": 0.539,
+      "exit_reasons": {
+        "stop_loss": 33,
+        "time_exit": 16,
+        "profit_target": 3,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=50% exit=14h": {
+      "n": 52,
+      "wr": 0.23076923076923078,
+      "pnl": -3276.13,
+      "sharpe": -3.735,
+      "dd": -3276.14,
+      "mll": false,
+      "pf": 0.561,
+      "exit_reasons": {
+        "stop_loss": 39,
+        "time_exit": 10,
+        "profit_target": 3,
+        "session_close": 0
+      }
+    },
+    "Noon mv>0.7% rev=50% exit=15h": {
+      "n": 52,
+      "wr": 0.23076923076923078,
+      "pnl": -2238.7,
+      "sharpe": -2.22,
+      "dd": -2606.78,
+      "mll": false,
+      "pf": 0.702,
+      "exit_reasons": {
+        "stop_loss": 40,
+        "time_exit": 7,
+        "profit_target": 5,
+        "session_close": 0
+      }
+    }
+  }
+}

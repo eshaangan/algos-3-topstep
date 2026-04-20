@@ -1,0 +1,59 @@
+{
+  "data_path": "data/processed/mes_2026_ytd_rth_5m.h5",
+  "features_config": "ml_intraday_v3/configs/features_crt_tbs.yaml",
+  "bar_size": "5m",
+  "horizon_bars": 6,
+  "overall": {
+    "setups": 581,
+    "long_setups": 282,
+    "short_setups": 299,
+    "win_rate": 0.5370051635111877,
+    "avg_forward_return_bps": 1.6233619839349152,
+    "median_forward_return_bps": 1.4493803898840696,
+    "p25_forward_return_bps": -10.151491488364917,
+    "p75_forward_return_bps": 13.528748590755368
+  },
+  "by_month": {
+    "2026-01": {
+      "setups": 172,
+      "long_setups": 72,
+      "short_setups": 100,
+      "win_rate": 0.5232558139534884,
+      "avg_forward_return_bps": 0.2323007246193573,
+      "median_forward_return_bps": 0.538631919650423,
+      "p25_forward_return_bps": -6.843732032426885,
+      "p75_forward_return_bps": 7.951577890137617
+    },
+    "2026-02": {
+      "setups": 195,
+      "long_setups": 97,
+      "short_setups": 98,
+      "win_rate": 0.5435897435897435,
+      "avg_forward_return_bps": 5.544868729107242,
+      "median_forward_return_bps": 2.5498124066580807,
+      "p25_forward_return_bps": -7.928898335885504,
+      "p75_forward_return_bps": 19.34225031147485
+    },
+    "2026-03": {
+      "setups": 174,
+      "long_setups": 101,
+      "short_setups": 73,
+      "win_rate": 0.5229885057471264,
+      "avg_forward_return_bps": -0.17018600975082787,
+      "median_forward_return_bps": 0.37862058180127,
+      "p25_forward_return_bps": -16.115141671473875,
+      "p75_forward_return_bps": 14.184941847225074
+    },
+    "2026-04": {
+      "setups": 40,
+      "long_setups": 12,
+      "short_setups": 28,
+      "win_rate": 0.625,
+      "avg_forward_return_bps": -3.7104862111903003,
+      "median_forward_return_bps": 3.204385138741994,
+      "p25_forward_return_bps": -12.438369528595672,
+      "p75_forward_return_bps": 13.534219381172996
+    }
+  },
+  "promotion_note": "Use this only as raw signal evidence. Promotion still requires the full CRT/TBS viability A/B or a proper execution backtest."
+}

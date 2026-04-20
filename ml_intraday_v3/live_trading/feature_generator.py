@@ -106,6 +106,22 @@ class LiveFeatureGenerator:
         latest = feats_df.iloc[-1]
         feature_series = latest.reindex(self.feature_columns)
 
+        # Training bundles merged with suffixes (_x/_y) may list e.g. vol_regime_x, vol_regime_y while
+        # build_features only emits vol_regime. Fill suffixed names from the unsuffixed column.
+        for col in self.feature_columns:
+            if col not in feature_series.index:
+                continue
+            if pd.notna(feature_series[col]):
+                continue
+            if col.endswith("_x"):
+                base = col[:-2]
+            elif col.endswith("_y"):
+                base = col[:-2]
+            else:
+                continue
+            if base in latest.index and pd.notna(latest[base]):
+                feature_series[col] = latest[base]
+
         # For DualSideModel, 'side' feature needs to be present but will be overwritten by the model
         # Add it as 0.0 (placeholder) if it's expected but not generated
         if 'side' in self.feature_columns and 'side' not in feats_df.columns:
@@ -132,10 +148,33 @@ class LiveFeatureGenerator:
 
         # Exclude 'side' from quality checks - it's not a real feature, just a training-time indicator
         # For DualSideModel, 'side' is expected to be missing/NaN
-        features_to_check = features.drop('side', errors='ignore')
+        features_to_check = features.drop("side", errors="ignore")
+
+        # HMM regime features can be intermittently unavailable in live mode (e.g. after data gaps or
+        # before enough history accumulates). The model bundle already includes an imputer, so we
+        # treat NaNs in these specific columns as acceptable when HMM features are enabled.
+        hmm_cfg = (self.features_config.get("hmm_regime", {}) or {}) if isinstance(self.features_config, dict) else {}
+        hmm_enabled = bool(hmm_cfg.get("enabled", False))
+        allowed_nan_cols = {
+            "hmm_state",
+            "prob_state_0",
+            "prob_state_1",
+            "prob_bull",
+            "prob_bear",
+        }
+        if hmm_enabled:
+            present_allowed = [c for c in allowed_nan_cols if c in features_to_check.index]
+            if present_allowed:
+                features_to_check = features_to_check.copy()
+                # Keep values as-is; we only relax the health check for NaNs in these columns.
 
         # Check for NaN values
         nan_mask = features_to_check.isna()
+        if hmm_enabled and allowed_nan_cols:
+            # Ignore NaNs in the allowed HMM columns.
+            for c in allowed_nan_cols:
+                if c in features_to_check.index:
+                    nan_mask.loc[c] = False
         nan_count = int(nan_mask.sum())
         checks["has_nan"] = nan_count > 0
         checks["nan_count"] = nan_count

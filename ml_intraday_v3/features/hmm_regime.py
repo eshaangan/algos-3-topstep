@@ -42,6 +42,9 @@ def build_hmm_regime_features(
     min_train_samples: int = 252,
     refit_every: int = 21,
     rolling_window_size: int = 252,
+    covariance_type: str = "full",
+    n_iter: int = 100,
+    tol: float = 1e-4,
 ) -> pd.DataFrame:
     """
     Build causal HMM regime features from close prices.
@@ -61,8 +64,10 @@ def build_hmm_regime_features(
     detector = HMMRegimeDetector(
         n_states=n_states,
         min_samples=min_train_samples,
-        n_iter=100,
+        n_iter=int(n_iter),
         random_state=42,
+        covariance_type=str(covariance_type),
+        tol=float(tol),
     )
     states, probs = detector.predict_expanding(
         returns=returns,

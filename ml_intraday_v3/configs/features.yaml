@@ -39,6 +39,11 @@ trend:
   ema_slow_period: 34
   enable_advanced_features: true
   sma_long_period: 30
+  anchor_context:
+    enabled: false
+    fast_wma_period: 13
+    mid_wma_period: 48
+    anchor_wma_period: 200
 
 # Momentum: DISABLED (not in model's 34 features)
 momentum:
@@ -47,6 +52,9 @@ momentum:
 # Microstructure: generate volume_imbalance, price_vs_vwap, relative_volume, large_move
 microstructure:
   enabled: true
+  vwap_context:
+    enabled: false
+    zscore_lookback: 20
 
 # Structure: generate candle_body, candle_range, body_pct, upper_wick, lower_wick
 structure:
@@ -56,6 +64,15 @@ structure:
 time:
   enabled: true
   minutes_per_session: 1440
+  session_windows:
+    enabled: false
+    timezone: "America/Chicago"
+    rth_open_time: "09:30"
+    rth_close_time: "15:55"
+    opening_window_minutes: 45
+    midday_start_time: "11:30"
+    midday_end_time: "13:30"
+    closing_window_minutes: 60
 
 # Output: generate is_synthetic flag
 output:

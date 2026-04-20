@@ -1,0 +1,70 @@
+# Standalone training configuration for Topstep-oriented ML candidates.
+# This is intentionally stricter and simpler than the general experimentation configs.
+
+event_generation:
+  policy: "cusum"
+  balance_events: true
+  target_long_ratio: 0.50
+  balance_method: "undersample"
+
+model:
+  kind: "lgbm"
+  params:
+    objective: "binary"
+    n_estimators: 250
+    learning_rate: 0.03
+    num_leaves: 31
+    max_depth: 5
+    min_child_samples: 100
+    subsample: 0.8
+    subsample_freq: 5
+    colsample_bytree: 0.8
+    reg_alpha: 0.2
+    reg_lambda: 0.2
+    class_weight: "balanced"
+
+target:
+  column: "y"
+  mode: "binary"
+  classes: [-1, 1]
+  positive_label: 1
+  flip_sign: false
+  flip_ret_net: false
+
+sample_weight:
+  column: "w_final"
+  enabled: true
+
+sample_decay:
+  enabled: true
+  lambda: 0.01
+  reference_date: null
+
+preprocessing:
+  scaler: "standard"
+  impute: "median"
+
+eval:
+  threshold: 0.5
+
+side_specialization:
+  enabled: false
+  min_side_train_samples: 250
+  min_side_positive_samples: 25
+  min_side_negative_samples: 25
+  fallback_to_global: true
+
+calibration:
+  # Disabled by default after testing showed isotonic calibration collapsing the
+  # standalone candidate into no-trade outputs across OOS windows.
+  enabled: false
+  method: "isotonic"
+  calibration_fraction: 0.20
+  recalibrate_score_ev: false
+  save_calibrator: false
+  calibration_seed: 42
+
+meta:
+  enabled: false
+
+seed: 42

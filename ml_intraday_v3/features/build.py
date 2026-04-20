@@ -19,8 +19,23 @@ from .multi_resolution import build_multi_resolution_features
 from .fractional_diff import fracdiff_series
 from .hmm_regime import build_hmm_regime_features
 from .structural_breaks import build_structural_break_features
+from .crt_tbs import build_crt_tbs_features
 
 logger = logging.getLogger(__name__)
+
+
+def _weighted_moving_average(series: pd.Series, period: int) -> pd.Series:
+    weights = np.arange(1, period + 1, dtype=float)
+    weight_sum = weights.sum()
+    return series.rolling(period).apply(
+        lambda values: float(np.dot(values, weights) / weight_sum),
+        raw=True,
+    )
+
+
+def _hhmm_to_minutes(value: str) -> int:
+    hour_str, minute_str = str(value).split(":")
+    return int(hour_str) * 60 + int(minute_str)
 
 
 def _apply_normalization(features: dict, df: pd.DataFrame, config: dict) -> dict:
@@ -253,6 +268,31 @@ def build_features(
         bb_lower = sma_20 - 2 * bb_std
         features["bb_position"] = (df["close"] - bb_lower) / (bb_upper - bb_lower + eps)
 
+        anchor_cfg = config.get("trend", {}).get("anchor_context", {})
+        if anchor_cfg.get("enabled", False):
+            fast_wma_period = int(anchor_cfg.get("fast_wma_period", 13))
+            mid_wma_period = int(anchor_cfg.get("mid_wma_period", 48))
+            anchor_wma_period = int(anchor_cfg.get("anchor_wma_period", 200))
+
+            wma_fast = _weighted_moving_average(df["close"], fast_wma_period)
+            wma_mid = _weighted_moving_average(df["close"], mid_wma_period)
+            wma_anchor = _weighted_moving_average(df["close"], anchor_wma_period)
+
+            features[f"close_vs_wma_{anchor_wma_period}_atr"] = (
+                (df["close"] - wma_anchor) / (features[f"atr_{atr_period}"] + eps)
+            )
+            bullish_ladder = (
+                (df["close"] > wma_fast).astype(int)
+                + (wma_fast > wma_mid).astype(int)
+                + (wma_mid > wma_anchor).astype(int)
+            )
+            bearish_ladder = (
+                (df["close"] < wma_fast).astype(int)
+                + (wma_fast < wma_mid).astype(int)
+                + (wma_mid < wma_anchor).astype(int)
+            )
+            features["wma_ladder_score"] = bullish_ladder - bearish_ladder
+
     # -------------------------------------------------------------------------
     # 4. MOMENTUM (MACD, RSI, Stochastic, RSI Divergence, VWAP Momentum)
     # -------------------------------------------------------------------------
@@ -334,6 +374,17 @@ def build_features(
                 features["log_return_1"].abs() > 2 * features["vol_20"]
             ).astype(int)
 
+        vwap_ctx_cfg = config.get("microstructure", {}).get("vwap_context", {})
+        if vwap_ctx_cfg.get("enabled", False):
+            zscore_lookback = int(vwap_ctx_cfg.get("zscore_lookback", 20))
+            vwap_std = features["price_vs_vwap"].rolling(zscore_lookback).std()
+            features["vwap_zscore"] = features["price_vs_vwap"] / (vwap_std + eps)
+            signed_excess = pd.Series(
+                np.maximum(features["vwap_zscore"].abs() - 1.0, 0.0),
+                index=df.index,
+            )
+            features["vwap_band_distance"] = signed_excess * np.sign(features["vwap_zscore"])
+
     # Compute VWAP momentum now that price_vs_vwap is available
     vwap_mom_cfg = config.get("momentum", {}).get("vwap_momentum", {})
     if vwap_mom_cfg.get("enabled", False) and "price_vs_vwap" in features:
@@ -360,6 +411,19 @@ def build_features(
             [df["open"], df["close"]], axis=1
         ).min(axis=1) - df["low"]
 
+    crt_tbs_cfg = config.get("crt_tbs", {}) or {}
+    if crt_tbs_cfg.get("enabled", False):
+        logger.debug("Computing CRT/TBS features")
+        atr_period = config.get("volatility", {}).get("atr_period", 14)
+        crt_tbs_df = build_crt_tbs_features(
+            df,
+            atr=features.get(f"atr_{atr_period}"),
+            range_lookback=int(crt_tbs_cfg.get("range_lookback", 20)),
+            eps=eps,
+        )
+        for col in crt_tbs_df.columns:
+            features[col] = crt_tbs_df[col]
+
     # -------------------------------------------------------------------------
     # 7. TIME (Cyclical encodings)
     # -------------------------------------------------------------------------
@@ -382,6 +446,37 @@ def build_features(
         else:
             features["day_of_week"] = df.index.dayofweek
 
+        session_cfg = config.get("time", {}).get("session_windows", {})
+        if session_cfg.get("enabled", False):
+            tz_name = session_cfg.get("timezone", "America/Chicago")
+            local_index = df.index.tz_localize("UTC") if df.index.tz is None else df.index
+            local_minutes = (
+                local_index.tz_convert(tz_name).hour * 60
+                + local_index.tz_convert(tz_name).minute
+            )
+
+            open_minutes = _hhmm_to_minutes(session_cfg.get("rth_open_time", "09:30"))
+            close_minutes = _hhmm_to_minutes(session_cfg.get("rth_close_time", "15:55"))
+            opening_window_minutes = int(session_cfg.get("opening_window_minutes", 45))
+            midday_start = _hhmm_to_minutes(session_cfg.get("midday_start_time", "11:30"))
+            midday_end = _hhmm_to_minutes(session_cfg.get("midday_end_time", "13:30"))
+            closing_window_minutes = int(session_cfg.get("closing_window_minutes", 60))
+
+            features["is_opening_window"] = (
+                (local_minutes >= open_minutes)
+                & (local_minutes < open_minutes + opening_window_minutes)
+            ).astype(int)
+            features["is_midday_window"] = (
+                (local_minutes >= midday_start)
+                & (local_minutes < midday_end)
+            ).astype(int)
+            features["is_closing_window"] = (
+                (local_minutes >= close_minutes - closing_window_minutes)
+                & (local_minutes <= close_minutes)
+            ).astype(int)
+            for col in ["is_opening_window", "is_midday_window", "is_closing_window"]:
+                features[col] = pd.Series(features[col], index=df.index)
+
     # -------------------------------------------------------------------------
     # Optional structural break features
     # -------------------------------------------------------------------------
@@ -398,15 +493,24 @@ def build_features(
     # -------------------------------------------------------------------------
     hmm_cfg = config.get("hmm_regime", {})
     if hmm_cfg.get("enabled", False):
+        hmm_n_states = int(hmm_cfg.get("n_states", 2))
         hmm_df = build_hmm_regime_features(
             close=df["close"],
-            n_states=int(hmm_cfg.get("n_states", 2)),
+            n_states=hmm_n_states,
             min_train_samples=int(hmm_cfg.get("min_train_samples", 252)),
             refit_every=int(hmm_cfg.get("refit_every", 21)),
             rolling_window_size=int(hmm_cfg.get("rolling_window_size", 252)),
+            covariance_type=str(hmm_cfg.get("covariance_type", "full")),
+            n_iter=int(hmm_cfg.get("n_iter", 100)),
+            tol=float(hmm_cfg.get("tol", 1e-4)),
         )
+        neutral_prob = 1.0 / float(max(hmm_n_states, 1))
         for col in hmm_df.columns:
-            features[col] = hmm_df[col]
+            s = hmm_df[col].ffill()
+            if col == "hmm_state":
+                features[col] = s.fillna(-1)
+            else:
+                features[col] = s.fillna(neutral_prob)
 
     # -------------------------------------------------------------------------
     # PHASE 1: NORMALIZATION (apply after all raw features computed)

@@ -1,0 +1,235 @@
+{
+  "baseline_0.35": {
+    "num_trades": 933,
+    "win_rate": 0.4994640943193998,
+    "total_pnl": 968.66,
+    "max_drawdown": -3787.32,
+    "sharpe": 0.148,
+    "profit_factor": 1.022,
+    "avg_win": 96.45,
+    "avg_loss": -94.17,
+    "active_days": 693,
+    "exit_reasons": {
+      "time_stop": 656,
+      "profit_target": 212,
+      "stop_loss": 59,
+      "session_close": 6
+    }
+  },
+  "relaxed_0.25": {
+    "num_trades": 971,
+    "win_rate": 0.4922760041194645,
+    "total_pnl": -1158.08,
+    "max_drawdown": -3542.16,
+    "sharpe": -0.172,
+    "profit_factor": 0.975,
+    "avg_win": 95.41,
+    "avg_loss": -94.86,
+    "active_days": 716,
+    "exit_reasons": {
+      "time_stop": 685,
+      "profit_target": 214,
+      "stop_loss": 66,
+      "session_close": 6
+    }
+  },
+  "adaptive_vix25.0": {
+    "num_trades": 939,
+    "win_rate": 0.49733759318423854,
+    "total_pnl": 88.78,
+    "max_drawdown": -3787.32,
+    "sharpe": 0.013,
+    "profit_factor": 1.002,
+    "avg_win": 96.47,
+    "avg_loss": -95.26,
+    "active_days": 697,
+    "exit_reasons": {
+      "time_stop": 661,
+      "profit_target": 212,
+      "stop_loss": 60,
+      "session_close": 6
+    }
+  },
+  "threshold_sweep": [
+    {
+      "vix_threshold": 20.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.2,
+      "num_trades": 949,
+      "win_rate": 0.4931506849315068,
+      "total_pnl": -918.52,
+      "max_drawdown": -3652.32,
+      "sharpe": -0.138,
+      "profit_factor": 0.98,
+      "avg_win": 96.41,
+      "avg_loss": -95.72,
+      "active_days": 704,
+      "exit_reasons": {
+        "time_stop": 671,
+        "profit_target": 210,
+        "stop_loss": 62,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 20.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.25,
+      "num_trades": 945,
+      "win_rate": 0.49417989417989416,
+      "total_pnl": -976.1,
+      "max_drawdown": -3652.32,
+      "sharpe": -0.147,
+      "profit_factor": 0.979,
+      "avg_win": 96.05,
+      "avg_loss": -95.88,
+      "active_days": 701,
+      "exit_reasons": {
+        "time_stop": 667,
+        "profit_target": 210,
+        "stop_loss": 62,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 20.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.3,
+      "num_trades": 941,
+      "win_rate": 0.4962805526036132,
+      "total_pnl": -146.18,
+      "max_drawdown": -3787.32,
+      "sharpe": -0.022,
+      "profit_factor": 0.997,
+      "avg_win": 96.12,
+      "avg_loss": -95.01,
+      "active_days": 698,
+      "exit_reasons": {
+        "time_stop": 665,
+        "profit_target": 210,
+        "stop_loss": 60,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 25.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.2,
+      "num_trades": 941,
+      "win_rate": 0.4973432518597237,
+      "total_pnl": 196.32,
+      "max_drawdown": -3787.32,
+      "sharpe": 0.03,
+      "profit_factor": 1.004,
+      "avg_win": 96.64,
+      "avg_loss": -95.21,
+      "active_days": 698,
+      "exit_reasons": {
+        "time_stop": 663,
+        "profit_target": 212,
+        "stop_loss": 60,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 25.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.25,
+      "num_trades": 939,
+      "win_rate": 0.49733759318423854,
+      "total_pnl": 88.78,
+      "max_drawdown": -3787.32,
+      "sharpe": 0.013,
+      "profit_factor": 1.002,
+      "avg_win": 96.47,
+      "avg_loss": -95.26,
+      "active_days": 697,
+      "exit_reasons": {
+        "time_stop": 661,
+        "profit_target": 212,
+        "stop_loss": 60,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 25.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.3,
+      "num_trades": 936,
+      "win_rate": 0.49893162393162394,
+      "total_pnl": 641.22,
+      "max_drawdown": -3787.32,
+      "sharpe": 0.098,
+      "profit_factor": 1.014,
+      "avg_win": 96.47,
+      "avg_loss": -94.69,
+      "active_days": 695,
+      "exit_reasons": {
+        "time_stop": 659,
+        "profit_target": 212,
+        "stop_loss": 59,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 30.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.2,
+      "num_trades": 935,
+      "win_rate": 0.4983957219251337,
+      "total_pnl": 783.7,
+      "max_drawdown": -3787.32,
+      "sharpe": 0.12,
+      "profit_factor": 1.018,
+      "avg_win": 96.59,
+      "avg_loss": -94.3,
+      "active_days": 694,
+      "exit_reasons": {
+        "time_stop": 658,
+        "profit_target": 212,
+        "stop_loss": 59,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 30.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.25,
+      "num_trades": 935,
+      "win_rate": 0.4983957219251337,
+      "total_pnl": 718.7,
+      "max_drawdown": -3787.32,
+      "sharpe": 0.11,
+      "profit_factor": 1.016,
+      "avg_win": 96.45,
+      "avg_loss": -94.3,
+      "active_days": 694,
+      "exit_reasons": {
+        "time_stop": 658,
+        "profit_target": 212,
+        "stop_loss": 59,
+        "session_close": 6
+      }
+    },
+    {
+      "vix_threshold": 30.0,
+      "body_ratio_normal": 0.35,
+      "body_ratio_high_vix": 0.3,
+      "num_trades": 934,
+      "win_rate": 0.4989293361884368,
+      "total_pnl": 756.18,
+      "max_drawdown": -3787.32,
+      "sharpe": 0.116,
+      "profit_factor": 1.017,
+      "avg_win": 96.45,
+      "avg_loss": -94.42,
+      "active_days": 693,
+      "exit_reasons": {
+        "time_stop": 657,
+        "profit_target": 212,
+        "stop_loss": 59,
+        "session_close": 6
+      }
+    }
+  ]
+}

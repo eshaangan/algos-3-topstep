@@ -1,0 +1,45 @@
+{
+  "best_config": {},
+  "mes_baseline": {
+    "N": 0,
+    "WR": 0.0,
+    "E": 0.0,
+    "PnL": 0.0,
+    "Sharpe": 0.0,
+    "MaxDD": 0.0,
+    "avg_tpd": 0.0,
+    "stress": {}
+  },
+  "mnq_oos": {
+    "N": 49,
+    "WR": 0.4286,
+    "E": -8.51,
+    "PnL": -417.04,
+    "Sharpe": -2.749,
+    "MaxDD": -793.05,
+    "avg_tpd": 1.53,
+    "stress": {
+      "2018-2019": null,
+      "2020": null,
+      "2022": null
+    }
+  },
+  "es_stress": {
+    "N": 560,
+    "WR": 0.4571,
+    "E": -11.54,
+    "PnL": -6462.14,
+    "Sharpe": -0.559,
+    "MaxDD": -12381.97,
+    "avg_tpd": 1.07,
+    "stress": {
+      "2018-2019": -5096.58,
+      "2020": -639.39,
+      "2022": 7843.75
+    }
+  },
+  "orb_correlation": -0.007,
+  "criteria_passed": 2,
+  "verdict": "KILL \u2014 no viable edge at 1-min impulse family",
+  "top_configs": []
+}

@@ -2,14 +2,14 @@
 # Designed for Topstep 50k Combine
 
 position:
-  contracts: 3              # 3 MNQ contracts — LONG-only 1trade/day: Sharpe=4.95, DD=-$1,516
+  contracts: 2              # P0-A: reduced from 3 — Feb 13 took -$1,452 at 3c, pushing cumulative DD past $2k limit
   instrument: "MNQ"
   tick_size: 0.25
   tick_value: 0.50          # $0.50 per tick for MNQ
   point_value: 2.0          # $2.00 per point for MNQ
 
 daily_limits:
-  max_daily_loss: -950.0    # Topstep limit $1,000; use $50 buffer
+  max_daily_loss: -700.0    # P0-A: tightened from -950; at 2c worst-case day loss ~$650, adds buffer
   per_trade_max_loss: 1000.0
 
 circuit_breaker:

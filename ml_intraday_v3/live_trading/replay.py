@@ -23,6 +23,11 @@ import yaml
 
 from core.projectx_client import AccountState
 from ml_intraday_v3.backtesting_v3.risk import _session_day
+from ml_intraday_v3.live_trading.decision_gate import (
+    build_live_decision_config,
+    compute_live_regime_context,
+    evaluate_live_trade_decision,
+)
 from ml_intraday_v3.live_trading.execution_engine import LiveExecutionEngine
 from ml_intraday_v3.live_trading.feature_generator import LiveFeatureGenerator
 from ml_intraday_v3.live_trading.model_predictor import LiveModelPredictor
@@ -208,6 +213,7 @@ def replay_session(
     live_cfg = _load_yaml(config_dir / "live_trading.yaml")
     risk_cfg = _load_yaml(config_dir / "risk.yaml")
     execution_spec = _load_yaml(config_dir / "execution_spec.yaml")
+    backtest_cfg = _load_yaml(config_dir / "backtest.yaml")
 
     label_schema_path = run_dir / f"bar_size={bar_size}" / "label_schema.json"
     with open(label_schema_path, "r") as f:
@@ -233,6 +239,11 @@ def replay_session(
         model_bundle_path = _find_latest_model_bundle_in_run(run_dir, bar_size)
 
     predictor = LiveModelPredictor(Path(model_bundle_path))
+    live_decision_cfg = build_live_decision_config(
+        backtest_cfg=backtest_cfg,
+        live_cfg=live_cfg,
+        bundle_decision_cfg=predictor.bundle_decision_cfg,
+    )
     feature_generator = LiveFeatureGenerator(
         feature_columns=predictor.feature_columns,
         bar_size=bar_size,
@@ -377,29 +388,26 @@ def replay_session(
             tracker.update_positions(acct.open_positions)
             continue
 
-        prediction = predictor.predict(features, use_meta=use_meta)
+        regime_context = compute_live_regime_context(
+            timestamp=ts,
+            bars_df=buffer_df,
+            decision_config=live_decision_cfg,
+        )
+        prediction = predictor.predict(
+            features,
+            use_meta=use_meta,
+            combined_regime=regime_context.get("combined_regime"),
+        )
         tracker.signals_generated += 1
         score = prediction.get("score_ev", 0.0)
-
-        base_primary_threshold = live_cfg["signals"]["primary_threshold"]
-        primary_threshold_long = live_cfg["signals"].get(
-            "primary_threshold_long",
-            base_primary_threshold,
-        )
-        primary_threshold_short = live_cfg["signals"].get(
-            "primary_threshold_short",
-            base_primary_threshold,
-        )
-
-        should_trade, reason = predictor.should_trade(
+        decision_row = evaluate_live_trade_decision(
+            timestamp=ts,
             prediction=prediction,
-            primary_threshold=base_primary_threshold,
-            primary_threshold_long=primary_threshold_long,
-            primary_threshold_short=primary_threshold_short,
-            meta_threshold=live_cfg["signals"].get("meta_threshold"),
-            require_meta_approval=live_cfg["signals"].get("require_meta_approval", False),
-            allowed_directions=(live_cfg.get("signals", {}) or {}).get("allowed_directions"),
+            bars_df=buffer_df,
+            decision_config=live_decision_cfg,
         )
+        should_trade = bool(decision_row.get("accept", False))
+        reason = str(decision_row.get("decision_reason") or "rejected")
 
         # FIXED: Use the model's predicted side instead of deriving from score.
         # The score represents the BEST EV (max of long/short), so it's almost always positive.

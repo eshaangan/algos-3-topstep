@@ -1,0 +1,502 @@
+{
+  "in_sample": [
+    {
+      "label": "0: Baseline 2c 1/day",
+      "n": 62,
+      "wr": 0.5484,
+      "pnl": 2297.05,
+      "sharpe": 1.829,
+      "dd": -1538.84,
+      "pf": 1.329,
+      "avg_pnl": 37.05,
+      "exit_reasons": {
+        "stop_loss": 23,
+        "profit_target": 5,
+        "time_stop": 32,
+        "session_close": 2
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 23,
+          "wr": 0.0,
+          "avg_pnl": -270.73
+        },
+        "profit_target": {
+          "n": 5,
+          "wr": 1.0,
+          "avg_pnl": 478.21
+        },
+        "time_stop": {
+          "n": 32,
+          "wr": 0.8438,
+          "avg_pnl": 184.3
+        },
+        "session_close": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 117.52
+        }
+      },
+      "trades_per_day": 0.47,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 0,
+        "other_score_low": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.4602,
+        "p_pass_30d": 0.1951,
+        "p_pass_60d": 0.4602,
+        "p95_dd": -2246.92,
+        "median_days": 34,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "1: CDP-Anchor 2c 2/day",
+      "n": 34,
+      "wr": 0.5588,
+      "pnl": 2342.79,
+      "sharpe": 3.928,
+      "dd": -1130.35,
+      "pf": 1.693,
+      "avg_pnl": 68.91,
+      "exit_reasons": {
+        "stop_loss": 13,
+        "time_stop": 18,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 13,
+          "wr": 0.0,
+          "avg_pnl": -235.19
+        },
+        "time_stop": {
+          "n": 18,
+          "wr": 0.8889,
+          "avg_pnl": 229.02
+        },
+        "session_close": {
+          "n": 1,
+          "wr": 1.0,
+          "avg_pnl": 24.52
+        },
+        "profit_target": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 626.69
+        }
+      },
+      "trades_per_day": 0.258,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 50,
+        "other_score_low": 5
+      },
+      "monte_carlo": {
+        "p_pass": 0.7327,
+        "p_pass_30d": 0.3574,
+        "p_pass_60d": 0.7327,
+        "p95_dd": -2119.58,
+        "median_days": 31,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "2: CDP-Anchor 3c 2/day",
+      "n": 34,
+      "wr": 0.5588,
+      "pnl": 3514.19,
+      "sharpe": 3.928,
+      "dd": -1695.52,
+      "pf": 1.693,
+      "avg_pnl": 103.36,
+      "exit_reasons": {
+        "stop_loss": 13,
+        "time_stop": 18,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 13,
+          "wr": 0.0,
+          "avg_pnl": -352.79
+        },
+        "time_stop": {
+          "n": 18,
+          "wr": 0.8889,
+          "avg_pnl": 343.53
+        },
+        "session_close": {
+          "n": 1,
+          "wr": 1.0,
+          "avg_pnl": 36.78
+        },
+        "profit_target": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 940.04
+        }
+      },
+      "trades_per_day": 0.258,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 50,
+        "other_score_low": 5
+      },
+      "monte_carlo": {
+        "p_pass": 0.7342,
+        "p_pass_30d": 0.5888,
+        "p_pass_60d": 0.7342,
+        "p95_dd": -2277.88,
+        "median_days": 19,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "3: CDP-Anchor 3c 36-bar TS",
+      "n": 34,
+      "wr": 0.5588,
+      "pnl": 3288.21,
+      "sharpe": 3.945,
+      "dd": -1695.52,
+      "pf": 1.638,
+      "avg_pnl": 96.71,
+      "exit_reasons": {
+        "stop_loss": 14,
+        "time_stop": 16,
+        "session_close": 1,
+        "profit_target": 3
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 14,
+          "wr": 0.0,
+          "avg_pnl": -363.9
+        },
+        "time_stop": {
+          "n": 16,
+          "wr": 0.9375,
+          "avg_pnl": 366.12
+        },
+        "session_close": {
+          "n": 1,
+          "wr": 1.0,
+          "avg_pnl": 36.78
+        },
+        "profit_target": {
+          "n": 3,
+          "wr": 1.0,
+          "avg_pnl": 829.36
+        }
+      },
+      "trades_per_day": 0.258,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 50,
+        "other_score_low": 5
+      },
+      "monte_carlo": {
+        "p_pass": 0.7255,
+        "p_pass_30d": 0.569,
+        "p_pass_60d": 0.7255,
+        "p95_dd": -2287.06,
+        "median_days": 20,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "4: Adaptive Kelly 2\u21923c 36-bar",
+      "n": 34,
+      "wr": 0.5588,
+      "pnl": 2359.74,
+      "sharpe": 3.614,
+      "dd": -1461.28,
+      "pf": 1.627,
+      "avg_pnl": 69.4,
+      "exit_reasons": {
+        "stop_loss": 14,
+        "time_stop": 16,
+        "session_close": 1,
+        "profit_target": 3
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 14,
+          "wr": 0.0,
+          "avg_pnl": -266.24
+        },
+        "time_stop": {
+          "n": 16,
+          "wr": 0.9375,
+          "avg_pnl": 253.04
+        },
+        "session_close": {
+          "n": 1,
+          "wr": 1.0,
+          "avg_pnl": 24.52
+        },
+        "profit_target": {
+          "n": 3,
+          "wr": 1.0,
+          "avg_pnl": 671.33
+        }
+      },
+      "trades_per_day": 0.258,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 50,
+        "other_score_low": 5
+      },
+      "monte_carlo": {
+        "p_pass": 0.7141,
+        "p_pass_30d": 0.3901,
+        "p_pass_60d": 0.7141,
+        "p95_dd": -2182.75,
+        "median_days": 29,
+        "n_paths": 10000
+      }
+    }
+  ],
+  "oos": [
+    {
+      "label": "0: Baseline 2c 1/day",
+      "n": 27,
+      "wr": 0.7037,
+      "pnl": 4003.32,
+      "sharpe": 6.256,
+      "dd": -1010.72,
+      "pf": 2.437,
+      "avg_pnl": 148.27,
+      "exit_reasons": {
+        "time_stop": 18,
+        "stop_loss": 6,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "exit_detail": {
+        "time_stop": {
+          "n": 18,
+          "wr": 0.8889,
+          "avg_pnl": 262.85
+        },
+        "stop_loss": {
+          "n": 6,
+          "wr": 0.0,
+          "avg_pnl": -365.32
+        },
+        "session_close": {
+          "n": 1,
+          "wr": 1.0,
+          "avg_pnl": 210.52
+        },
+        "profit_target": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 626.69
+        }
+      },
+      "trades_per_day": 0.5,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 0,
+        "other_score_low": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.9539,
+        "p_pass_30d": 0.8127,
+        "p_pass_60d": 0.9539,
+        "p95_dd": 0.0,
+        "median_days": 18,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "1: CDP-Anchor 2c 2/day",
+      "n": 17,
+      "wr": 0.5882,
+      "pnl": 1706.86,
+      "sharpe": 4.024,
+      "dd": -1480.09,
+      "pf": 1.727,
+      "avg_pnl": 100.4,
+      "exit_reasons": {
+        "stop_loss": 6,
+        "time_stop": 9,
+        "profit_target": 2
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 6,
+          "wr": 0.0,
+          "avg_pnl": -339.2
+        },
+        "time_stop": {
+          "n": 9,
+          "wr": 0.8889,
+          "avg_pnl": 276.52
+        },
+        "profit_target": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 626.69
+        }
+      },
+      "trades_per_day": 0.315,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 17,
+        "other_score_low": 2
+      },
+      "monte_carlo": {
+        "p_pass": 0.8044,
+        "p_pass_30d": 0.5875,
+        "p_pass_60d": 0.8044,
+        "p95_dd": -2218.04,
+        "median_days": 22,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "2: CDP-Anchor 3c 2/day",
+      "n": 13,
+      "wr": 0.5385,
+      "pnl": 1088.13,
+      "sharpe": 2.252,
+      "dd": -2220.14,
+      "pf": 1.365,
+      "avg_pnl": 83.7,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 6,
+        "profit_target": 2
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 5,
+          "wr": 0.0,
+          "avg_pnl": -501.93
+        },
+        "time_stop": {
+          "n": 6,
+          "wr": 0.8333,
+          "avg_pnl": 286.28
+        },
+        "profit_target": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 940.04
+        }
+      },
+      "trades_per_day": 0.241,
+      "mll_ok": "False",
+      "veto_breakdown": {
+        "cdp_required": 11,
+        "other_score_low": 2
+      },
+      "monte_carlo": {
+        "p_pass": 0.526,
+        "p_pass_30d": 0.4898,
+        "p_pass_60d": 0.526,
+        "p95_dd": -2470.89,
+        "median_days": 14,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "3: CDP-Anchor 3c 36-bar TS",
+      "n": 13,
+      "wr": 0.5385,
+      "pnl": 814.45,
+      "sharpe": 1.69,
+      "dd": -2220.14,
+      "pf": 1.27,
+      "avg_pnl": 62.65,
+      "exit_reasons": {
+        "stop_loss": 6,
+        "time_stop": 5,
+        "profit_target": 2
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 6,
+          "wr": 0.0,
+          "avg_pnl": -503.01
+        },
+        "time_stop": {
+          "n": 5,
+          "wr": 1.0,
+          "avg_pnl": 390.48
+        },
+        "profit_target": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 940.04
+        }
+      },
+      "trades_per_day": 0.241,
+      "mll_ok": "False",
+      "veto_breakdown": {
+        "cdp_required": 11,
+        "other_score_low": 2
+      },
+      "monte_carlo": {
+        "p_pass": 0.467,
+        "p_pass_30d": 0.4267,
+        "p_pass_60d": 0.467,
+        "p95_dd": -2492.6,
+        "median_days": 15,
+        "n_paths": 10000
+      }
+    },
+    {
+      "label": "4: Adaptive Kelly 2\u21923c 36-bar",
+      "n": 17,
+      "wr": 0.5294,
+      "pnl": 1499.34,
+      "sharpe": 2.855,
+      "dd": -1909.14,
+      "pf": 1.502,
+      "avg_pnl": 88.2,
+      "exit_reasons": {
+        "stop_loss": 7,
+        "time_stop": 8,
+        "profit_target": 2
+      },
+      "exit_detail": {
+        "stop_loss": {
+          "n": 7,
+          "wr": 0.0,
+          "avg_pnl": -406.39
+        },
+        "time_stop": {
+          "n": 8,
+          "wr": 0.875,
+          "avg_pnl": 341.93
+        },
+        "profit_target": {
+          "n": 2,
+          "wr": 1.0,
+          "avg_pnl": 804.33
+        }
+      },
+      "trades_per_day": 0.315,
+      "mll_ok": "True",
+      "veto_breakdown": {
+        "cdp_required": 17,
+        "other_score_low": 2
+      },
+      "monte_carlo": {
+        "p_pass": 0.6371,
+        "p_pass_30d": 0.524,
+        "p_pass_60d": 0.6371,
+        "p95_dd": -2355.95,
+        "median_days": 18,
+        "n_paths": 10000
+      }
+    }
+  ]
+}

@@ -1,81 +1,88 @@
 #!/bin/bash
-set -e
+# Dual-meta MES image -> VM topstep-dual-meta-mes-vm (default). Does not touch ORB VM.
+# Second instance: gcp_deploy/provision_orb_vm.sh + deploy_orb.sh (see gcp_deploy/BOTH_VMS.txt).
+set -euo pipefail
 
-# Configuration
-PROJECT_ID=$(gcloud config get-value project)
-APP_NAME="topstep-trader"
-REGION="us-central1"
-IMAGE_TAG="gcr.io/${PROJECT_ID}/${APP_NAME}:latest"
-VM_NAME="${APP_NAME}-vm"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DOCKERFILE_PATH="gcp_deploy/Dockerfile"
 
-echo "Deploying to GCP Project: ${PROJECT_ID}"
+PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project)}"
+REGION="${REGION:-us-central1}"
+ZONE="${ZONE:-${REGION}-a}"
+APP_NAME="${APP_NAME:-topstep-dual-meta-mes}"
+VM_NAME="${VM_NAME:-${APP_NAME}-vm}"
+MACHINE_TYPE="${MACHINE_TYPE:-e2-medium}"
+IMAGE_TAG="${IMAGE_TAG:-gcr.io/${PROJECT_ID}/${APP_NAME}:latest}"
+ENV_FILE="${ENV_FILE:-${REPO_ROOT}/.env.gcp.live}"
 
-# 1. Enable Artifact Registry (if needed - traditionally Container Registry works with gcr.io)
-# echo "Enabling Container Registry API..."
-# gcloud services enable containerregistry.googleapis.com
-
-# 2. Build Docker Image
-echo "Building Docker image..."
-# We build from the root directory but use the Dockerfile in gcp_deploy
-docker build --platform linux/amd64 -f gcp_deploy/Dockerfile -t "${IMAGE_TAG}" .
-
-# 3. Push to Google Container Registry
-echo "Pushing image to GCR..."
-docker push "${IMAGE_TAG}"
-
-# 4. Create/Update Compute Engine VM
-echo "Deploying to Compute Engine..."
-
-# Check if VM exists
-if gcloud compute instances describe "${VM_NAME}" --zone="${REGION}-a" > /dev/null 2>&1; then
-    echo "VM ${VM_NAME} already exists. Updating container..."
-    gcloud compute instances update-container "${VM_NAME}" \
-        --container-image="${IMAGE_TAG}" \
-        --zone="${REGION}-a"
-else
-    echo "Creating new VM ${VM_NAME}..."
-    # Note: You need to pass environment variables. 
-    # For security, we recommend using Secret Manager, but for simplicity here
-    # we'll assume a .env file exists and parse it.
-    
-    # Construct --container-env flags from .env
-    ENV_FLAGS=""
-    if [ -f .env ]; then
-        echo "Reading .env file..."
-        while read -r line || [ -n "$line" ]; do
-            # Remove inline comments (everything after #)
-            line="${line%%#*}"
-            # Trim leading/trailing whitespace
-            line="$(echo "${line}" | xargs)"
-            
-            # Skip empty lines
-            if [ -z "$line" ]; then continue; fi
-            
-            # Parse Key=Value
-            if [[ "$line" == *"="* ]]; then
-                key="${line%%=*}"
-                value="${line#*=}"
-                
-                # Trim key and value
-                key="$(echo "${key}" | xargs)"
-                value="$(echo "${value}" | xargs)"
-                
-                if [ -n "$key" ]; then
-                    ENV_FLAGS="${ENV_FLAGS}--container-env=${key}=${value} "
-                fi
-            fi
-        done < .env
-    else
-        echo "WARNING: No .env file found! Bot may fail to start."
-    fi
-
-    gcloud compute instances create-with-container "${VM_NAME}" \
-        --container-image="${IMAGE_TAG}" \
-        --machine-type=e2-medium \
-        --zone="${REGION}-a" \
-        --tags=http-server \
-        $ENV_FLAGS
+if [[ ! -f "${ENV_FILE}" && -f "${REPO_ROOT}/.env" ]]; then
+  ENV_FILE="${REPO_ROOT}/.env"
 fi
 
-echo "Deployment complete!"
-echo "View logs: gcloud compute instances get-serial-port-output ${VM_NAME} --zone=${REGION}-a"
+echo "Deploying ${APP_NAME} to ${PROJECT_ID} (${ZONE})"
+
+echo "Building image with Cloud Build..."
+TMP_BUILD_CONFIG="$(mktemp)"
+trap 'rm -f "${TMP_BUILD_CONFIG}"' EXIT
+cat > "${TMP_BUILD_CONFIG}" <<EOF
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - '${DOCKERFILE_PATH}'
+      - '-t'
+      - '${IMAGE_TAG}'
+      - '.'
+images:
+  - '${IMAGE_TAG}'
+EOF
+gcloud builds submit "${REPO_ROOT}" --project="${PROJECT_ID}" --config="${TMP_BUILD_CONFIG}"
+
+ENV_FLAGS=()
+if [[ -f "${ENV_FILE}" ]]; then
+  echo "Reading container env from ${ENV_FILE}"
+  while IFS= read -r raw_line || [[ -n "${raw_line}" ]]; do
+    line="${raw_line%%#*}"
+    line="$(echo "${line}" | xargs)"
+    [[ -z "${line}" ]] && continue
+    if [[ "${line}" == *"="* ]]; then
+      key="${line%%=*}"
+      value="${line#*=}"
+      key="$(echo "${key}" | xargs)"
+      value="$(echo "${value}" | xargs)"
+      if [[ -z "${key}" ]]; then
+        continue
+      fi
+      if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        echo "Skipping invalid container env key: ${key}" >&2
+        continue
+      fi
+      ENV_FLAGS+=("--container-env=${key}=${value}")
+    fi
+  done < "${ENV_FILE}"
+else
+  echo "WARNING: no env file found; continuing without container env overrides"
+fi
+
+if gcloud compute instances describe "${VM_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
+  echo "Updating existing VM container..."
+  gcloud compute instances update-container "${VM_NAME}" \
+    --zone="${ZONE}" \
+    --container-image="${IMAGE_TAG}" \
+    "${ENV_FLAGS[@]}"
+else
+  echo "Creating new VM ${VM_NAME}..."
+  gcloud compute instances create-with-container "${VM_NAME}" \
+    --zone="${ZONE}" \
+    --machine-type="${MACHINE_TYPE}" \
+    --tags=trading \
+    --container-image="${IMAGE_TAG}" \
+    "${ENV_FLAGS[@]}"
+fi
+
+echo "Deployment complete."
+echo "If ${VM_NAME} runs Docker manually (update-container not used), recreate the runner:"
+echo "  bash gcp_deploy/recreate_dual_meta_docker_on_vm.sh"
+echo "Logs: gcloud compute ssh ${VM_NAME} --zone=${ZONE}"

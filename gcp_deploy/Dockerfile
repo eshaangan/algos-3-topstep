@@ -3,7 +3,9 @@ FROM python:3.10-slim
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    LIVE_CONFIG_DIR=/app/ml_intraday_v3/configs/live_dual_meta_mes_real \
+    LIVE_MODEL_BUNDLE=/app/ml_intraday_v3/models/live/dual_meta_mes_live_bundle.pkl
 
 WORKDIR /app
 
@@ -20,6 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 # We copy specific directories to keep the image clean
 COPY core/ /app/core/
+COPY ml_intraday_v3/models/live/ /app/ml_intraday_v3/models/live/
 COPY ml_intraday_v3/ /app/ml_intraday_v3/
 
 # Create logs directory
@@ -30,4 +33,4 @@ RUN mkdir -p logs
 ENTRYPOINT ["python", "ml_intraday_v3/live_trading/live_runner.py"]
 
 # Default arguments (can be overridden)
-CMD ["--no-confirm", "--log-level", "INFO", "--model-bundle", "/app/ml_intraday_v3/models/saved/model_bundle_balanced_v3.pkl"]
+CMD ["--config-dir", "/app/ml_intraday_v3/configs/live_dual_meta_mes_real", "--model-bundle", "/app/ml_intraday_v3/models/live/dual_meta_mes_live_bundle.pkl", "--no-confirm", "--log-level", "INFO"]

@@ -1,0 +1,37 @@
+{
+  "mode": "multi_route",
+  "routes": [
+    {
+      "name": "short_veto_regimes_2_3_5_6",
+      "threshold_primary": 0.52,
+      "threshold_meta": 0.45,
+      "test_rows": 269,
+      "metrics": {
+        "accuracy": 0.9996676492219109,
+        "balanced_accuracy": 0.9996594818186701,
+        "log_loss": 0.12603779714919455,
+        "brier": 0.028530992547952053,
+        "precision": 1.0,
+        "recall": 0.9993189636373403,
+        "f1": 0.9996593658265409,
+        "roc_auc": 1.0
+      }
+    },
+    {
+      "name": "long_veto_regimes_1_3_7_8",
+      "threshold_primary": 0.38,
+      "threshold_meta": 0.45,
+      "test_rows": 737,
+      "metrics": {
+        "accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "log_loss": 0.07354804545296087,
+        "brier": 0.009487028019941836,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "roc_auc": 0.9999999999999999
+      }
+    }
+  ]
+}

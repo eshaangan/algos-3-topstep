@@ -1,0 +1,13 @@
+connection:
+  api_base_url: "https://api.topstepx.com"
+
+execution:
+  order_type: "market"
+  max_retries: 3
+  retry_delay_seconds: 2
+
+monitoring:
+  log_level: "INFO"
+  log_to_file: true
+  log_dir: "logs/"
+  heartbeat_interval_seconds: 60

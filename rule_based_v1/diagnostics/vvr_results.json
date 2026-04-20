@@ -1,0 +1,413 @@
+{
+  "meta": {
+    "instrument": "MES",
+    "data_range": "2025-06-30 to 2025-12-26",
+    "n_days": 127,
+    "n_rth_bars": 48494
+  },
+  "overall": {
+    "N": 10,
+    "WR": 0.1,
+    "avg_pnl": -3.0,
+    "total_pnl": -30.0,
+    "max_dd": -28.75,
+    "sharpe_trade": -5.653,
+    "sharpe_daily": -20.346,
+    "avg_trades_per_day": 0.079
+  },
+  "exit_breakdown": [
+    {
+      "reason": "stop",
+      "N": 9,
+      "WR": 0.0,
+      "avg_pnl": -3.47
+    },
+    {
+      "reason": "tp1",
+      "N": 1,
+      "WR": 1.0,
+      "avg_pnl": 1.25
+    }
+  ],
+  "monthly_pnl": {
+    "2025-08": -2.5,
+    "2025-09": -7.75,
+    "2025-10": -14.25,
+    "2025-12": -5.5
+  },
+  "monotonicity_shock": [
+    {
+      "decile": "0-10",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.0
+    },
+    {
+      "decile": "10-20",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "20-30",
+      "N": 1,
+      "WR": 1.0,
+      "avg_pnl": 1.25
+    },
+    {
+      "decile": "30-40",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.0
+    },
+    {
+      "decile": "40-50",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "50-60",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "60-70",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "70-80",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "80-90",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.75
+    },
+    {
+      "decile": "90-100",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -9.0
+    }
+  ],
+  "monotonicity_deg": [
+    {
+      "decile": "0-10",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -9.0
+    },
+    {
+      "decile": "10-20",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.0
+    },
+    {
+      "decile": "20-30",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.0
+    },
+    {
+      "decile": "30-40",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.75
+    },
+    {
+      "decile": "40-50",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "50-60",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "60-70",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "70-80",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "80-90",
+      "N": 1,
+      "WR": 1.0,
+      "avg_pnl": 1.25
+    },
+    {
+      "decile": "90-100",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    }
+  ],
+  "monotonicity_orx": [
+    {
+      "decile": "0-10",
+      "N": 1,
+      "WR": 1.0,
+      "avg_pnl": 1.25
+    },
+    {
+      "decile": "10-20",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.0
+    },
+    {
+      "decile": "20-30",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "30-40",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "40-50",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.75
+    },
+    {
+      "decile": "50-60",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "60-70",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    },
+    {
+      "decile": "70-80",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -3.0
+    },
+    {
+      "decile": "80-90",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -9.0
+    },
+    {
+      "decile": "90-100",
+      "N": 1,
+      "WR": 0.0,
+      "avg_pnl": -2.5
+    }
+  ],
+  "threshold_sweep_shock": [
+    {
+      "shock_pctl": 60,
+      "N": 26,
+      "WR": 0.1154,
+      "avg_pnl": -2.38,
+      "sharpe": -17.978
+    },
+    {
+      "shock_pctl": 70,
+      "N": 18,
+      "WR": 0.1667,
+      "avg_pnl": -2.32,
+      "sharpe": -14.741
+    },
+    {
+      "shock_pctl": 80,
+      "N": 10,
+      "WR": 0.1,
+      "avg_pnl": -3.0,
+      "sharpe": -20.346
+    },
+    {
+      "shock_pctl": 90,
+      "N": 5,
+      "WR": 0.2,
+      "avg_pnl": -3.3,
+      "sharpe": -15.842
+    }
+  ],
+  "threshold_sweep_deg": [
+    {
+      "deg_pctl": 30,
+      "N": 5,
+      "WR": 0.2,
+      "avg_pnl": -1.75,
+      "sharpe": -18.52
+    },
+    {
+      "deg_pctl": 40,
+      "N": 8,
+      "WR": 0.125,
+      "avg_pnl": -2.25,
+      "sharpe": -21.78
+    },
+    {
+      "deg_pctl": 50,
+      "N": 10,
+      "WR": 0.1,
+      "avg_pnl": -3.0,
+      "sharpe": -20.346
+    },
+    {
+      "deg_pctl": 60,
+      "N": 14,
+      "WR": 0.0714,
+      "avg_pnl": -3.14,
+      "sharpe": -24.037
+    },
+    {
+      "deg_pctl": 70,
+      "N": 17,
+      "WR": 0.1765,
+      "avg_pnl": -2.29,
+      "sharpe": -12.024
+    }
+  ],
+  "trade_log": [
+    {
+      "date": "2025-08-26",
+      "entry_time": "2025-08-26 09:40:00-04:00",
+      "direction": "LONG",
+      "Shock": 3.399999996661818,
+      "Deg": 0.029498525070265656,
+      "ORX": 0.09019607842854287,
+      "entry_price": 6452.75,
+      "exit_price": 6452.25,
+      "exit_reason": "stop",
+      "pnl": -2.5
+    },
+    {
+      "date": "2025-09-04",
+      "entry_time": "2025-09-04 13:01:00-04:00",
+      "direction": "LONG",
+      "Shock": 2.99999999685,
+      "Deg": 0.053333333321955556,
+      "ORX": 0.06666666665955555,
+      "entry_price": 6483.75,
+      "exit_price": 6484.0,
+      "exit_reason": "tp1",
+      "pnl": 1.25
+    },
+    {
+      "date": "2025-09-17",
+      "entry_time": "2025-09-17 14:17:00-04:00",
+      "direction": "LONG",
+      "Shock": 8.333333327426901,
+      "Deg": 0.1242236024793282,
+      "ORX": 0.1507727101390101,
+      "entry_price": 6596.0,
+      "exit_price": 6594.2,
+      "exit_reason": "stop",
+      "pnl": -9.0
+    },
+    {
+      "date": "2025-10-08",
+      "entry_time": "2025-10-08 09:40:00-04:00",
+      "direction": "LONG",
+      "Shock": 3.230769228302432,
+      "Deg": 0.06734006733099797,
+      "ORX": 0.10169491525029753,
+      "entry_price": 6770.75,
+      "exit_price": 6770.25,
+      "exit_reason": "stop",
+      "pnl": -2.5
+    },
+    {
+      "date": "2025-10-15",
+      "entry_time": "2025-10-15 13:22:00-04:00",
+      "direction": "LONG",
+      "Shock": 4.285714284217686,
+      "Deg": 0.0805152979014161,
+      "ORX": 0.0823076923071858,
+      "entry_price": 6676.25,
+      "exit_price": 6675.5,
+      "exit_reason": "stop",
+      "pnl": -3.75
+    },
+    {
+      "date": "2025-10-21",
+      "entry_time": "2025-10-21 13:05:00-04:00",
+      "direction": "LONG",
+      "Shock": 2.9999999979107144,
+      "Deg": 0.0574712643612102,
+      "ORX": 0.2403628117870229,
+      "entry_price": 6772.5,
+      "exit_price": 6772.0,
+      "exit_reason": "stop",
+      "pnl": -2.5
+    },
+    {
+      "date": "2025-10-29",
+      "entry_time": "2025-10-29 14:07:00-04:00",
+      "direction": "LONG",
+      "Shock": 2.9999999977446805,
+      "Deg": 0.11347517729208792,
+      "ORX": 0.10288335517585442,
+      "entry_price": 6935.75,
+      "exit_price": 6935.15,
+      "exit_reason": "stop",
+      "pnl": -3.0
+    },
+    {
+      "date": "2025-10-31",
+      "entry_time": "2025-10-31 11:51:00-04:00",
+      "direction": "LONG",
+      "Shock": 3.9999999981288137,
+      "Deg": 0.061349693246515354,
+      "ORX": 0.07502517623303101,
+      "entry_price": 6881.75,
+      "exit_price": 6881.25,
+      "exit_reason": "stop",
+      "pnl": -2.5
+    },
+    {
+      "date": "2025-12-05",
+      "entry_time": "2025-12-05 11:00:00-05:00",
+      "direction": "LONG",
+      "Shock": 2.666666665377289,
+      "Deg": 0.07092198580889628,
+      "ORX": 0.07225691346908464,
+      "entry_price": 6889.25,
+      "exit_price": 6888.75,
+      "exit_reason": "stop",
+      "pnl": -2.5
+    },
+    {
+      "date": "2025-12-05",
+      "entry_time": "2025-12-05 11:34:00-05:00",
+      "direction": "LONG",
+      "Shock": 2.538461537398422,
+      "Deg": 0.09009009008197386,
+      "ORX": 0.06674907292822252,
+      "entry_price": 6878.75,
+      "exit_price": 6878.15,
+      "exit_reason": "stop",
+      "pnl": -3.0
+    }
+  ]
+}

@@ -1,0 +1,260 @@
+{
+  "strategy_correlation": {
+    "ORB_vs_MSITE": {
+      "corr": null,
+      "n_common_days": 1
+    },
+    "ORB_vs_GIRE": {
+      "corr": null,
+      "n_common_days": 1
+    },
+    "MSITE_vs_GIRE": {
+      "corr": null,
+      "n_common_days": 1
+    }
+  },
+  "best_worst_days": {
+    "worst_5": [
+      {
+        "date": "2026-02-20",
+        "orb": -796.1930352861298,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": -796.1930352861298
+      },
+      {
+        "date": "2025-10-15",
+        "orb": -597.5854458922611,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": -597.5854458922611
+      },
+      {
+        "date": "2026-03-23",
+        "orb": -586.1133175894636,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": -586.1133175894636
+      },
+      {
+        "date": "2025-08-21",
+        "orb": -483.7683251577607,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": -483.7683251577607
+      },
+      {
+        "date": "2025-12-01",
+        "orb": -478.309126097897,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": -478.309126097897
+      }
+    ],
+    "best_5": [
+      {
+        "date": "2026-02-09",
+        "orb": 1065.7858228460984,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": 1065.7858228460984
+      },
+      {
+        "date": "2026-03-04",
+        "orb": 995.28,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": 995.28
+      },
+      {
+        "date": "2025-10-14",
+        "orb": 969.78,
+        "msite": 0.0,
+        "gire": 0.0,
+        "total": 969.78
+      },
+      {
+        "date": "2026-02-04",
+        "orb": 0.0,
+        "msite": 905.04,
+        "gire": 0.0,
+        "total": 905.04
+      },
+      {
+        "date": "2025-10-17",
+        "orb": 0.0,
+        "msite": 834.06,
+        "gire": 0.0,
+        "total": 834.06
+      }
+    ]
+  },
+  "drawdown_episodes": [
+    {
+      "peak_date": "2025-11-26",
+      "trough_date": "2026-01-07",
+      "depth": -1553.69
+    },
+    {
+      "peak_date": "2025-11-26",
+      "trough_date": "2026-01-20",
+      "depth": -993.35
+    },
+    {
+      "peak_date": "2026-03-11",
+      "trough_date": "2026-03-23",
+      "depth": -897.03
+    }
+  ],
+  "trade_distribution": {
+    "orb_long": {
+      "N": 43,
+      "WR": 0.5349,
+      "avg_win": 496.01,
+      "avg_loss": -351.44,
+      "wl_ratio": 1.4114,
+      "max_win": 1065.79,
+      "max_loss": -796.19,
+      "profit_factor": 1.6231
+    },
+    "orb_exit_reasons": {
+      "stop_loss": 16,
+      "time_stop": 24,
+      "profit_target": 3
+    },
+    "msite_long": {
+      "N": 13,
+      "WR": 0.6154,
+      "avg_win": 685.67,
+      "avg_loss": -298.37,
+      "wl_ratio": 2.2981,
+      "max_win": 905.04,
+      "max_loss": -455.58,
+      "profit_factor": 3.6769
+    },
+    "msite_exit_reasons": {
+      "stop_loss": 5,
+      "profit_target": 8
+    },
+    "msite_avg_bars_in_trade": 1.6923076923076923,
+    "gire_long": {
+      "N": 7,
+      "WR": 0.8571,
+      "avg_win": 218.75,
+      "avg_loss": -65.0,
+      "wl_ratio": 3.3654,
+      "max_win": 647.5,
+      "max_loss": -65.0,
+      "profit_factor": 20.1923
+    }
+  },
+  "monthly_table": {
+    "2025-08": {
+      "orb": -154.51,
+      "msite": 756.3,
+      "gire": 0,
+      "portfolio": 601.79,
+      "result": "PASS"
+    },
+    "2025-09": {
+      "orb": -922.31,
+      "msite": 0,
+      "gire": 237.5,
+      "portfolio": -684.81,
+      "result": "FAIL"
+    },
+    "2025-10": {
+      "orb": 933.36,
+      "msite": 172.98,
+      "gire": 267.5,
+      "portfolio": 1373.84,
+      "result": "PASS"
+    },
+    "2025-11": {
+      "orb": 1706.8,
+      "msite": 800.22,
+      "gire": 742.5,
+      "portfolio": 3249.52,
+      "result": "PASS"
+    },
+    "2025-12": {
+      "orb": -1035.99,
+      "msite": 0,
+      "gire": 0,
+      "portfolio": -1035.99,
+      "result": "FAIL"
+    },
+    "2026-01": {
+      "orb": 717.9,
+      "msite": 822.96,
+      "gire": 0,
+      "portfolio": 1540.86,
+      "result": "PASS"
+    },
+    "2026-02": {
+      "orb": 759.78,
+      "msite": 1009.32,
+      "gire": 0,
+      "portfolio": 1769.1,
+      "result": "PASS"
+    },
+    "2026-03": {
+      "orb": 2374.29,
+      "msite": 431.76,
+      "gire": 0,
+      "portfolio": 2806.05,
+      "result": "PASS"
+    }
+  },
+  "monte_carlo": {
+    "n_paths": 10000,
+    "sample_days": 60,
+    "p_pass": 0.8659,
+    "p_bust_dd": 0.1331,
+    "p_bust_daily": 0.0,
+    "p_timeout": 0.001,
+    "median_days_to_pass": 15.0
+  },
+  "msite_signal_characteristics": {
+    "M_at_entry": {
+      "min": 0.1133,
+      "p25": 0.2312,
+      "median": 0.2554,
+      "p75": 0.3333,
+      "max": 0.5117,
+      "wr_above_median": 0.6666666666666666,
+      "wr_below_median": 0.5714285714285714
+    },
+    "B_at_entry": {
+      "min": 0.0193,
+      "p25": 0.2465,
+      "median": 0.2911,
+      "p75": 0.459,
+      "max": 0.6054,
+      "wr_b_positive": 0.6153846153846154,
+      "wr_b_nonpositive": 0.0
+    }
+  },
+  "portfolio_summary": {
+    "ytd": {
+      "total_pnl": 7344.12,
+      "sharpe": 9.6712,
+      "sortino": 27.4261,
+      "max_dd": -796.19,
+      "calmar": 101.0634,
+      "win_day_pct": 0.7391,
+      "longest_win_streak": 7,
+      "longest_loss_streak": 1
+    },
+    "long": {
+      "total_pnl": 9620.36,
+      "sharpe": 5.2354,
+      "sortino": 13.5458,
+      "max_dd": -1553.69,
+      "calmar": 26.0062,
+      "win_day_pct": 0.5833,
+      "longest_win_streak": 7,
+      "longest_loss_streak": 3
+    }
+  }
+}

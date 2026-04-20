@@ -274,18 +274,39 @@ class ProjectXClient:
 
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         url = f"{self._base_url}{path}"
-        resp = requests.get(url, headers=self._headers(), params=params or {}, timeout=self._timeout)
-        return self._handle_response(resp)
+        for attempt in range(2):
+            resp = requests.get(url, headers=self._headers(), params=params or {}, timeout=self._timeout)
+            if resp.status_code == 401 and attempt == 0:
+                LOGGER.warning("ProjectX 401 on GET %s; re-authenticating", path)
+                self._token = None
+                self._authenticate()
+                continue
+            return self._handle_response(resp)
+        raise ProjectXClientError("Unexpected: GET retry loop exhausted")
 
     def _post(self, path: str, body: Dict[str, Any]) -> Dict[str, Any]:
         url = f"{self._base_url}{path}"
-        resp = requests.post(url, headers=self._headers(), json=body, timeout=self._timeout)
-        return self._handle_response(resp)
+        for attempt in range(2):
+            resp = requests.post(url, headers=self._headers(), json=body, timeout=self._timeout)
+            if resp.status_code == 401 and attempt == 0:
+                LOGGER.warning("ProjectX 401 on POST %s; re-authenticating", path)
+                self._token = None
+                self._authenticate()
+                continue
+            return self._handle_response(resp)
+        raise ProjectXClientError("Unexpected: POST retry loop exhausted")
 
     def _delete(self, path: str) -> Dict[str, Any]:
         url = f"{self._base_url}{path}"
-        resp = requests.delete(url, headers=self._headers(), timeout=self._timeout)
-        return self._handle_response(resp)
+        for attempt in range(2):
+            resp = requests.delete(url, headers=self._headers(), timeout=self._timeout)
+            if resp.status_code == 401 and attempt == 0:
+                LOGGER.warning("ProjectX 401 on DELETE %s; re-authenticating", path)
+                self._token = None
+                self._authenticate()
+                continue
+            return self._handle_response(resp)
+        raise ProjectXClientError("Unexpected: DELETE retry loop exhausted")
 
     # ------------------------------------------------------------------ positions
     def search_open_positions(self) -> List[Dict[str, Any]]:

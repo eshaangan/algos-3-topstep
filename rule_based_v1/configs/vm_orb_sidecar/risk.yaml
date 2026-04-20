@@ -1,0 +1,25 @@
+# Conservative ORB sidecar — 1 MNQ; align limits with combine-style buffers.
+
+position:
+  contracts: 1
+  instrument: "MNQ"
+  tick_size: 0.25
+  tick_value: 0.50
+  point_value: 2.0
+  commission_per_side: 0.62
+
+daily_limits:
+  max_daily_loss: -950.0
+  per_trade_max_loss: 1000.0
+
+circuit_breaker:
+  max_consecutive_losses: 3
+  cooldown_bars: 3
+
+session:
+  flatten_minutes_before_close: 5
+  session_close: "16:00"
+  max_trades_per_day: 1
+
+drawdown:
+  buffer_from_max: 1950.0

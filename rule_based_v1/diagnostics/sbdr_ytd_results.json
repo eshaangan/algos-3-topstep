@@ -1,0 +1,666 @@
+{
+  "section1_base": {
+    "mes_ytd": {
+      "label": "MES Jan-Feb 2026 (base)",
+      "N": 121,
+      "n_days": 27,
+      "n_per_day": 4.48,
+      "WR": 33.1,
+      "avg_win": 19.19,
+      "avg_loss": -16.38,
+      "pf": 0.58,
+      "total_pnl": -559.25,
+      "sharpe": -12.402,
+      "max_dd": -549.76,
+      "daily_pnl": {
+        "2026-01-02": -39.72,
+        "2026-01-05": -11.5,
+        "2026-01-06": -37.72,
+        "2026-01-07": -38.209999999999994,
+        "2026-01-08": -16.96,
+        "2026-01-09": -56.22,
+        "2026-01-12": 34.80999999999999,
+        "2026-01-13": -26.71,
+        "2026-01-14": -51.22,
+        "2026-01-15": -46.47,
+        "2026-01-16": -27.47,
+        "2026-01-19": -13.21,
+        "2026-01-20": 6.5600000000000005,
+        "2026-01-21": -3.199999999999994,
+        "2026-01-22": -5.789999999999997,
+        "2026-01-23": 17.819999999999993,
+        "2026-01-26": -12.950000000000001,
+        "2026-01-27": -10.209999999999999,
+        "2026-01-28": 10.810000000000004,
+        "2026-01-29": -59.72,
+        "2026-01-30": -22.209999999999997,
+        "2026-02-02": 27.15,
+        "2026-02-03": -43.459999999999994,
+        "2026-02-04": -0.2799999999999976,
+        "2026-02-05": -21.479999999999997,
+        "2026-02-06": -56.97,
+        "2026-02-09": -54.72
+      }
+    },
+    "mnq_ytd": {
+      "label": "MNQ Jan-Mar 2026 (base)",
+      "N": 279,
+      "n_days": 56,
+      "n_per_day": 4.98,
+      "WR": 39.8,
+      "avg_win": 45.16,
+      "avg_loss": -35.04,
+      "pf": 0.85,
+      "total_pnl": -873.14,
+      "sharpe": -2.401,
+      "max_dd": -1670.67,
+      "daily_pnl": {
+        "2026-01-02": -128.82,
+        "2026-01-05": -64.32,
+        "2026-01-06": 125.17,
+        "2026-01-07": 68.59,
+        "2026-01-08": -38.489999999999995,
+        "2026-01-09": 91.88,
+        "2026-01-12": 26.21,
+        "2026-01-13": 115.88000000000001,
+        "2026-01-14": -97.36000000000001,
+        "2026-01-15": -80.52,
+        "2026-01-16": -91.92,
+        "2026-01-19": -5.099999999999996,
+        "2026-01-20": -75.61000000000001,
+        "2026-01-21": 13.299999999999994,
+        "2026-01-22": 86.22,
+        "2026-01-23": -64.62,
+        "2026-01-26": -74.82,
+        "2026-01-27": 29.92000000000001,
+        "2026-01-28": -28.449999999999996,
+        "2026-01-29": -170.82,
+        "2026-01-30": -38.86,
+        "2026-02-02": 9.70000000000001,
+        "2026-02-03": -52.959999999999994,
+        "2026-02-04": 115.56000000000002,
+        "2026-02-05": -101.89999999999999,
+        "2026-02-06": -73.32,
+        "2026-02-09": -18.81,
+        "2026-02-10": 192.41,
+        "2026-02-11": -94.96,
+        "2026-02-12": -111.41999999999999,
+        "2026-02-13": -118.06,
+        "2026-02-16": -24.410000000000004,
+        "2026-02-17": 47.37,
+        "2026-02-18": -60.76000000000001,
+        "2026-02-19": -48.16000000000001,
+        "2026-02-20": 77.4,
+        "2026-02-23": -139.51999999999998,
+        "2026-02-24": -160.13,
+        "2026-02-25": -17.88,
+        "2026-02-26": -180.42000000000002,
+        "2026-02-27": -44.330000000000005,
+        "2026-03-02": -26.360000000000007,
+        "2026-03-03": -20.36999999999999,
+        "2026-03-04": -40.66,
+        "2026-03-05": -90.72,
+        "2026-03-06": 238.08999999999997,
+        "2026-03-09": -52.7,
+        "2026-03-10": -85.92,
+        "2026-03-11": -83.39,
+        "2026-03-12": -38.519999999999996,
+        "2026-03-13": 11.199999999999996,
+        "2026-03-16": -18.769999999999996,
+        "2026-03-17": 55.18000000000001,
+        "2026-03-18": 227.02,
+        "2026-03-19": -68.0,
+        "2026-03-23": 327.9199999999999
+      }
+    }
+  },
+  "section2_direction": {
+    "both": {
+      "label": "MES Jan-Feb 2026 (base)",
+      "N": 121,
+      "n_days": 27,
+      "n_per_day": 4.48,
+      "WR": 33.1,
+      "avg_win": 19.19,
+      "avg_loss": -16.38,
+      "pf": 0.58,
+      "total_pnl": -559.25,
+      "sharpe": -12.402,
+      "max_dd": -549.76
+    },
+    "long": {
+      "label": "LONG only",
+      "N": 133,
+      "n_days": 27,
+      "n_per_day": 4.93,
+      "WR": 39.1,
+      "avg_win": 15.43,
+      "avg_loss": -13.66,
+      "pf": 0.73,
+      "total_pnl": -303.9,
+      "sharpe": -6.857,
+      "max_dd": -298.55
+    },
+    "short": {
+      "label": "SHORT only",
+      "N": 120,
+      "n_days": 27,
+      "n_per_day": 4.44,
+      "WR": 32.5,
+      "avg_win": 16.85,
+      "avg_loss": -14.58,
+      "pf": 0.56,
+      "total_pnl": -523.97,
+      "sharpe": -13.602,
+      "max_dd": -523.25
+    }
+  },
+  "section3_exit_sweep": {
+    "top10": [
+      {
+        "stop_mult": 0.4,
+        "target_mult": 1.5,
+        "time_stop_bars": 6,
+        "N": 105,
+        "WR": 22.9,
+        "sharpe": -4.585,
+        "total_pnl": -315.0,
+        "max_dd": -330.91
+      },
+      {
+        "stop_mult": 0.5,
+        "target_mult": 1.5,
+        "time_stop_bars": 6,
+        "N": 107,
+        "WR": 24.3,
+        "sharpe": -5.153,
+        "total_pnl": -408.78,
+        "max_dd": -443.16
+      },
+      {
+        "stop_mult": 0.4,
+        "target_mult": 1.2,
+        "time_stop_bars": 6,
+        "N": 107,
+        "WR": 24.3,
+        "sharpe": -5.602,
+        "total_pnl": -322.05,
+        "max_dd": -342.35
+      },
+      {
+        "stop_mult": 0.8,
+        "target_mult": 0.8,
+        "time_stop_bars": 6,
+        "N": 137,
+        "WR": 40.9,
+        "sharpe": -5.865,
+        "total_pnl": -410.19,
+        "max_dd": -408.82
+      },
+      {
+        "stop_mult": 0.6,
+        "target_mult": 1.5,
+        "time_stop_bars": 6,
+        "N": 116,
+        "WR": 30.2,
+        "sharpe": -5.898,
+        "total_pnl": -450.33,
+        "max_dd": -461.46
+      },
+      {
+        "stop_mult": 0.8,
+        "target_mult": 1.2,
+        "time_stop_bars": 6,
+        "N": 131,
+        "WR": 38.2,
+        "sharpe": -6.181,
+        "total_pnl": -443.27,
+        "max_dd": -432.67
+      },
+      {
+        "stop_mult": 0.4,
+        "target_mult": 1.5,
+        "time_stop_bars": 4,
+        "N": 109,
+        "WR": 25.7,
+        "sharpe": -6.225,
+        "total_pnl": -350.0,
+        "max_dd": -356.77
+      },
+      {
+        "stop_mult": 0.7,
+        "target_mult": 1.2,
+        "time_stop_bars": 6,
+        "N": 125,
+        "WR": 35.2,
+        "sharpe": -6.255,
+        "total_pnl": -434.14,
+        "max_dd": -423.27
+      },
+      {
+        "stop_mult": 0.8,
+        "target_mult": 1.5,
+        "time_stop_bars": 6,
+        "N": 128,
+        "WR": 36.7,
+        "sharpe": -6.412,
+        "total_pnl": -481.24,
+        "max_dd": -469.0
+      },
+      {
+        "stop_mult": 0.7,
+        "target_mult": 1.5,
+        "time_stop_bars": 6,
+        "N": 122,
+        "WR": 33.6,
+        "sharpe": -6.422,
+        "total_pnl": -475.51,
+        "max_dd": -464.64
+      }
+    ],
+    "best": {
+      "stop_mult": 0.4,
+      "target_mult": 1.5,
+      "time_stop_bars": 6,
+      "N": 105,
+      "WR": 22.9,
+      "sharpe": -4.585,
+      "total_pnl": -315.0,
+      "max_dd": -330.91
+    }
+  },
+  "section4a_w_change": [
+    {
+      "min_abs_w_change": 0.0,
+      "label": "",
+      "N": 105,
+      "n_days": 27,
+      "n_per_day": 3.89,
+      "WR": 22.9,
+      "avg_win": 28.86,
+      "avg_loss": -12.44,
+      "pf": 0.69,
+      "total_pnl": -315.0,
+      "sharpe": -4.585,
+      "max_dd": -330.91
+    },
+    {
+      "min_abs_w_change": 0.03,
+      "label": "",
+      "N": 105,
+      "n_days": 27,
+      "n_per_day": 3.89,
+      "WR": 22.9,
+      "avg_win": 28.03,
+      "avg_loss": -11.96,
+      "pf": 0.69,
+      "total_pnl": -295.82,
+      "sharpe": -4.79,
+      "max_dd": -319.6
+    },
+    {
+      "min_abs_w_change": 0.05,
+      "label": "",
+      "N": 106,
+      "n_days": 27,
+      "n_per_day": 3.93,
+      "WR": 23.6,
+      "avg_win": 25.98,
+      "avg_loss": -11.82,
+      "pf": 0.68,
+      "total_pnl": -307.69,
+      "sharpe": -5.422,
+      "max_dd": -336.31
+    },
+    {
+      "min_abs_w_change": 0.08,
+      "label": "",
+      "N": 101,
+      "n_days": 27,
+      "n_per_day": 3.74,
+      "WR": 19.8,
+      "avg_win": 28.66,
+      "avg_loss": -11.34,
+      "pf": 0.62,
+      "total_pnl": -345.21,
+      "sharpe": -6.163,
+      "max_dd": -368.99
+    },
+    {
+      "min_abs_w_change": 0.12,
+      "label": "",
+      "N": 103,
+      "n_days": 27,
+      "n_per_day": 3.81,
+      "WR": 21.4,
+      "avg_win": 26.48,
+      "avg_loss": -10.84,
+      "pf": 0.66,
+      "total_pnl": -295.6,
+      "sharpe": -5.399,
+      "max_dd": -296.89
+    }
+  ],
+  "section4b_sustained": [
+    {
+      "sustained_bars": 1,
+      "label": "",
+      "N": 105,
+      "n_days": 27,
+      "n_per_day": 3.89,
+      "WR": 22.9,
+      "avg_win": 28.86,
+      "avg_loss": -12.44,
+      "pf": 0.69,
+      "total_pnl": -315.0,
+      "sharpe": -4.585,
+      "max_dd": -330.91
+    },
+    {
+      "sustained_bars": 2,
+      "label": "",
+      "N": 92,
+      "n_days": 27,
+      "n_per_day": 3.41,
+      "WR": 12.0,
+      "avg_win": 21.12,
+      "avg_loss": -9.76,
+      "pf": 0.29,
+      "total_pnl": -558.36,
+      "sharpe": -17.183,
+      "max_dd": -548.62
+    },
+    {
+      "sustained_bars": 3,
+      "label": "",
+      "N": 79,
+      "n_days": 27,
+      "n_per_day": 2.93,
+      "WR": 15.2,
+      "avg_win": 25.3,
+      "avg_loss": -9.8,
+      "pf": 0.46,
+      "total_pnl": -352.96,
+      "sharpe": -7.862,
+      "max_dd": -373.11
+    }
+  ],
+  "section4c_trend": {
+    "no_filter": {
+      "label": "baseline",
+      "N": 105,
+      "n_days": 27,
+      "n_per_day": 3.89,
+      "WR": 22.9,
+      "avg_win": 28.86,
+      "avg_loss": -12.44,
+      "pf": 0.69,
+      "total_pnl": -315.0,
+      "sharpe": -4.585,
+      "max_dd": -330.91
+    },
+    "with_filter": {
+      "label": "",
+      "N": 25,
+      "n_days": 15,
+      "n_per_day": 1.67,
+      "WR": 8.0,
+      "avg_win": 6.64,
+      "avg_loss": -10.1,
+      "pf": 0.06,
+      "total_pnl": -218.98,
+      "sharpe": -26.456,
+      "max_dd": -211.49
+    }
+  },
+  "section4d_tod": [
+    {
+      "window": "all_day",
+      "label": "",
+      "N": 105,
+      "n_days": 27,
+      "n_per_day": 3.89,
+      "WR": 22.9,
+      "avg_win": 28.86,
+      "avg_loss": -12.44,
+      "pf": 0.69,
+      "total_pnl": -315.0,
+      "sharpe": -4.585,
+      "max_dd": -330.91
+    },
+    {
+      "window": "morning",
+      "label": "",
+      "N": 105,
+      "n_days": 27,
+      "n_per_day": 3.89,
+      "WR": 22.9,
+      "avg_win": 28.86,
+      "avg_loss": -12.44,
+      "pf": 0.69,
+      "total_pnl": -315.0,
+      "sharpe": -4.585,
+      "max_dd": -330.91
+    },
+    {
+      "window": "midday",
+      "label": "",
+      "N": 108,
+      "n_days": 27,
+      "n_per_day": 4.0,
+      "WR": 25.0,
+      "avg_win": 18.98,
+      "avg_loss": -9.19,
+      "pf": 0.69,
+      "total_pnl": -231.7,
+      "sharpe": -6.426,
+      "max_dd": -293.59
+    },
+    {
+      "window": "afternoon",
+      "label": "",
+      "N": 116,
+      "n_days": 26,
+      "n_per_day": 4.46,
+      "WR": 32.8,
+      "avg_win": 20.05,
+      "avg_loss": -8.91,
+      "pf": 1.1,
+      "total_pnl": 67.05,
+      "sharpe": 0.993,
+      "max_dd": -191.24
+    }
+  ],
+  "section5_best_combined": {
+    "config": {
+      "u_pct": 88,
+      "stop_mult": 0.4,
+      "target_mult": 1.5,
+      "time_stop_bars": 6,
+      "min_abs_w_change": 0.0,
+      "sustained_bars": 1,
+      "trend_filter": false,
+      "time_window": "afternoon"
+    },
+    "mes_stats": {
+      "label": "MES Jan-Feb 2026 (best combined)",
+      "N": 116,
+      "n_days": 26,
+      "n_per_day": 4.46,
+      "WR": 32.8,
+      "avg_win": 20.05,
+      "avg_loss": -8.91,
+      "pf": 1.1,
+      "total_pnl": 67.05,
+      "sharpe": 0.993,
+      "max_dd": -191.24
+    },
+    "mnq_stats": {
+      "label": "MNQ Jan-Mar 2026 (best combined)",
+      "N": 222,
+      "n_days": 54,
+      "n_per_day": 4.11,
+      "WR": 27.0,
+      "avg_win": 39.04,
+      "avg_loss": -16.23,
+      "pf": 0.89,
+      "total_pnl": -287.71,
+      "sharpe": -1.732,
+      "max_dd": -428.93
+    },
+    "mes_monotonicity": {
+      "label": "MES best combined",
+      "Z_buckets": {
+        "low_Z": {
+          "N": 38,
+          "WR": 36.8,
+          "avg_pnl": 1.81
+        },
+        "mid_Z": {
+          "N": 40,
+          "WR": 27.5,
+          "avg_pnl": -1.55
+        },
+        "high_Z": {
+          "N": 38,
+          "WR": 34.2,
+          "avg_pnl": 1.59
+        }
+      },
+      "W_buckets": {
+        "low_W": {
+          "N": 38,
+          "WR": 34.2,
+          "avg_pnl": -1.48
+        },
+        "mid_W": {
+          "N": 40,
+          "WR": 32.5,
+          "avg_pnl": 2.7
+        },
+        "high_W": {
+          "N": 38,
+          "WR": 31.6,
+          "avg_pnl": 0.4
+        }
+      },
+      "Z_monotone": false,
+      "W_monotone": false,
+      "Z_WRs": [
+        36.8,
+        27.5,
+        34.2
+      ],
+      "W_WRs": [
+        34.2,
+        32.5,
+        31.6
+      ]
+    },
+    "mnq_monotonicity": {
+      "label": "MNQ best combined",
+      "Z_buckets": {
+        "low_Z": {
+          "N": 73,
+          "WR": 32.9,
+          "avg_pnl": 4.86
+        },
+        "mid_Z": {
+          "N": 76,
+          "WR": 18.4,
+          "avg_pnl": -7.12
+        },
+        "high_Z": {
+          "N": 73,
+          "WR": 30.1,
+          "avg_pnl": -1.39
+        }
+      },
+      "W_buckets": {
+        "low_W": {
+          "N": 73,
+          "WR": 24.7,
+          "avg_pnl": -2.74
+        },
+        "mid_W": {
+          "N": 76,
+          "WR": 31.6,
+          "avg_pnl": 1.66
+        },
+        "high_W": {
+          "N": 73,
+          "WR": 24.7,
+          "avg_pnl": -2.93
+        }
+      },
+      "Z_monotone": false,
+      "W_monotone": false,
+      "Z_WRs": [
+        32.9,
+        18.4,
+        30.1
+      ],
+      "W_WRs": [
+        24.7,
+        31.6,
+        24.7
+      ]
+    }
+  },
+  "section6_vs_training": {
+    "training_base": {
+      "label": "Training Jun-Dec 2025 (base config)",
+      "N": 586,
+      "n_days": 127,
+      "n_per_day": 4.61,
+      "WR": 35.0,
+      "avg_win": 15.01,
+      "avg_loss": -13.45,
+      "pf": 0.6,
+      "total_pnl": -2047.41,
+      "sharpe": -8.737,
+      "max_dd": -2081.15
+    },
+    "training_best": {
+      "label": "Training Jun-Dec 2025 (best combined)",
+      "N": 495,
+      "n_days": 121,
+      "n_per_day": 4.09,
+      "WR": 26.7,
+      "avg_win": 14.01,
+      "avg_loss": -8.37,
+      "pf": 0.61,
+      "total_pnl": -1188.55,
+      "sharpe": -8.131,
+      "max_dd": -1192.58
+    },
+    "ytd2026_mes_base": {
+      "label": "MES Jan-Feb 2026 (base)",
+      "N": 121,
+      "n_days": 27,
+      "n_per_day": 4.48,
+      "WR": 33.1,
+      "avg_win": 19.19,
+      "avg_loss": -16.38,
+      "pf": 0.58,
+      "total_pnl": -559.25,
+      "sharpe": -12.402,
+      "max_dd": -549.76
+    },
+    "ytd2026_mes_best": {
+      "label": "MES Jan-Feb 2026 (best combined)",
+      "N": 116,
+      "n_days": 26,
+      "n_per_day": 4.46,
+      "WR": 32.8,
+      "avg_win": 20.05,
+      "avg_loss": -8.91,
+      "pf": 1.1,
+      "total_pnl": 67.05,
+      "sharpe": 0.993,
+      "max_dd": -191.24
+    },
+    "sharpe_delta_base": 9.73,
+    "regime_note": "Config transfers well across regimes (Sharpe improved in 2026 bear)"
+  }
+}

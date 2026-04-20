@@ -1,0 +1,23 @@
+{
+  "window": "ytd_2026_jan_apr",
+  "acceptance_config": "ml_intraday_v3/experiments/_ytd_2026_contract_sweep_config.yaml",
+  "baseline_features": "ml_intraday_v3/configs/live_dual_meta_mes_real/features.yaml",
+  "hmm_features": "ml_intraday_v3/configs/live_dual_meta_mes_real/features_hmm_experiment.yaml",
+  "results": {
+    "baseline": {
+      "total_pnl_usd": 1837.64,
+      "trades_count": 101,
+      "max_drawdown_usd": 1154.56,
+      "profit_factor": 1.408,
+      "test_auc": 0.604
+    },
+    "hmm": {
+      "total_pnl_usd": 3710.47,
+      "trades_count": 110,
+      "max_drawdown_usd": 1092.64,
+      "profit_factor": 1.785,
+      "test_auc": 0.608
+    }
+  },
+  "note": "Single OOS window only. Run `run_standalone_topstep_candidate` with features_hmm_experiment.yaml and standalone_viability.yaml before enabling HMM in production features or re-exporting the live bundle."
+}

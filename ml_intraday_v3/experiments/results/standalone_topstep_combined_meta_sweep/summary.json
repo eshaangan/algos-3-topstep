@@ -1,0 +1,918 @@
+{
+  "combined_meta_0_1_3": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 4,
+      "total_windows": 5,
+      "overall_total_pnl_usd": 7246.643654000631,
+      "overall_direction_summary": {
+        "long_trades": 72,
+        "short_trades": 91,
+        "total_trades": 163,
+        "long_share": 0.44171779141104295,
+        "short_share": 0.558282208588957
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 4,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.8,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 815.5309796368933,
+        "profit_factor": 1.705453481597012,
+        "direction_summary": {
+          "long_trades": 8,
+          "short_trades": 18,
+          "total_trades": 26,
+          "long_share": 0.3076923076923077,
+          "short_share": 0.6923076923076923
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.06976744186046512,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9302325581395349,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 502.57479237224607,
+        "profit_factor": 1.3098861294251436,
+        "direction_summary": {
+          "long_trades": 3,
+          "short_trades": 40,
+          "total_trades": 43,
+          "long_share": 0.06976744186046512,
+          "short_share": 0.9302325581395349
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1444.6302224843641,
+        "profit_factor": 1.843560251476982,
+        "direction_summary": {
+          "long_trades": 29,
+          "short_trades": 14,
+          "total_trades": 43,
+          "long_share": 0.6744186046511628,
+          "short_share": 0.32558139534883723
+        }
+      },
+      "mar_2026_extension": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 3022.23350305007,
+        "profit_factor": 2.821425425128378,
+        "direction_summary": {
+          "long_trades": 24,
+          "short_trades": 12,
+          "total_trades": 36,
+          "long_share": 0.6666666666666666,
+          "short_share": 0.3333333333333333
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1461.674156457058,
+        "profit_factor": 2.9856770198562943,
+        "direction_summary": {
+          "long_trades": 8,
+          "short_trades": 7,
+          "total_trades": 15,
+          "long_share": 0.5333333333333333,
+          "short_share": 0.4666666666666667
+        }
+      }
+    },
+    "meta": {
+      "dec_2025_bull": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 35,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "jan_2026_regime_shift": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 71,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "feb_2026_followthrough": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 84,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "mar_2026_extension": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 66,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "apr_2026_partial": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 26,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      }
+    },
+    "routes": [
+      {
+        "name": "short_veto_regimes_2_3_5_6",
+        "side": "short",
+        "regimes": [
+          2,
+          3,
+          5,
+          6
+        ],
+        "threshold_primary": 0.52,
+        "threshold_meta": 0.45,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      },
+      {
+        "name": "long_veto_0_1_3",
+        "side": "long",
+        "regimes": [
+          0,
+          1,
+          3
+        ],
+        "threshold_primary": 0.38,
+        "threshold_meta": 0.45,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      }
+    ]
+  },
+  "combined_meta_0_1_3_8": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 4,
+      "total_windows": 5,
+      "overall_total_pnl_usd": 7780.084588630187,
+      "overall_direction_summary": {
+        "long_trades": 67,
+        "short_trades": 92,
+        "total_trades": 159,
+        "long_share": 0.42138364779874216,
+        "short_share": 0.5786163522012578
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 4,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.8,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 999.115779930909,
+        "profit_factor": 1.9362497433211658,
+        "direction_summary": {
+          "long_trades": 7,
+          "short_trades": 19,
+          "total_trades": 26,
+          "long_share": 0.2692307692307692,
+          "short_share": 0.7307692307692307
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.06976744186046512,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9302325581395349,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 502.57479237224607,
+        "profit_factor": 1.3098861294251436,
+        "direction_summary": {
+          "long_trades": 3,
+          "short_trades": 40,
+          "total_trades": 43,
+          "long_share": 0.06976744186046512,
+          "short_share": 0.9302325581395349
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1414.6202224843644,
+        "profit_factor": 1.8260365677323007,
+        "direction_summary": {
+          "long_trades": 28,
+          "short_trades": 14,
+          "total_trades": 42,
+          "long_share": 0.6666666666666666,
+          "short_share": 0.3333333333333333
+        }
+      },
+      "mar_2026_extension": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 3402.0996373856096,
+        "profit_factor": 3.659132271761911,
+        "direction_summary": {
+          "long_trades": 21,
+          "short_trades": 12,
+          "total_trades": 33,
+          "long_share": 0.6363636363636364,
+          "short_share": 0.36363636363636365
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1461.674156457058,
+        "profit_factor": 2.9856770198562943,
+        "direction_summary": {
+          "long_trades": 8,
+          "short_trades": 7,
+          "total_trades": 15,
+          "long_share": 0.5333333333333333,
+          "short_share": 0.4666666666666667
+        }
+      }
+    },
+    "meta": {
+      "dec_2025_bull": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 38,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "jan_2026_regime_shift": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 71,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "feb_2026_followthrough": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 85,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "mar_2026_extension": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 76,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "apr_2026_partial": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 28,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      }
+    },
+    "routes": [
+      {
+        "name": "short_veto_regimes_2_3_5_6",
+        "side": "short",
+        "regimes": [
+          2,
+          3,
+          5,
+          6
+        ],
+        "threshold_primary": 0.52,
+        "threshold_meta": 0.45,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      },
+      {
+        "name": "long_veto_0_1_3_8",
+        "side": "long",
+        "regimes": [
+          0,
+          1,
+          3,
+          8
+        ],
+        "threshold_primary": 0.38,
+        "threshold_meta": 0.45,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      }
+    ]
+  },
+  "combined_meta_0_1_3_7_8": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 4,
+      "total_windows": 5,
+      "overall_total_pnl_usd": 8609.442771962778,
+      "overall_direction_summary": {
+        "long_trades": 63,
+        "short_trades": 93,
+        "total_trades": 156,
+        "long_share": 0.40384615384615385,
+        "short_share": 0.5961538461538461
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 4,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.8,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1116.9708899946215,
+        "profit_factor": 2.1766363013967607,
+        "direction_summary": {
+          "long_trades": 6,
+          "short_trades": 19,
+          "total_trades": 25,
+          "long_share": 0.24,
+          "short_share": 0.76
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.06976744186046512,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9302325581395349,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 502.57479237224607,
+        "profit_factor": 1.3098861294251436,
+        "direction_summary": {
+          "long_trades": 3,
+          "short_trades": 40,
+          "total_trades": 43,
+          "long_share": 0.06976744186046512,
+          "short_share": 0.9302325581395349
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1414.6202224843644,
+        "profit_factor": 1.8260365677323007,
+        "direction_summary": {
+          "long_trades": 28,
+          "short_trades": 14,
+          "total_trades": 42,
+          "long_share": 0.6666666666666666,
+          "short_share": 0.3333333333333333
+        }
+      },
+      "mar_2026_extension": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 4113.602710654488,
+        "profit_factor": 6.405649059840615,
+        "direction_summary": {
+          "long_trades": 18,
+          "short_trades": 13,
+          "total_trades": 31,
+          "long_share": 0.5806451612903226,
+          "short_share": 0.41935483870967744
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1461.674156457058,
+        "profit_factor": 2.9856770198562943,
+        "direction_summary": {
+          "long_trades": 8,
+          "short_trades": 7,
+          "total_trades": 15,
+          "long_share": 0.5333333333333333,
+          "short_share": 0.4666666666666667
+        }
+      }
+    },
+    "meta": {
+      "dec_2025_bull": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 40,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_7_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "jan_2026_regime_shift": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 71,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_7_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "feb_2026_followthrough": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 88,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_7_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "mar_2026_extension": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 83,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_7_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "apr_2026_partial": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 29,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_7_8",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      }
+    },
+    "routes": [
+      {
+        "name": "short_veto_regimes_2_3_5_6",
+        "side": "short",
+        "regimes": [
+          2,
+          3,
+          5,
+          6
+        ],
+        "threshold_primary": 0.52,
+        "threshold_meta": 0.45,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      },
+      {
+        "name": "long_veto_0_1_3_7_8",
+        "side": "long",
+        "regimes": [
+          0,
+          1,
+          3,
+          7,
+          8
+        ],
+        "threshold_primary": 0.38,
+        "threshold_meta": 0.45,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      }
+    ]
+  },
+  "combined_meta_0_1_3_8_strict": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 4,
+      "total_windows": 5,
+      "overall_total_pnl_usd": 7186.396396661703,
+      "overall_direction_summary": {
+        "long_trades": 71,
+        "short_trades": 90,
+        "total_trades": 161,
+        "long_share": 0.4409937888198758,
+        "short_share": 0.5590062111801242
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 4,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.8,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 753.5948522621486,
+        "profit_factor": 1.6187281660701955,
+        "direction_summary": {
+          "long_trades": 9,
+          "short_trades": 18,
+          "total_trades": 27,
+          "long_share": 0.3333333333333333,
+          "short_share": 0.6666666666666666
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.06976744186046512,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9302325581395349,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 502.57479237224607,
+        "profit_factor": 1.3098861294251436,
+        "direction_summary": {
+          "long_trades": 3,
+          "short_trades": 40,
+          "total_trades": 43,
+          "long_share": 0.06976744186046512,
+          "short_share": 0.9302325581395349
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1221.9663153395375,
+        "profit_factor": 1.67678227929165,
+        "direction_summary": {
+          "long_trades": 29,
+          "short_trades": 13,
+          "total_trades": 42,
+          "long_share": 0.6904761904761905,
+          "short_share": 0.30952380952380953
+        }
+      },
+      "mar_2026_extension": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 3246.586280230712,
+        "profit_factor": 3.2625626289267577,
+        "direction_summary": {
+          "long_trades": 22,
+          "short_trades": 12,
+          "total_trades": 34,
+          "long_share": 0.6470588235294118,
+          "short_share": 0.35294117647058826
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1461.674156457058,
+        "profit_factor": 2.9856770198562943,
+        "direction_summary": {
+          "long_trades": 8,
+          "short_trades": 7,
+          "total_trades": 15,
+          "long_share": 0.5333333333333333,
+          "short_share": 0.4666666666666667
+        }
+      }
+    },
+    "meta": {
+      "dec_2025_bull": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 28,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8_strict",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "jan_2026_regime_shift": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 59,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8_strict",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "feb_2026_followthrough": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 81,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8_strict",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "mar_2026_extension": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 69,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8_strict",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      },
+      "apr_2026_partial": {
+        "enabled": true,
+        "skipped": false,
+        "reason": null,
+        "test_rows": 28,
+        "routes": [
+          {
+            "name": "short_veto_regimes_2_3_5_6",
+            "skipped": false,
+            "reason": null
+          },
+          {
+            "name": "long_veto_0_1_3_8_strict",
+            "skipped": false,
+            "reason": null
+          }
+        ]
+      }
+    },
+    "routes": [
+      {
+        "name": "short_veto_regimes_2_3_5_6",
+        "side": "short",
+        "regimes": [
+          2,
+          3,
+          5,
+          6
+        ],
+        "threshold_primary": 0.52,
+        "threshold_meta": 0.45,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      },
+      {
+        "name": "long_veto_0_1_3_8_strict",
+        "side": "long",
+        "regimes": [
+          0,
+          1,
+          3,
+          8
+        ],
+        "threshold_primary": 0.42,
+        "threshold_meta": 0.5,
+        "min_train_samples": 80,
+        "min_positive_samples": 10,
+        "min_negative_samples": 10
+      }
+    ]
+  }
+}

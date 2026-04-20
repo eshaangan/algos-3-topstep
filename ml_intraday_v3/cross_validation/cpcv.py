@@ -17,13 +17,21 @@ def build_cpcv_splits(
     n_test_splits: int = 2,
     purge_pct: float = 0.02,
     embargo_pct: float = 0.01,
+    min_embargo_bars: int = 24,
     max_paths: Optional[int] = None,
     selection: str = "balanced",
     random_state: Optional[int] = 42,
 ):
-    """Build CPCV paths using the existing purged-kfold and CPCV implementations."""
+    """Build CPCV paths using the existing purged-kfold and CPCV implementations.
+
+    min_embargo_bars floors the embargo at the triple-barrier label horizon
+    (default 24 bars == max_holding_bars in execution_spec.yaml). Prevents
+    percentage-based embargo from collapsing below the horizon on small datasets
+    where len(bars_index) * embargo_pct < horizon_bars.
+    """
     _ = purge_pct  # Purging is interval-based in underlying implementation.
-    embargo_bars = max(1, int(round(len(bars_index) * float(embargo_pct))))
+    pct_bars = int(round(len(bars_index) * float(embargo_pct)))
+    embargo_bars = max(1, int(min_embargo_bars), pct_bars)
 
     base_folds = build_purged_kfold_splits(
         events_df=events_df,

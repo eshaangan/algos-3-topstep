@@ -1,0 +1,26 @@
+# Micro Nikkei (USD) — $0.50 × index per contract; tick 5 index points ($2.50/tick).
+# Conservative 1-lot sidecar; tighten further after live observation.
+
+position:
+  contracts: 1
+  instrument: "MNK"
+  tick_size: 5.0
+  tick_value: 2.5
+  point_value: 0.5
+  commission_per_side: 0.62
+
+daily_limits:
+  max_daily_loss: -950.0
+  per_trade_max_loss: 1000.0
+
+circuit_breaker:
+  max_consecutive_losses: 3
+  cooldown_bars: 3
+
+session:
+  flatten_minutes_before_close: 5
+  session_close: "16:00"
+  max_trades_per_day: 1
+
+drawdown:
+  buffer_from_max: 1950.0

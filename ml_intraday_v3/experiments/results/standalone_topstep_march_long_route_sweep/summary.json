@@ -1,0 +1,2115 @@
+{
+  "baseline": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 2163.9473710254015,
+      "overall_direction_summary": {
+        "long_trades": 96,
+        "short_trades": 80,
+        "total_trades": 176,
+        "long_share": 0.5454545454545454,
+        "short_share": 0.45454545454545453
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 164,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 164,
+                "positive_rate": 0.4878048780487805,
+                "avg_ret_net": 0.7317332739888409,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 22,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 22,
+                "positive_rate": 0.5909090909090909,
+                "avg_ret_net": 1.1946574458620964,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.09090909090909091,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9090909090909091,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 487.4705214006567,
+        "profit_factor": 1.289021002114557,
+        "win_rate": 0.5227272727272727,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 4,
+          "short_trades": 40,
+          "total_trades": 44,
+          "long_share": 0.09090909090909091,
+          "short_share": 0.9090909090909091
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 180,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 180,
+                "positive_rate": 0.4777777777777778,
+                "avg_ret_net": 0.21382072389874532,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 15,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 15,
+                "positive_rate": 0.26666666666666666,
+                "avg_ret_net": -10.586039758942253,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 771.7119824243321,
+        "profit_factor": 1.3693201623638864,
+        "win_rate": 0.5681818181818182,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 35,
+          "short_trades": 9,
+          "total_trades": 44,
+          "long_share": 0.7954545454545454,
+          "short_share": 0.20454545454545456
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 161,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 161,
+                "positive_rate": 0.4906832298136646,
+                "avg_ret_net": 0.04873090838884932,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 17,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 17,
+                "positive_rate": 0.5294117647058824,
+                "avg_ret_net": 1.3350493792737952,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 118,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 118,
+                "positive_rate": 0.4745762711864407,
+                "avg_ret_net": -1.0272809154174452,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 24,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 24,
+                "positive_rate": 0.5,
+                "avg_ret_net": -1.1630864043656004,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 115,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 115,
+                "positive_rate": 0.4434782608695652,
+                "avg_ret_net": -3.28901708544186,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 5,
+            "routes": [
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 5,
+                "positive_rate": 1.0,
+                "avg_ret_net": -23.441596428826642,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "extra_route": null
+  },
+  "long_route_0_1_3": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 2163.9473710254015,
+      "overall_direction_summary": {
+        "long_trades": 96,
+        "short_trades": 80,
+        "total_trades": 176,
+        "long_share": 0.5454545454545454,
+        "short_share": 0.45454545454545453
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 511,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 347,
+                "positive_rate": 0.40634005763688763,
+                "avg_ret_net": -2.805312731598355,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 164,
+                "positive_rate": 0.4878048780487805,
+                "avg_ret_net": 0.7317332739888409,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 69,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 47,
+                "positive_rate": 0.3829787234042553,
+                "avg_ret_net": -3.3919987011452544,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 22,
+                "positive_rate": 0.5909090909090909,
+                "avg_ret_net": 1.1946574458620964,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.09090909090909091,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9090909090909091,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 487.4705214006567,
+        "profit_factor": 1.289021002114557,
+        "win_rate": 0.5227272727272727,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 4,
+          "short_trades": 40,
+          "total_trades": 44,
+          "long_share": 0.09090909090909091,
+          "short_share": 0.9090909090909091
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 471,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 291,
+                "positive_rate": 0.41580756013745707,
+                "avg_ret_net": -2.2638817676096963,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 180,
+                "positive_rate": 0.4777777777777778,
+                "avg_ret_net": 0.21382072389874532,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 81,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 66,
+                "positive_rate": 0.36363636363636365,
+                "avg_ret_net": -2.773402778355259,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 15,
+                "positive_rate": 0.26666666666666666,
+                "avg_ret_net": -10.586039758942253,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 771.7119824243321,
+        "profit_factor": 1.3693201623638864,
+        "win_rate": 0.5681818181818182,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 35,
+          "short_trades": 9,
+          "total_trades": 44,
+          "long_share": 0.7954545454545454,
+          "short_share": 0.20454545454545456
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 481,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 320,
+                "positive_rate": 0.4125,
+                "avg_ret_net": -2.1170235603239838,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 161,
+                "positive_rate": 0.4906832298136646,
+                "avg_ret_net": 0.04873090838884932,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 92,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 75,
+                "positive_rate": 0.4266666666666667,
+                "avg_ret_net": -1.5921705581985663,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 17,
+                "positive_rate": 0.5294117647058824,
+                "avg_ret_net": 1.3350493792737952,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 479,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 361,
+                "positive_rate": 0.4293628808864266,
+                "avg_ret_net": -2.1561895477011634,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 118,
+                "positive_rate": 0.4745762711864407,
+                "avg_ret_net": -1.0272809154174452,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 97,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 73,
+                "positive_rate": 0.273972602739726,
+                "avg_ret_net": -9.541749242149043,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 24,
+                "positive_rate": 0.5,
+                "avg_ret_net": -1.1630864043656004,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 468,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 353,
+                "positive_rate": 0.37677053824362605,
+                "avg_ret_net": -3.900420996465177,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 115,
+                "positive_rate": 0.4434782608695652,
+                "avg_ret_net": -3.28901708544186,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 24,
+            "routes": [
+              {
+                "name": "long_march_core_route",
+                "rows": 19,
+                "positive_rate": 0.3157894736842105,
+                "avg_ret_net": -4.718354205269744,
+                "regimes": [
+                  0,
+                  1,
+                  3
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 5,
+                "positive_rate": 1.0,
+                "avg_ret_net": -23.441596428826642,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "extra_route": {
+      "name": "long_march_core_route",
+      "side": "long",
+      "regimes": [
+        0,
+        1,
+        3
+      ],
+      "target_kind": "ret_net_positive"
+    }
+  },
+  "long_route_0_1_3_8": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 2163.9473710254015,
+      "overall_direction_summary": {
+        "long_trades": 96,
+        "short_trades": 80,
+        "total_trades": 176,
+        "long_share": 0.5454545454545454,
+        "short_share": 0.45454545454545453
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 601,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 437,
+                "positive_rate": 0.37528604118993136,
+                "avg_ret_net": -4.363954231429694,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 164,
+                "positive_rate": 0.4878048780487805,
+                "avg_ret_net": 0.7317332739888409,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 78,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 56,
+                "positive_rate": 0.375,
+                "avg_ret_net": -4.140902855212274,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 22,
+                "positive_rate": 0.5909090909090909,
+                "avg_ret_net": 1.1946574458620964,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.09090909090909091,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9090909090909091,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 487.4705214006567,
+        "profit_factor": 1.289021002114557,
+        "win_rate": 0.5227272727272727,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 4,
+          "short_trades": 40,
+          "total_trades": 44,
+          "long_share": 0.09090909090909091,
+          "short_share": 0.9090909090909091
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 570,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 390,
+                "positive_rate": 0.38461538461538464,
+                "avg_ret_net": -3.941164167144319,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 180,
+                "positive_rate": 0.4777777777777778,
+                "avg_ret_net": 0.21382072389874532,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 91,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 76,
+                "positive_rate": 0.3684210526315789,
+                "avg_ret_net": -2.625762733029923,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 15,
+                "positive_rate": 0.26666666666666666,
+                "avg_ret_net": -10.586039758942253,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 771.7119824243321,
+        "profit_factor": 1.3693201623638864,
+        "win_rate": 0.5681818181818182,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 35,
+          "short_trades": 9,
+          "total_trades": 44,
+          "long_share": 0.7954545454545454,
+          "short_share": 0.20454545454545456
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 570,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 409,
+                "positive_rate": 0.3863080684596577,
+                "avg_ret_net": -3.6291224563665723,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 161,
+                "positive_rate": 0.4906832298136646,
+                "avg_ret_net": 0.04873090838884932,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 97,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 80,
+                "positive_rate": 0.4,
+                "avg_ret_net": -3.3092813165245487,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 17,
+                "positive_rate": 0.5294117647058824,
+                "avg_ret_net": 1.3350493792737952,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 556,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 438,
+                "positive_rate": 0.410958904109589,
+                "avg_ret_net": -3.2231486284701902,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 118,
+                "positive_rate": 0.4745762711864407,
+                "avg_ret_net": -1.0272809154174452,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 112,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 88,
+                "positive_rate": 0.2840909090909091,
+                "avg_ret_net": -9.531689445723089,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 24,
+                "positive_rate": 0.5,
+                "avg_ret_net": -1.1630864043656004,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 542,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 427,
+                "positive_rate": 0.36768149882903983,
+                "avg_ret_net": -4.883080772959821,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 115,
+                "positive_rate": 0.4434782608695652,
+                "avg_ret_net": -3.28901708544186,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 26,
+            "routes": [
+              {
+                "name": "long_march_core_plus_hvup",
+                "rows": 21,
+                "positive_rate": 0.38095238095238093,
+                "avg_ret_net": -0.746275072223719,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 5,
+                "positive_rate": 1.0,
+                "avg_ret_net": -23.441596428826642,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "extra_route": {
+      "name": "long_march_core_plus_hvup",
+      "side": "long",
+      "regimes": [
+        0,
+        1,
+        3,
+        8
+      ],
+      "target_kind": "ret_net_positive"
+    }
+  },
+  "long_route_0_1_3_7_8": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 2163.9473710254015,
+      "overall_direction_summary": {
+        "long_trades": 96,
+        "short_trades": 80,
+        "total_trades": 176,
+        "long_share": 0.5454545454545454,
+        "short_share": 0.45454545454545453
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 637,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 473,
+                "positive_rate": 0.37209302325581395,
+                "avg_ret_net": -4.48513166411674,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 164,
+                "positive_rate": 0.4878048780487805,
+                "avg_ret_net": 0.7317332739888409,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 84,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 62,
+                "positive_rate": 0.3548387096774194,
+                "avg_ret_net": -5.493490717348333,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 22,
+                "positive_rate": 0.5909090909090909,
+                "avg_ret_net": 1.1946574458620964,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.09090909090909091,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9090909090909091,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 487.4705214006567,
+        "profit_factor": 1.289021002114557,
+        "win_rate": 0.5227272727272727,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 4,
+          "short_trades": 40,
+          "total_trades": 44,
+          "long_share": 0.09090909090909091,
+          "short_share": 0.9090909090909091
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 611,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 431,
+                "positive_rate": 0.3805104408352668,
+                "avg_ret_net": -4.157655199299871,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 180,
+                "positive_rate": 0.4777777777777778,
+                "avg_ret_net": 0.21382072389874532,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 102,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 87,
+                "positive_rate": 0.3563218390804598,
+                "avg_ret_net": -3.337913147668084,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 15,
+                "positive_rate": 0.26666666666666666,
+                "avg_ret_net": -10.586039758942253,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 771.7119824243321,
+        "profit_factor": 1.3693201623638864,
+        "win_rate": 0.5681818181818182,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 35,
+          "short_trades": 9,
+          "total_trades": 44,
+          "long_share": 0.7954545454545454,
+          "short_share": 0.20454545454545456
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 614,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 453,
+                "positive_rate": 0.3818984547461369,
+                "avg_ret_net": -3.8811370503391194,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 161,
+                "positive_rate": 0.4906832298136646,
+                "avg_ret_net": 0.04873090838884932,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 108,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 91,
+                "positive_rate": 0.38461538461538464,
+                "avg_ret_net": -4.939556443440577,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 17,
+                "positive_rate": 0.5294117647058824,
+                "avg_ret_net": 1.3350493792737952,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 608,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 490,
+                "positive_rate": 0.4020408163265306,
+                "avg_ret_net": -3.7083662665134796,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 118,
+                "positive_rate": 0.4745762711864407,
+                "avg_ret_net": -1.0272809154174452,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 119,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 95,
+                "positive_rate": 0.28421052631578947,
+                "avg_ret_net": -9.84807603001381,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 24,
+                "positive_rate": 0.5,
+                "avg_ret_net": -1.1630864043656004,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 587,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 472,
+                "positive_rate": 0.3580508474576271,
+                "avg_ret_net": -5.5628630703044415,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 115,
+                "positive_rate": 0.4434782608695652,
+                "avg_ret_net": -3.28901708544186,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 27,
+            "routes": [
+              {
+                "name": "long_march_all_bad_longs",
+                "rows": 22,
+                "positive_rate": 0.4090909090909091,
+                "avg_ret_net": 0.7316402070594255,
+                "regimes": [
+                  0,
+                  1,
+                  3,
+                  7,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 5,
+                "positive_rate": 1.0,
+                "avg_ret_net": -23.441596428826642,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "extra_route": {
+      "name": "long_march_all_bad_longs",
+      "side": "long",
+      "regimes": [
+        0,
+        1,
+        3,
+        7,
+        8
+      ],
+      "target_kind": "ret_net_positive"
+    }
+  },
+  "long_route_1_8": {
+    "overall": {
+      "passed": false,
+      "passed_windows": 3,
+      "total_windows": 5,
+      "pass_ratio": 0.6,
+      "overall_total_pnl_usd": 2163.9473710254015,
+      "overall_direction_summary": {
+        "long_trades": 96,
+        "short_trades": 80,
+        "total_trades": 176,
+        "long_share": 0.5454545454545454,
+        "short_share": 0.45454545454545453
+      },
+      "overall_failures": [
+        {
+          "metric": "all_windows",
+          "actual": 3,
+          "expected": "5 passing windows"
+        },
+        {
+          "metric": "pass_ratio",
+          "actual": 0.6,
+          "expected": ">= 1.0"
+        }
+      ]
+    },
+    "windows": {
+      "dec_2025_bull": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 658.9485916421556,
+        "profit_factor": 1.5188120940900125,
+        "win_rate": 0.5185185185185185,
+        "trades_count": 27,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 17,
+          "total_trades": 27,
+          "long_share": 0.37037037037037035,
+          "short_share": 0.6296296296296297
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 439,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 275,
+                "positive_rate": 0.3890909090909091,
+                "avg_ret_net": -4.436970603861528,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 164,
+                "positive_rate": 0.4878048780487805,
+                "avg_ret_net": 0.7317332739888409,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 49,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 27,
+                "positive_rate": 0.2962962962962963,
+                "avg_ret_net": -7.305805149057524,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 22,
+                "positive_rate": 0.5909090909090909,
+                "avg_ret_net": 1.1946574458620964,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "jan_2026_regime_shift": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "long_share",
+            "actual": 0.09090909090909091,
+            "expected": ">= 0.2"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.9090909090909091,
+            "expected": "<= 0.8"
+          }
+        ],
+        "total_pnl_usd": 487.4705214006567,
+        "profit_factor": 1.289021002114557,
+        "win_rate": 0.5227272727272727,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 4,
+          "short_trades": 40,
+          "total_trades": 44,
+          "long_share": 0.09090909090909091,
+          "short_share": 0.9090909090909091
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 430,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 250,
+                "positive_rate": 0.392,
+                "avg_ret_net": -4.329749484983942,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 180,
+                "positive_rate": 0.4777777777777778,
+                "avg_ret_net": 0.21382072389874532,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 61,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 46,
+                "positive_rate": 0.3695652173913043,
+                "avg_ret_net": -2.4683117206613177,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 15,
+                "positive_rate": 0.26666666666666666,
+                "avg_ret_net": -10.586039758942253,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "feb_2026_followthrough": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 771.7119824243321,
+        "profit_factor": 1.3693201623638864,
+        "win_rate": 0.5681818181818182,
+        "trades_count": 44,
+        "direction_summary": {
+          "long_trades": 35,
+          "short_trades": 9,
+          "total_trades": 44,
+          "long_share": 0.7954545454545454,
+          "short_share": 0.20454545454545456
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 414,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 253,
+                "positive_rate": 0.3557312252964427,
+                "avg_ret_net": -4.888455337401872,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 161,
+                "positive_rate": 0.4906832298136646,
+                "avg_ret_net": 0.04873090838884932,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 60,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 43,
+                "positive_rate": 0.3488372093023256,
+                "avg_ret_net": -5.022623370407616,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 17,
+                "positive_rate": 0.5294117647058824,
+                "avg_ret_net": 1.3350493792737952,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "mar_2026_extension": {
+        "passed": false,
+        "failures": [
+          {
+            "metric": "total_pnl_usd",
+            "actual": -883.4009010316879,
+            "expected": ">= 0.0"
+          },
+          {
+            "metric": "avg_trade_usd",
+            "actual": -19.63113113403751,
+            "expected": ">= 3.0"
+          },
+          {
+            "metric": "profit_factor",
+            "actual": 0.7912126084187571,
+            "expected": ">= 1.05"
+          },
+          {
+            "metric": "win_rate",
+            "actual": 0.4222222222222222,
+            "expected": ">= 0.45"
+          },
+          {
+            "metric": "max_drawdown_usd",
+            "actual": 1397.1035595775393,
+            "expected": "<= 1200.0"
+          },
+          {
+            "metric": "long_share",
+            "actual": 0.8222222222222222,
+            "expected": "<= 0.8"
+          },
+          {
+            "metric": "short_share",
+            "actual": 0.17777777777777778,
+            "expected": ">= 0.2"
+          }
+        ],
+        "total_pnl_usd": -883.4009010316879,
+        "profit_factor": 0.7912126084187571,
+        "win_rate": 0.4222222222222222,
+        "trades_count": 45,
+        "direction_summary": {
+          "long_trades": 37,
+          "short_trades": 8,
+          "total_trades": 45,
+          "long_share": 0.8222222222222222,
+          "short_share": 0.17777777777777778
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 366,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 248,
+                "positive_rate": 0.39919354838709675,
+                "avg_ret_net": -3.775943659032739,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 118,
+                "positive_rate": 0.4745762711864407,
+                "avg_ret_net": -1.0272809154174452,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 67,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 43,
+                "positive_rate": 0.3023255813953488,
+                "avg_ret_net": -8.38537678706715,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 24,
+                "positive_rate": 0.5,
+                "avg_ret_net": -1.1630864043656004,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "apr_2026_partial": {
+        "passed": true,
+        "failures": [],
+        "total_pnl_usd": 1129.2171765899448,
+        "profit_factor": 2.176506020360872,
+        "win_rate": 0.625,
+        "trades_count": 16,
+        "direction_summary": {
+          "long_trades": 10,
+          "short_trades": 6,
+          "total_trades": 16,
+          "long_share": 0.625,
+          "short_share": 0.375
+        },
+        "target_routes": {
+          "train": {
+            "enabled": true,
+            "rows_relabeled": 362,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 247,
+                "positive_rate": 0.3603238866396761,
+                "avg_ret_net": -5.07009814886692,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 115,
+                "positive_rate": 0.4434782608695652,
+                "avg_ret_net": -3.28901708544186,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          },
+          "test": {
+            "enabled": true,
+            "rows_relabeled": 19,
+            "routes": [
+              {
+                "name": "long_sideways_uptrend_route",
+                "rows": 14,
+                "positive_rate": 0.2857142857142857,
+                "avg_ret_net": -3.7025417668923617,
+                "regimes": [
+                  1,
+                  8
+                ]
+              },
+              {
+                "name": "short_uptrend_profit_route",
+                "rows": 5,
+                "positive_rate": 1.0,
+                "avg_ret_net": -23.441596428826642,
+                "regimes": [
+                  2,
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "extra_route": {
+      "name": "long_sideways_uptrend_route",
+      "side": "long",
+      "regimes": [
+        1,
+        8
+      ],
+      "target_kind": "ret_net_positive"
+    }
+  }
+}

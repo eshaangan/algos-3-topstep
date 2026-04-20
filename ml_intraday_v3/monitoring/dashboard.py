@@ -54,6 +54,13 @@ class TerminalDashboard:
         daily_pnl = metrics.get('daily_pnl', 0)
         daily_color = self._get_color(daily_pnl)
         print(f"│ Daily P&L: {daily_color}${daily_pnl:>14,.2f}\033[0m   │   Open Positions: {metrics.get('open_positions', 0):>16}   │")
+        if metrics.get('broker_balance') is not None:
+            bb = metrics['broker_balance']
+            rp = metrics.get('broker_realized_pnl', 0.0)
+            up = metrics.get('broker_open_pnl', 0.0)
+            rp_c = self._get_color(rp)
+            up_c = self._get_color(up)
+            print(f"│ Topstep Balance: ${bb:>12,.2f}   │   RP&L: {rp_c}${rp:>12,.2f}\033[0m   │   UP&L: {up_c}${up:>12,.2f}\033[0m   │")
         print("└" + "─" * 78 + "┘")
         print()
 

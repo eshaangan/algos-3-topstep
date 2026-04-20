@@ -1,0 +1,55 @@
+{
+  "name": "feb_2026_followthrough",
+  "train_period": {
+    "start": "2025-08-04 23:59:59+00:00",
+    "end": "2026-01-31 23:59:59+00:00"
+  },
+  "test_period": {
+    "start": "2026-02-01 00:00:00+00:00",
+    "end": "2026-02-28 23:59:59+00:00"
+  },
+  "train_events": 1589,
+  "test_events": 289,
+  "classification": {
+    "test_auc": 0.5839795818199667,
+    "test_accuracy": 0.5640138408304498,
+    "brier_score": 0.240031995975255,
+    "positive_prediction_rate": 0.36678200692041524,
+    "target_rate": 0.42214532871972316
+  },
+  "meta": {
+    "enabled": false,
+    "skipped": false,
+    "reason": null,
+    "metrics": null,
+    "test_rows": 0
+  },
+  "backtest_metrics": {
+    "total_pnl_usd": -269.6112368586394,
+    "max_drawdown_usd": 663.9434887855969,
+    "win_rate": 0.45652173913043476,
+    "profit_factor": 0.9009549094908003,
+    "avg_trade_usd": -5.861113844753031,
+    "trades_count": 46,
+    "skipped_count": 243,
+    "mtm_liquidations": 0,
+    "mtm_daily_loss_liquidations": 0,
+    "mtm_trailing_dd_liquidations": 0,
+    "cost_mode": "mixed",
+    "cost_mode_policy": "event_ret_net_preferred"
+  },
+  "direction_summary": {
+    "long_trades": 34,
+    "short_trades": 12,
+    "total_trades": 46,
+    "long_share": 0.7391304347826086,
+    "short_share": 0.2608695652173913
+  },
+  "test_event_direction_summary": {
+    "long_trades": 147,
+    "short_trades": 142,
+    "total_trades": 289,
+    "long_share": 0.5086505190311419,
+    "short_share": 0.4913494809688581
+  }
+}

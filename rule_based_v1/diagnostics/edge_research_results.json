@@ -1,0 +1,635 @@
+{
+  "in_sample": [
+    {
+      "label": "0:  Baseline",
+      "n": 70,
+      "wr": 0.5857,
+      "pnl": 3983.2,
+      "sharpe": 3.316,
+      "dd": -1243.77,
+      "pf": 1.56,
+      "avg_pnl": 56.9,
+      "exit_reasons": {
+        "stop_loss": 24,
+        "time_stop": 38,
+        "profit_target": 5,
+        "session_close": 3
+      },
+      "trades_per_day": 0.53,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.6386,
+        "p_pass_30d": 0.28,
+        "p_pass_60d": 0.6386,
+        "p95_dd": -2178.45,
+        "median_days": 33
+      }
+    },
+    {
+      "label": "1:  CDP-Anchor",
+      "n": 34,
+      "wr": 0.5588,
+      "pnl": 2342.79,
+      "sharpe": 3.928,
+      "dd": -1130.35,
+      "pf": 1.693,
+      "avg_pnl": 68.91,
+      "exit_reasons": {
+        "stop_loss": 13,
+        "time_stop": 18,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.258,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.7327,
+        "p_pass_30d": 0.3574,
+        "p_pass_60d": 0.7327,
+        "p95_dd": -2119.58,
+        "median_days": 31
+      }
+    },
+    {
+      "label": "2:  OR Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 109
+      }
+    },
+    {
+      "label": "3:  OR Compress max=0.8",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 109
+      }
+    },
+    {
+      "label": "4:  PrevVWAP filter",
+      "n": 37,
+      "wr": 0.5135,
+      "pnl": 2295.77,
+      "sharpe": 3.747,
+      "dd": -835.36,
+      "pf": 1.64,
+      "avg_pnl": 62.05,
+      "exit_reasons": {
+        "stop_loss": 14,
+        "time_stop": 19,
+        "profit_target": 3,
+        "session_close": 1
+      },
+      "trades_per_day": 0.28,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 4305,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.6954,
+        "p_pass_30d": 0.2975,
+        "p_pass_60d": 0.6954,
+        "p95_dd": -2097.13,
+        "median_days": 33
+      }
+    },
+    {
+      "label": "5:  Skip gap-up >0.3%",
+      "n": 52,
+      "wr": 0.6154,
+      "pnl": 4092.47,
+      "sharpe": 4.708,
+      "dd": -896.4,
+      "pf": 1.842,
+      "avg_pnl": 78.7,
+      "exit_reasons": {
+        "stop_loss": 18,
+        "time_stop": 27,
+        "session_close": 3,
+        "profit_target": 4
+      },
+      "trades_per_day": 0.394,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 3222,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.8014,
+        "p_pass_30d": 0.4202,
+        "p_pass_60d": 0.8014,
+        "p95_dd": -2091.98,
+        "median_days": 29
+      }
+    },
+    {
+      "label": "6:  CDP + PrevVWAP",
+      "n": 17,
+      "wr": 0.4118,
+      "pnl": 41.67,
+      "sharpe": 0.144,
+      "dd": -1099.93,
+      "pf": 1.02,
+      "avg_pnl": 2.45,
+      "exit_reasons": {
+        "stop_loss": 8,
+        "time_stop": 8,
+        "profit_target": 1
+      },
+      "trades_per_day": 0.129,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 4305,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.1703,
+        "p_pass_30d": 0.0597,
+        "p_pass_60d": 0.1703,
+        "p95_dd": -2233.15,
+        "median_days": 36
+      }
+    },
+    {
+      "label": "7:  CDP + Skip gap-up",
+      "n": 27,
+      "wr": 0.5556,
+      "pnl": 2075.7,
+      "sharpe": 4.314,
+      "dd": -873.13,
+      "pf": 1.775,
+      "avg_pnl": 76.88,
+      "exit_reasons": {
+        "stop_loss": 10,
+        "time_stop": 14,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.205,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 3222,
+        "compression": 0
+      }
+    },
+    {
+      "label": "8:  CDP + Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 54
+      }
+    },
+    {
+      "label": "9:  CDP + Compress max=0.8",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 54
+      }
+    },
+    {
+      "label": "10: CDP + PrevVWAP + Skip gap-up",
+      "n": 13,
+      "wr": 0.4615,
+      "pnl": 502.14,
+      "sharpe": 2.23,
+      "dd": -639.46,
+      "pf": 1.361,
+      "avg_pnl": 38.63,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 7,
+        "profit_target": 1
+      },
+      "trades_per_day": 0.098,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 4305,
+        "gap_up": 1848,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.4769,
+        "p_pass_30d": 0.1829,
+        "p_pass_60d": 0.4769,
+        "p95_dd": -2188.34,
+        "median_days": 35
+      }
+    },
+    {
+      "label": "11: CDP + PrevVWAP + Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 4305,
+        "gap_up": 0,
+        "compression": 28
+      }
+    },
+    {
+      "label": "12: CDP+PrevVWAP+Gap+Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 4305,
+        "gap_up": 1848,
+        "compression": 22
+      },
+      "monte_carlo": {
+        "p_pass": 0.0,
+        "p_pass_30d": 0.0,
+        "p_pass_60d": 0.0,
+        "p95_dd": 0.0,
+        "median_days": 60
+      }
+    }
+  ],
+  "oos": [
+    {
+      "label": "0:  Baseline",
+      "n": 21,
+      "wr": 0.5714,
+      "pnl": 635.91,
+      "sharpe": 1.222,
+      "dd": -2111.19,
+      "pf": 1.197,
+      "avg_pnl": 30.28,
+      "exit_reasons": {
+        "time_stop": 11,
+        "stop_loss": 7,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.389,
+      "mll_ok": "False",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.4181,
+        "p_pass_30d": 0.2212,
+        "p_pass_60d": 0.4181,
+        "p95_dd": -2350.45,
+        "median_days": 29
+      }
+    },
+    {
+      "label": "1:  CDP-Anchor",
+      "n": 17,
+      "wr": 0.5882,
+      "pnl": 1706.86,
+      "sharpe": 4.024,
+      "dd": -1480.09,
+      "pf": 1.727,
+      "avg_pnl": 100.4,
+      "exit_reasons": {
+        "stop_loss": 6,
+        "time_stop": 9,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.315,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.8044,
+        "p_pass_30d": 0.5875,
+        "p_pass_60d": 0.8044,
+        "p95_dd": -2218.04,
+        "median_days": 22
+      }
+    },
+    {
+      "label": "2:  OR Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 50
+      }
+    },
+    {
+      "label": "3:  OR Compress max=0.8",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 50
+      }
+    },
+    {
+      "label": "4:  PrevVWAP filter",
+      "n": 19,
+      "wr": 0.6842,
+      "pnl": 2641.18,
+      "sharpe": 6.118,
+      "dd": -1142.57,
+      "pf": 2.33,
+      "avg_pnl": 139.01,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 13,
+        "profit_target": 1
+      },
+      "trades_per_day": 0.352,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 1918,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.9519,
+        "p_pass_30d": 0.7807,
+        "p_pass_60d": 0.9519,
+        "p95_dd": 0.0,
+        "median_days": 19
+      }
+    },
+    {
+      "label": "5:  Skip gap-up >0.3%",
+      "n": 18,
+      "wr": 0.5556,
+      "pnl": 508.35,
+      "sharpe": 1.101,
+      "dd": -2111.19,
+      "pf": 1.172,
+      "avg_pnl": 28.24,
+      "exit_reasons": {
+        "stop_loss": 7,
+        "time_stop": 8,
+        "session_close": 1,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.333,
+      "mll_ok": "False",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 681,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.3997,
+        "p_pass_30d": 0.2238,
+        "p_pass_60d": 0.3997,
+        "p95_dd": -2370.94,
+        "median_days": 28
+      }
+    },
+    {
+      "label": "6:  CDP + PrevVWAP",
+      "n": 13,
+      "wr": 0.5385,
+      "pnl": 812.06,
+      "sharpe": 2.462,
+      "dd": -1480.09,
+      "pf": 1.409,
+      "avg_pnl": 62.47,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 7,
+        "profit_target": 1
+      },
+      "trades_per_day": 0.241,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 1918,
+        "gap_up": 0,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.6088,
+        "p_pass_30d": 0.3892,
+        "p_pass_60d": 0.6088,
+        "p95_dd": -2282.87,
+        "median_days": 25
+      }
+    },
+    {
+      "label": "7:  CDP + Skip gap-up",
+      "n": 15,
+      "wr": 0.5333,
+      "pnl": 669.82,
+      "sharpe": 1.823,
+      "dd": -1480.09,
+      "pf": 1.285,
+      "avg_pnl": 44.65,
+      "exit_reasons": {
+        "stop_loss": 6,
+        "time_stop": 7,
+        "profit_target": 2
+      },
+      "trades_per_day": 0.278,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 1066,
+        "compression": 0
+      }
+    },
+    {
+      "label": "8:  CDP + Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 31
+      }
+    },
+    {
+      "label": "9:  CDP + Compress max=0.8",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 0,
+        "gap_up": 0,
+        "compression": 31
+      }
+    },
+    {
+      "label": "10: CDP + PrevVWAP + Skip gap-up",
+      "n": 12,
+      "wr": 0.5,
+      "pnl": 148.54,
+      "sharpe": 0.512,
+      "dd": -1480.09,
+      "pf": 1.075,
+      "avg_pnl": 12.38,
+      "exit_reasons": {
+        "stop_loss": 5,
+        "time_stop": 6,
+        "profit_target": 1
+      },
+      "trades_per_day": 0.222,
+      "mll_ok": "True",
+      "filtered": {
+        "prev_vwap": 1918,
+        "gap_up": 462,
+        "compression": 0
+      },
+      "monte_carlo": {
+        "p_pass": 0.3036,
+        "p_pass_30d": 0.1592,
+        "p_pass_60d": 0.3036,
+        "p95_dd": -2360.61,
+        "median_days": 30
+      }
+    },
+    {
+      "label": "11: CDP + PrevVWAP + Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 1918,
+        "gap_up": 0,
+        "compression": 27
+      }
+    },
+    {
+      "label": "12: CDP+PrevVWAP+Gap+Compress max=1.0",
+      "n": 0,
+      "wr": 0.0,
+      "pnl": 0,
+      "sharpe": 0.0,
+      "dd": 0.0,
+      "pf": Infinity,
+      "avg_pnl": 0.0,
+      "exit_reasons": {},
+      "trades_per_day": 0.0,
+      "mll_ok": true,
+      "filtered": {
+        "prev_vwap": 1918,
+        "gap_up": 462,
+        "compression": 25
+      },
+      "monte_carlo": {
+        "p_pass": 0.0,
+        "p_pass_30d": 0.0,
+        "p_pass_60d": 0.0,
+        "p95_dd": 0.0,
+        "median_days": 60
+      }
+    }
+  ]
+}

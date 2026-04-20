@@ -8,10 +8,12 @@ from types import SimpleNamespace
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import ml_intraday_v3.backtesting_v3.decisions as decisions_module
 from ml_intraday_v3.backtesting_v3.decisions import decide_trades
 from ml_intraday_v3.backtesting_v3.risk import RiskManager
 from ml_intraday_v3.backtesting_v3.fills import apply_forced_flatten, FillResult
@@ -38,6 +40,264 @@ def test_decision_meta_filters_trades():
     decided = decide_trades(events_df, primary, meta, cfg)
     assert decided.loc[decided["event_id"] == 1, "accept"].item() is False
     assert decided.loc[decided["event_id"] == 2, "accept"].item() is True
+
+
+def test_decision_uses_side_specific_primary_thresholds():
+    events_df = pd.DataFrame(
+        {"event_id": [1, 2, 3, 4], "t0": [0, 1, 2, 3], "side": [1, 1, -1, -1]}
+    )
+    primary = pd.DataFrame(
+        {"event_id": [1, 2, 3, 4], "y_prob": [0.41, 0.39, 0.49, 0.47]}
+    )
+    cfg = {
+        "decision": {
+            "primary_score_column": "y_prob",
+            "primary_threshold": 0.46,
+            "primary_threshold_by_side": {"long": 0.40, "short": 0.48},
+            "use_meta": False,
+            "meta_threshold": 0.5,
+            "require_meta_for_trade": False,
+        }
+    }
+
+    decided = decide_trades(events_df, primary, None, cfg)
+    assert decided["accept"].tolist() == [True, False, True, False]
+    assert decided["applied_primary_threshold"].tolist() == [0.40, 0.40, 0.48, 0.48]
+
+
+def test_decision_regime_overlay_applies_side_specific_threshold_boosts():
+    events_df = pd.DataFrame(
+        {
+            "event_id": [1, 2, 3, 4],
+            "t0": pd.date_range("2025-01-01", periods=4, freq="5min", tz="UTC"),
+            "side": [1, 1, -1, -1],
+        }
+    )
+    primary = pd.DataFrame(
+        {"event_id": [1, 2, 3, 4], "y_prob": [0.43, 0.52, 0.53, 0.56]}
+    )
+    bars_df = pd.DataFrame(
+        {"close": [100, 101, 102, 103]},
+        index=pd.date_range("2025-01-01", periods=4, freq="5min", tz="UTC"),
+    )
+    cfg = {
+        "decision": {
+            "primary_score_column": "y_prob",
+            "primary_threshold": 0.46,
+            "primary_threshold_by_side": {"long": 0.40, "short": 0.48},
+            "use_meta": False,
+            "meta_threshold": 0.5,
+            "require_meta_for_trade": False,
+            "regime_filter": {
+                "enabled": True,
+                "vol_window": 2,
+                "trend_window": 2,
+                "skip_regimes": [],
+                "overlay_rules": [
+                    {"regimes": [1], "side": "long", "threshold_boost": 0.05},
+                    {"regimes": [4], "side": "short", "threshold_boost": 0.05},
+                ],
+            },
+        }
+    }
+
+    original = decisions_module.compute_regime_at_events
+
+    def fake_compute_regime_at_events(events, _bars, _vol_window, _trend_window):
+        out = events.copy()
+        out["vol_regime"] = [0, 0, 1, 1]
+        out["trend_regime"] = [1, 2, 1, 2]
+        out["combined_regime"] = [1, 2, 4, 5]
+        out["regime_label"] = [
+            "low_vol_sideways",
+            "low_vol_uptrend",
+            "med_vol_sideways",
+            "med_vol_uptrend",
+        ]
+        return out
+
+    decisions_module.compute_regime_at_events = fake_compute_regime_at_events
+    try:
+        decided = decide_trades(events_df, primary, None, cfg, bars_df)
+    finally:
+        decisions_module.compute_regime_at_events = original
+
+    assert decided["applied_primary_threshold"].tolist() == [0.45, 0.40, 0.53, 0.48]
+    assert decided["accept"].tolist() == [False, True, True, True]
+    assert decided.loc[decided["event_id"] == 1, "decision_reason"].item() == "regime_threshold_boost"
+
+
+def test_decision_legacy_regime_threshold_boost_uses_side_specific_base_threshold():
+    events_df = pd.DataFrame(
+        {
+            "event_id": [1],
+            "t0": [pd.Timestamp("2025-01-01 00:00:00", tz="UTC")],
+            "side": [-1],
+        }
+    )
+    primary = pd.DataFrame({"event_id": [1], "y_prob": [0.52]})
+    bars_df = pd.DataFrame(
+        {"close": [100, 101]},
+        index=pd.date_range("2025-01-01", periods=2, freq="5min", tz="UTC"),
+    )
+    cfg = {
+        "decision": {
+            "primary_score_column": "y_prob",
+            "primary_threshold": 0.46,
+            "primary_threshold_by_side": {"long": 0.40, "short": 0.48},
+            "use_meta": False,
+            "meta_threshold": 0.5,
+            "require_meta_for_trade": False,
+            "regime_filter": {
+                "enabled": True,
+                "vol_window": 2,
+                "trend_window": 2,
+                "skip_regimes": [],
+                "threshold_boost_regimes": [4],
+                "threshold_boost": 0.05,
+            },
+        }
+    }
+
+    original = decisions_module.compute_regime_at_events
+
+    def fake_compute_regime_at_events(events, _bars, _vol_window, _trend_window):
+        out = events.copy()
+        out["vol_regime"] = [1]
+        out["trend_regime"] = [1]
+        out["combined_regime"] = [4]
+        out["regime_label"] = ["med_vol_sideways"]
+        return out
+
+    decisions_module.compute_regime_at_events = fake_compute_regime_at_events
+    try:
+        decided = decide_trades(events_df, primary, None, cfg, bars_df)
+    finally:
+        decisions_module.compute_regime_at_events = original
+
+    assert decided["applied_primary_threshold"].tolist() == [0.53]
+    assert decided["accept"].tolist() == [False]
+    assert decided.loc[0, "decision_reason"] == "regime_threshold_boost"
+
+
+def test_decision_regime_threshold_schedule_overrides_side_specific_thresholds():
+    events_df = pd.DataFrame(
+        {
+            "event_id": [1, 2, 3, 4],
+            "t0": pd.date_range("2025-01-01", periods=4, freq="5min", tz="UTC"),
+            "side": [1, 1, -1, -1],
+        }
+    )
+    primary = pd.DataFrame(
+        {"event_id": [1, 2, 3, 4], "y_prob": [0.37, 0.39, 0.55, 0.61]}
+    )
+    bars_df = pd.DataFrame(
+        {"close": [100, 101, 102, 103]},
+        index=pd.date_range("2025-01-01", periods=4, freq="5min", tz="UTC"),
+    )
+    cfg = {
+        "decision": {
+            "primary_score_column": "y_prob",
+            "primary_threshold": 0.46,
+            "primary_threshold_by_side": {"long": 0.40, "short": 0.48},
+            "use_meta": False,
+            "meta_threshold": 0.5,
+            "require_meta_for_trade": False,
+            "regime_filter": {
+                "enabled": True,
+                "vol_window": 2,
+                "trend_window": 2,
+                "threshold_schedule": [
+                    {"regimes": [1], "side": "long", "threshold": 0.35},
+                    {"regimes": [4], "side": "short", "threshold": 0.60},
+                ],
+            },
+        }
+    }
+
+    original = decisions_module.compute_regime_at_events
+
+    def fake_compute_regime_at_events(events, _bars, _vol_window, _trend_window):
+        out = events.copy()
+        out["vol_regime"] = [0, 0, 1, 1]
+        out["trend_regime"] = [1, 2, 1, 2]
+        out["combined_regime"] = [1, 2, 4, 5]
+        out["regime_label"] = [
+            "low_vol_sideways",
+            "low_vol_uptrend",
+            "med_vol_sideways",
+            "med_vol_uptrend",
+        ]
+        return out
+
+    decisions_module.compute_regime_at_events = fake_compute_regime_at_events
+    try:
+        decided = decide_trades(events_df, primary, None, cfg, bars_df)
+    finally:
+        decisions_module.compute_regime_at_events = original
+
+    assert decided["base_primary_threshold"].tolist() == [0.35, 0.40, 0.60, 0.48]
+    assert decided["applied_primary_threshold"].tolist() == [0.35, 0.40, 0.60, 0.48]
+    assert decided["accept"].tolist() == [True, False, False, True]
+    assert decided.loc[decided["event_id"] == 3, "decision_reason"].item() == "regime_threshold_schedule"
+
+
+def test_decision_regime_threshold_schedule_composes_with_overlay():
+    events_df = pd.DataFrame(
+        {
+            "event_id": [1],
+            "t0": [pd.Timestamp("2025-01-01 00:00:00", tz="UTC")],
+            "side": [1],
+        }
+    )
+    primary = pd.DataFrame({"event_id": [1], "y_prob": [0.37]})
+    bars_df = pd.DataFrame(
+        {"close": [100, 101]},
+        index=pd.date_range("2025-01-01", periods=2, freq="5min", tz="UTC"),
+    )
+    cfg = {
+        "decision": {
+            "primary_score_column": "y_prob",
+            "primary_threshold": 0.46,
+            "primary_threshold_by_side": {"long": 0.40, "short": 0.48},
+            "use_meta": False,
+            "meta_threshold": 0.5,
+            "require_meta_for_trade": False,
+            "regime_filter": {
+                "enabled": True,
+                "vol_window": 2,
+                "trend_window": 2,
+                "threshold_schedule": [
+                    {"regimes": [1], "side": "long", "threshold": 0.35},
+                ],
+                "overlay_rules": [
+                    {"regimes": [1], "side": "long", "threshold_boost": 0.05},
+                ],
+            },
+        }
+    }
+
+    original = decisions_module.compute_regime_at_events
+
+    def fake_compute_regime_at_events(events, _bars, _vol_window, _trend_window):
+        out = events.copy()
+        out["vol_regime"] = [0]
+        out["trend_regime"] = [1]
+        out["combined_regime"] = [1]
+        out["regime_label"] = ["low_vol_sideways"]
+        return out
+
+    decisions_module.compute_regime_at_events = fake_compute_regime_at_events
+    try:
+        decided = decide_trades(events_df, primary, None, cfg, bars_df)
+    finally:
+        decisions_module.compute_regime_at_events = original
+
+    assert decided["default_primary_threshold"].tolist() == [0.40]
+    assert decided["base_primary_threshold"].tolist() == [0.35]
+    assert decided["applied_primary_threshold"].iloc[0] == pytest.approx(0.40)
+    assert decided["accept"].tolist() == [False]
+    assert decided.loc[0, "decision_reason"] == "regime_threshold_boost"
 
 
 def test_risk_daily_loss_gate_skips_trades():
@@ -182,6 +442,8 @@ def test_build_backtest_writes_artifacts_and_updates_manifest(tmp_path):
         execution_spec=str(exec_path),
         risk_config=str(risk_path),
         cv_kind="purged_kfold",
+        bar_sizes=None,
+        secondary_training_dir=None,
     )
     build_backtest_command(args)
 

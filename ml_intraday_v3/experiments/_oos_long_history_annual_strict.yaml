@@ -1,0 +1,83 @@
+# Multi-year OOS: strict promotion gates (companion to _oos_long_history_annual.yaml).
+# Use this config when a candidate should actually SHIP, not just be measured.
+# Mirrors gates used in _oos_2024_q3_rth_only.yaml / _oos_april_2026_only.yaml.
+#
+# Why this exists (P0.2, 2026-04-16):
+# oos_long_history_bestcombo_2026_04_14 showed overall_total_pnl_usd = -$3,720
+# yet passed with pass_ratio=1.0 because the annual OOS gates were set permissively
+# (min_total_pnl_usd: -1e9, min_profit_factor: 0, require_all_windows: false).
+# The "bestcombo" was selected upstream with meta.enabled=False, which dropped
+# trade count 1,295 -> 154 and win rate 52% -> 31-50%. Strict gates below would
+# have caught it: overall PnL < $500 and long_share > 0.75 both fail.
+#
+# P0.5 follow-up (2026-04-16) — Topstep consistency rule:
+# Adding max_best_day_fraction=0.40 revealed that the "baseline" annual-run
+# ALSO fails in y2024: total_pnl=$611 with best_day=$872 → best day was 142%
+# of the year's total PnL. That's exactly the concentration pattern Topstep's
+# 50%-per-day rule is designed to reject. Do NOT loosen this gate to make the
+# baseline pass — the signal is that y2024 edge is carried by one lucky day.
+#
+# Data: --data-path data/processed/mes_bars_databento_rth.h5
+
+data:
+  bar_size: "5m"
+  additional_paths: []
+
+training_window:
+  lookback_days: 180
+  gap_days: 0
+
+windows:
+  - name: "y2022"
+    test_start: "2022-01-01"
+    test_end: "2022-12-31"
+  - name: "y2023"
+    test_start: "2023-01-01"
+    test_end: "2023-12-31"
+  - name: "y2024"
+    test_start: "2024-01-01"
+    test_end: "2024-12-31"
+  - name: "y2025_ytd"
+    test_start: "2025-01-01"
+    test_end: "2025-12-18"
+
+gates:
+  # Per-window gates
+  # Thresholds calibrated so the current annual_run baseline passes (+$14,353, 1295 trades)
+  # and the known-bad bestcombo fails (-$3,720, 154 trades, 88% long bias). Verified by
+  # simulation against existing promotion_summary.json files on 2026-04-16.
+  min_train_events: 500
+  min_test_events: 100
+  min_test_auc: 0.51
+  min_test_accuracy: 0.50
+  min_total_pnl_usd: -200.0      # tolerate a mildly negative year; reject real losses
+  min_avg_trade_usd: -50.0
+  min_profit_factor: 1.00         # break-even floor per-window
+  min_win_rate: 0.45
+  min_trades_count: 50
+  min_positive_prediction_rate: 0.02
+  max_drawdown_usd: 2500.0
+  max_mtm_daily_liquidations: 0
+  max_mtm_trailing_liquidations: 0
+  min_long_share: 0.15
+  max_long_share: 0.85
+
+  # Topstep consistency rule proxy: no single day may exceed this fraction of
+  # total PnL. Rule is 50%; we enforce 40% to leave a 10% margin for the
+  # combine-day run. Only evaluated on positive-PnL windows.
+  max_best_day_fraction: 0.40
+
+  # Aggregate gates across all windows
+  require_all_windows: true
+  min_pass_ratio: 1.0
+  min_total_pnl_usd_overall: 500.0
+  min_long_share_overall: 0.20
+  max_long_share_overall: 0.80
+  max_best_day_fraction_overall: 0.40
+
+  # P0.3: Deflated Sharpe on aggregated daily PnL across windows.
+  # DSR > 0.95 = "more likely skill than luck" per Bailey & López de Prado.
+  # dsr_n_trials approximates the selection-bias penalty; 10 is a moderate
+  # default. Set higher (e.g., 60) when promoting a sweep winner.
+  min_dsr: 0.95
+  dsr_n_trials: 10

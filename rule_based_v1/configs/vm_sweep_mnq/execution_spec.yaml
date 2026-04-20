@@ -1,0 +1,3 @@
+# Placeholder for parity with other rule-based VM configs.
+order_type: "MARKET"
+bracket_order: true

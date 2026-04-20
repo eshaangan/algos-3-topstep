@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pandas as pd
 import numpy as np
-from datetime import time
+from datetime import date, time
 
 from rules.base import BaseRule, RuleSignal
 from utils.indicators import atr
@@ -29,9 +29,14 @@ class OpeningRangeBreakoutRule(BaseRule):
 
     Parameters
     ----------
+    session_timezone : str
+        "US/Eastern" (default): session_start / or_end / entry_cutoff are U.S. Eastern wall times.
+        "Asia/Tokyo": same fields are interpreted as Japan local times; the opening range is
+        grouped by Tokyo calendar date (Nikkei cash session morning).
+    session_start_time : str
+        First bar included in the opening range window, format "HH:MM" in session_timezone.
     or_end_time : str
-        Time when the opening range window closes, format "HH:MM" Eastern.
-        Default "10:00" means the range is built from 9:30–10:00 AM.
+        When the OR window ends, format "HH:MM" in session_timezone.
     min_or_bars : int
         Minimum bars inside the opening range to consider the range valid.
         Default 4 (requires at least 20 min of data on 5-min bars).
@@ -54,6 +59,8 @@ class OpeningRangeBreakoutRule(BaseRule):
 
     def __init__(
         self,
+        session_timezone: str = "US/Eastern",
+        session_start_time: str = "09:30",
         or_end_time: str = "10:00",
         min_or_bars: int = 4,
         min_range_atr: float = 0.5,
@@ -63,6 +70,8 @@ class OpeningRangeBreakoutRule(BaseRule):
         long_only: bool = False,
     ):
         super().__init__(name="opening_range_breakout", role="primary")
+        self.session_timezone = session_timezone
+        self.session_start_time = session_start_time
         self.or_end_time = or_end_time
         self.min_or_bars = min_or_bars
         self.min_range_atr = min_range_atr
@@ -71,7 +80,9 @@ class OpeningRangeBreakoutRule(BaseRule):
         self.use_close_for_signal = use_close_for_signal
         self.long_only = long_only
 
-        # Parse time strings
+        # Parse time strings in the active session clock (Eastern or Tokyo)
+        h_ss, m_ss = map(int, session_start_time.split(":"))
+        self._session_start = time(h_ss, m_ss)
         h_or, m_or = map(int, or_end_time.split(":"))
         self._or_end = time(h_or, m_or)
         h_cut, m_cut = map(int, entry_cutoff_time.split(":"))
@@ -86,7 +97,11 @@ class OpeningRangeBreakoutRule(BaseRule):
         if len(bars) < self.required_bars():
             return RuleSignal.no_signal(self.name, "Insufficient bars")
 
-        # --- Current bar timestamp in Eastern ---
+        if self.session_timezone == "Asia/Tokyo":
+            return self._evaluate_tokyo_session(bars)
+        return self._evaluate_us_eastern_session(bars)
+
+    def _evaluate_us_eastern_session(self, bars: pd.DataFrame) -> RuleSignal:
         current_ts = bars.index[-1]
         if current_ts.tzinfo is not None:
             current_ts_et = current_ts.tz_convert("US/Eastern")
@@ -95,37 +110,73 @@ class OpeningRangeBreakoutRule(BaseRule):
 
         current_time = current_ts_et.time()
 
-        # Only trade after the opening range window has closed
         if current_time <= self._or_end:
             return RuleSignal.no_signal(
-                self.name, f"Still in OR window: {current_time} <= {self._or_end}"
+                self.name,
+                f"Still in OR window: {current_time} <= {self._or_end} "
+                f"(OR={self.session_start_time}-{self.or_end_time} ET)",
             )
 
-        # Only trade before the entry cutoff
         if current_time > self._entry_cutoff:
             return RuleSignal.no_signal(
                 self.name, f"Past entry cutoff: {current_time} > {self._entry_cutoff}"
             )
 
-        # --- Locate today's opening range bars ---
         current_date = current_ts_et.date()
-        # Session open: 9:30 AM ET
         session_open = pd.Timestamp(
-            f"{current_date} 09:30:00", tz="US/Eastern"
+            f"{current_date} {self.session_start_time}:00", tz="US/Eastern"
         )
         or_close_ts = pd.Timestamp(
             f"{current_date} {self.or_end_time}:00", tz="US/Eastern"
         )
 
-        # Filter bars to opening range window
         or_mask = (bars.index >= session_open) & (bars.index <= or_close_ts)
         or_bars = bars.loc[or_mask]
+
+        return self._finalize_or_signal(bars, or_bars, "ET")
+
+    def _evaluate_tokyo_session(self, bars: pd.DataFrame) -> RuleSignal:
+        """Opening range aligned to Tokyo cash-session clock (calendar date in Asia/Tokyo)."""
+        tz_name = "Asia/Tokyo"
+        idx = bars.index
+        if idx.tz is None:
+            idx = idx.tz_localize("UTC")
+        current_ts = idx[-1]
+        current_jp = current_ts.tz_convert(tz_name)
+        current_time = current_jp.time()
+        session_day: date = current_jp.date()
+
+        if current_time <= self._or_end:
+            return RuleSignal.no_signal(
+                self.name,
+                f"Still in OR window (Tokyo): {current_time} <= {self._or_end} "
+                f"(OR={self.session_start_time}-{self.or_end_time} JST)",
+            )
+
+        if current_time > self._entry_cutoff:
+            return RuleSignal.no_signal(
+                self.name,
+                f"Past entry cutoff (Tokyo): {current_time} > {self._entry_cutoff}",
+            )
+
+        ts_jp = idx.tz_convert(tz_name)
+        or_mask = []
+        for t in ts_jp:
+            d_ok = t.date() == session_day
+            tt = t.time()
+            in_or = self._session_start <= tt <= self._or_end
+            or_mask.append(d_ok and in_or)
+        or_bars = bars.loc[or_mask]
+        return self._finalize_or_signal(bars, or_bars, "JST")
+
+    def _finalize_or_signal(
+        self, bars: pd.DataFrame, or_bars: pd.DataFrame, clock_label: str
+    ) -> RuleSignal:
 
         if len(or_bars) < self.min_or_bars:
             return RuleSignal.no_signal(
                 self.name,
-                f"Insufficient OR bars: {len(or_bars)} < {self.min_or_bars} "
-                f"(session {current_date})",
+                f"Insufficient OR bars: {len(or_bars)} < {self.min_or_bars} ({clock_label})",
             )
 
         # --- Compute opening range ---

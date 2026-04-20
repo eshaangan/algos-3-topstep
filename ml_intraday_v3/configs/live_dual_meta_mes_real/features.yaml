@@ -1,0 +1,83 @@
+computation:
+  eps: 1.0e-8
+  nan_policy: "keep_with_mask"
+
+normalization:
+  enabled: false
+
+returns:
+  lookback_bars:
+    1m: [3, 6]
+    5m: [2, 4]
+  enable_multi_horizon: true
+  multi_horizon_bars: [6, 12, 24]
+
+volatility:
+  atr_period: 14
+  enable_regime_features: true
+  vol_regime_lookback: 50
+
+trend:
+  ema_fast_period: 13
+  ema_slow_period: 34
+  enable_advanced_features: true
+  sma_long_period: 30
+  anchor_context:
+    enabled: true
+    fast_wma_period: 13
+    mid_wma_period: 48
+    anchor_wma_period: 200
+
+momentum:
+  enabled: false
+
+microstructure:
+  enabled: true
+  vwap_context:
+    enabled: true
+    zscore_lookback: 20
+
+structure:
+  enabled: true
+
+time:
+  enabled: true
+  minutes_per_session: 1440
+  session_windows:
+    enabled: true
+    timezone: "America/Chicago"
+    rth_open_time: "09:30"
+    rth_close_time: "15:55"
+    opening_window_minutes: 45
+    midday_start_time: "11:30"
+    midday_end_time: "13:30"
+    closing_window_minutes: 60
+
+output:
+  include_synthetic_flag: true
+
+multi_resolution:
+  enabled: false
+  resolutions_min: [15, 30, 60]
+  prefix: mr
+  align_method: ffill
+
+fractional_diff:
+  enabled: false
+  d: 0.4
+  threshold: 0.01
+  apply_to:
+    - close
+    - ema_13
+    - ema_34
+    - price_vs_vwap
+
+hmm_regime:
+  enabled: false
+  n_states: 2
+  min_train_samples: 252
+  refit_every: 21
+  rolling_window_size: 252
+
+structural_breaks:
+  enabled: false

@@ -1,0 +1,70 @@
+{
+  "acceptance_config": "ml_intraday_v3/configs/standalone_viability.yaml",
+  "baseline_features": "ml_intraday_v3/configs/features_structure_context.yaml",
+  "crt_tbs_features": "ml_intraday_v3/configs/features_crt_tbs.yaml",
+  "promotion_criteria": "CRT/TBS is not promoted automatically. Require equal or better pass_ratio, overall_total_pnl_usd, drawdown behavior, and per-window stability before using it in live features.",
+  "baseline": {
+    "passed": false,
+    "passed_windows": 2,
+    "total_windows": 5,
+    "pass_ratio": 0.4,
+    "overall_total_pnl_usd": 3977.3300462087186,
+    "overall_total_trades": 140,
+    "overall_profit_factor": null,
+    "overall_max_drawdown_usd": null,
+    "overall_failures": [
+      {
+        "metric": "all_windows",
+        "actual": 2,
+        "expected": "5 passing windows"
+      },
+      {
+        "metric": "pass_ratio",
+        "actual": 0.4,
+        "expected": ">= 1.0"
+      },
+      {
+        "metric": "overall_long_share",
+        "actual": 0.7642857142857142,
+        "expected": "<= 0.75"
+      },
+      {
+        "metric": "overall_short_share",
+        "actual": 0.2357142857142857,
+        "expected": ">= 0.25"
+      }
+    ]
+  },
+  "crt_tbs": {
+    "passed": false,
+    "passed_windows": 3,
+    "total_windows": 5,
+    "pass_ratio": 0.6,
+    "overall_total_pnl_usd": 6713.681182209004,
+    "overall_total_trades": 142,
+    "overall_profit_factor": null,
+    "overall_max_drawdown_usd": null,
+    "overall_failures": [
+      {
+        "metric": "all_windows",
+        "actual": 3,
+        "expected": "5 passing windows"
+      },
+      {
+        "metric": "pass_ratio",
+        "actual": 0.6,
+        "expected": ">= 1.0"
+      },
+      {
+        "metric": "overall_long_share",
+        "actual": 0.7676056338028169,
+        "expected": "<= 0.75"
+      },
+      {
+        "metric": "overall_short_share",
+        "actual": 0.2323943661971831,
+        "expected": ">= 0.25"
+      }
+    ]
+  }
+}

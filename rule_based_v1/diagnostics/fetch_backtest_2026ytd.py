@@ -84,8 +84,11 @@ def fetch(start: str = "2026-01-01", end: str | None = None) -> pd.DataFrame:
 
     import databento as db
     if end is None:
-        # Use last available databento timestamp for today
-        end = "2026-03-16T16:00:00+00:00"  # ~11 AM ET, within available window
+        from datetime import timezone, datetime, timedelta
+        # Use 2 days ago close (21:00 UTC) to stay within free historical window (no live sub needed)
+        today = datetime.now(tz=timezone.utc).date()
+        cutoff_day = today - timedelta(days=2)
+        end = f"{cutoff_day}T21:00:00+00:00"
 
     logger.info(f"Fetching MNQ.c.0  {start} → {end} ...")
     client = db.Historical(key=api_key)
@@ -185,13 +188,52 @@ def _check_exit(pos, bar, idx, sess_close):
 
 
 # ---------------------------------------------------------------------------
+# PrevVWAP helper
+# ---------------------------------------------------------------------------
+def _build_daily_meta(bars: pd.DataFrame) -> dict:
+    """Pre-compute per-day prev-VWAP signal.
+
+    Returns dict keyed by date: {"prev_vwap_bullish": bool | None}
+    """
+    typical = (bars["high"] + bars["low"] + bars["close"]) / 3
+    cum_tp_vol = (typical * bars["volume"]).groupby(bars.index.date).cumsum()
+    cum_vol    = bars["volume"].groupby(bars.index.date).cumsum()
+    vwap_series = cum_tp_vol / cum_vol.replace(0, np.nan)
+
+    dates = sorted(set(bars.index.date))
+    session_close_above_vwap: dict = {}
+    session_last_close: dict = {}
+
+    for d in dates:
+        day_mask  = bars.index.date == d
+        day_bars  = bars[day_mask]
+        day_vwap  = vwap_series[day_mask]
+        if len(day_bars) == 0:
+            continue
+        last_close = float(day_bars["close"].iloc[-1])
+        last_vwap  = float(day_vwap.iloc[-1]) if not day_vwap.empty else last_close
+        session_close_above_vwap[d] = (last_close > last_vwap)
+        session_last_close[d] = last_close
+
+    meta: dict = {}
+    for i, d in enumerate(dates):
+        prev_vwap_bullish = None
+        if i > 0:
+            prev_d = dates[i - 1]
+            prev_vwap_bullish = session_close_above_vwap.get(prev_d)
+        meta[d] = {"prev_vwap_bullish": prev_vwap_bullish}
+
+    return meta
+
+
+# ---------------------------------------------------------------------------
 # Backtest
 # ---------------------------------------------------------------------------
-def run_backtest(bars: pd.DataFrame) -> dict:
+def run_backtest(bars: pd.DataFrame, require_prev_vwap: bool = False) -> dict:
     orb = OpeningRangeBreakoutRule(
         or_end_time=OR_END_TIME, min_or_bars=MIN_OR_BARS,
         min_range_atr=MIN_RANGE_ATR, entry_cutoff_time=ENTRY_CUTOFF,
-        atr_period=ATR_PERIOD,
+        atr_period=ATR_PERIOD, long_only=True,
     )
     agg = SignalAggregator(primary_rule=orb, filter_rules=[], confirmation_rules=[], min_confirmations=0)
     rm = RiskManager(
@@ -205,6 +247,7 @@ def run_backtest(bars: pd.DataFrame) -> dict:
 
     atr_s = atr(bars["high"], bars["low"], bars["close"], ATR_PERIOD)
     min_bars_needed = agg.required_bars()
+    daily_meta = _build_daily_meta(bars) if require_prev_vwap else {}
 
     pos = None
     trades: list[TradeRecord] = []
@@ -250,6 +293,10 @@ def run_backtest(bars: pd.DataFrame) -> dict:
         if pos is None and not sess_close and trades_today < MAX_TRADES_PER_DAY:
             ok, _ = rm.can_trade()
             if ok:
+                if require_prev_vwap:
+                    pv = daily_meta.get(bdate, {}).get("prev_vwap_bullish")
+                    if pv is False:
+                        continue
                 lookback = bars.iloc[max(0, i - min_bars_needed + 1): i + 1]
                 dec = agg.evaluate(lookback)
                 if dec.should_trade:
@@ -343,6 +390,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--backtest-only", action="store_true", help="Skip fetch, use cached data")
     parser.add_argument("--start", default="2026-01-01")
+    parser.add_argument("--prev-vwap", action="store_true",
+                        help="Enable PrevVWAP filter (only trade when yesterday close > yesterday VWAP)")
     args = parser.parse_args()
 
     if args.backtest_only:
@@ -356,7 +405,9 @@ def main():
         bars = fetch(start=args.start)
 
     logger.info(f"Running backtest on {len(bars):,} bars: {bars.index[0].date()} → {bars.index[-1].date()}")
-    trades, eq_vals, eq_times, daily_pnl = run_backtest(bars)
+    if args.prev_vwap:
+        logger.info("PrevVWAP filter: ENABLED")
+    trades, eq_vals, eq_times, daily_pnl = run_backtest(bars, require_prev_vwap=args.prev_vwap)
     result = print_results(trades, eq_vals, eq_times, daily_pnl)
 
     with open(RESULTS_PATH, "w") as f:

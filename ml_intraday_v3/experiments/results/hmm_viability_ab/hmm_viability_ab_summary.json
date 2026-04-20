@@ -1,0 +1,52 @@
+{
+  "acceptance_config": "ml_intraday_v3/configs/standalone_viability.yaml",
+  "baseline_features": "ml_intraday_v3/configs/live_dual_meta_mes_real/features.yaml",
+  "hmm_features": "ml_intraday_v3/configs/live_dual_meta_mes_real/features_hmm_experiment.yaml",
+  "hmm_regime_stability": {
+    "covariance_type": "diag",
+    "n_iter": 300,
+    "tol": 0.001,
+    "note": "Set in features_hmm_experiment.yaml; build_hmm_regime_features passes these to HMMRegimeDetector."
+  },
+  "baseline": {
+    "passed": false,
+    "passed_windows": 3,
+    "total_windows": 5,
+    "pass_ratio": 0.6,
+    "overall_total_pnl_usd": 3012.305540536794,
+    "overall_total_trades": 145,
+    "overall_failures": [
+      {
+        "metric": "all_windows",
+        "actual": 3,
+        "expected": "5 passing windows"
+      },
+      {
+        "metric": "pass_ratio",
+        "actual": 0.6,
+        "expected": ">= 1.0"
+      }
+    ]
+  },
+  "hmm": {
+    "passed": false,
+    "passed_windows": 4,
+    "total_windows": 5,
+    "pass_ratio": 0.8,
+    "overall_total_pnl_usd": 1864.7680909469896,
+    "overall_total_trades": 141,
+    "overall_failures": [
+      {
+        "metric": "all_windows",
+        "actual": 4,
+        "expected": "5 passing windows"
+      },
+      {
+        "metric": "pass_ratio",
+        "actual": 0.8,
+        "expected": ">= 1.0"
+      }
+    ]
+  },
+  "promotion_criteria": "HMM is not promoted automatically. Compare overall_total_pnl_usd, pass_ratio, and per-window gate_result; require hmm >= baseline on agreed metrics before switching live features.yaml."
+}

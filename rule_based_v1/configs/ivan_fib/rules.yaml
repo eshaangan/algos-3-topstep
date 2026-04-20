@@ -1,0 +1,26 @@
+# Ivan Trades Fibonacci BOC Strategy — Rule Parameters
+# Instrument: MNQ — 5-min RTH bars
+#
+# Entry: Break of Candle (BOC) at prior 5-day swing Fibonacci retracement levels
+# Best config from parameter sweep (Aug 2025 – Mar 2026):
+#   Sharpe=4.78, WR=54%, MaxDD=-$539, N=39 trades, TotalPnL=+$2,797
+
+fibonacci_levels:
+  key_levels: [0.382, 0.500, 0.618]   # Key Fib reaction zones
+  touch_tolerance_atr: 0.40            # How close bar must come to level (in ATR)
+  swing_lookback_bars: 100             # ~5 RTH days of 5-min bars for swing detection
+  trend_level: 0.500                   # Open above 50% → uptrend (look for LONG pullbacks)
+  long_only: true                      # SHORT side negative edge on MNQ — LONG-only confirmed
+
+time_of_day:
+  session_start: "09:35"
+  session_end: "12:00"               # Morning only — Fib levels freshest, highest volume
+  lunch_filter_enabled: false
+
+exit_strategy:
+  profit_target_atr: 3.0              # ATR-based PT (outperformed Fib extensions in sweep)
+  stop_loss_atr: 1.5                  # Stop below signal candle low + buffer
+  sl_buffer_atr: 0.05                 # Extra buffer below signal candle low
+  time_stop_bars: 12                  # 1 hour on 5-min bars
+  trailing_activation_atr: 999.0     # Disabled
+  trailing_distance_atr: 0.75

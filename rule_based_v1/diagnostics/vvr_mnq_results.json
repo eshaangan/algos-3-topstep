@@ -1,0 +1,242 @@
+{
+  "mnq_1min": {
+    "meta": {
+      "label": "MNQ 1-min",
+      "instrument": "MNQ",
+      "data_range": "2026-01-02 to 2026-03-23",
+      "n_days": 56,
+      "n_rth_bars": 21480,
+      "point_value": 2.0,
+      "time_stop_bars": 10,
+      "pause_bars": 30
+    },
+    "overall": {
+      "N": 3,
+      "WR": 0.0,
+      "avg_pnl": -10.2,
+      "total_pnl": -30.6,
+      "max_dd": -17.1,
+      "sharpe_trade": -10.246,
+      "sharpe_daily": -44.266,
+      "avg_trades_per_day": 0.054
+    },
+    "exit_breakdown": [
+      {
+        "reason": "stop",
+        "N": 3,
+        "WR": 0.0,
+        "avg_pnl": -10.2
+      }
+    ],
+    "monthly_pnl": {
+      "2026-02": -13.5,
+      "2026-03": -17.1
+    },
+    "monotonicity_shock": [],
+    "monotonicity_deg": [],
+    "monotonicity_orx": [],
+    "threshold_sweep_shock": [
+      {
+        "shock_pctl": 60,
+        "N": 13,
+        "WR": 0.2308,
+        "avg_pnl": -4.37,
+        "sharpe": -14.876
+      },
+      {
+        "shock_pctl": 70,
+        "N": 6,
+        "WR": 0.1667,
+        "avg_pnl": -7.22,
+        "sharpe": -21.673
+      },
+      {
+        "shock_pctl": 80,
+        "N": 3,
+        "WR": 0.0,
+        "avg_pnl": -10.2,
+        "sharpe": -44.266
+      },
+      {
+        "shock_pctl": 90,
+        "N": 0,
+        "WR": null,
+        "avg_pnl": null,
+        "sharpe": null
+      }
+    ],
+    "threshold_sweep_deg": [
+      {
+        "deg_pctl": 30,
+        "N": 2,
+        "WR": 0.0,
+        "avg_pnl": -9.3,
+        "sharpe": -35.151
+      },
+      {
+        "deg_pctl": 40,
+        "N": 2,
+        "WR": 0.0,
+        "avg_pnl": -9.3,
+        "sharpe": -35.151
+      },
+      {
+        "deg_pctl": 50,
+        "N": 3,
+        "WR": 0.0,
+        "avg_pnl": -10.2,
+        "sharpe": -44.266
+      },
+      {
+        "deg_pctl": 60,
+        "N": 5,
+        "WR": 0.0,
+        "avg_pnl": -9.24,
+        "sharpe": -40.666
+      },
+      {
+        "deg_pctl": 70,
+        "N": 11,
+        "WR": 0.2727,
+        "avg_pnl": -6.35,
+        "sharpe": -6.793
+      }
+    ]
+  },
+  "mnq_5min": {
+    "meta": {
+      "label": "MNQ 5-min",
+      "instrument": "MNQ",
+      "data_range": "2025-08-01 to 2026-03-23",
+      "n_days": 162,
+      "n_rth_bars": 12426,
+      "point_value": 2.0,
+      "time_stop_bars": 3,
+      "pause_bars": 6
+    },
+    "overall": {
+      "N": 0,
+      "WR": 0.0,
+      "avg_pnl": 0.0,
+      "total_pnl": 0.0,
+      "max_dd": 0.0,
+      "sharpe_trade": 0.0,
+      "sharpe_daily": 0.0,
+      "avg_trades_per_day": 0.0
+    },
+    "exit_breakdown": [],
+    "monthly_pnl": {},
+    "monotonicity_shock": [],
+    "monotonicity_deg": [],
+    "monotonicity_orx": [],
+    "threshold_sweep_shock": [
+      {
+        "shock_pctl": 60,
+        "N": 1,
+        "WR": 1.0,
+        "avg_pnl": 1.25,
+        "sharpe": 0.0
+      },
+      {
+        "shock_pctl": 70,
+        "N": 0,
+        "WR": null,
+        "avg_pnl": null,
+        "sharpe": null
+      },
+      {
+        "shock_pctl": 80,
+        "N": 0,
+        "WR": null,
+        "avg_pnl": null,
+        "sharpe": null
+      },
+      {
+        "shock_pctl": 90,
+        "N": 0,
+        "WR": null,
+        "avg_pnl": null,
+        "sharpe": null
+      }
+    ],
+    "threshold_sweep_deg": [
+      {
+        "deg_pctl": 30,
+        "N": 0,
+        "WR": null,
+        "avg_pnl": null,
+        "sharpe": null
+      },
+      {
+        "deg_pctl": 40,
+        "N": 0,
+        "WR": null,
+        "avg_pnl": null,
+        "sharpe": null
+      },
+      {
+        "deg_pctl": 50,
+        "N": 0,
+        "WR": null,
+        "avg_pnl": null,
+        "sharpe": null
+      },
+      {
+        "deg_pctl": 60,
+        "N": 2,
+        "WR": 1.0,
+        "avg_pnl": 9.38,
+        "sharpe": 25.332
+      },
+      {
+        "deg_pctl": 70,
+        "N": 5,
+        "WR": 0.4,
+        "avg_pnl": -8.67,
+        "sharpe": -10.638
+      }
+    ]
+  },
+  "trade_log_1min": [
+    {
+      "label": "MNQ 1-min",
+      "date": "2026-02-05",
+      "entry_time": "2026-02-05 11:53:00-05:00",
+      "direction": "LONG",
+      "Shock": 2.6542056073492515,
+      "Deg": 0.07093875620669386,
+      "ORX": 0.08025064238379584,
+      "entry_price": 24833.0,
+      "exit_price": 24826.25,
+      "exit_reason": "stop",
+      "pnl": -13.5
+    },
+    {
+      "label": "MNQ 1-min",
+      "date": "2026-03-03",
+      "entry_time": "2026-03-03 09:51:00-05:00",
+      "direction": "LONG",
+      "Shock": 3.9787234040508017,
+      "Deg": 0.027237042377459025,
+      "ORX": 0.07155869650568397,
+      "entry_price": 24536.25,
+      "exit_price": 24533.7,
+      "exit_reason": "stop",
+      "pnl": -5.1
+    },
+    {
+      "label": "MNQ 1-min",
+      "date": "2026-03-09",
+      "entry_time": "2026-03-09 10:04:00-04:00",
+      "direction": "LONG",
+      "Shock": 2.842696629052858,
+      "Deg": 0.10158730158626958,
+      "ORX": 0.06424709651580869,
+      "entry_price": 24448.25,
+      "exit_price": 24442.25,
+      "exit_reason": "stop",
+      "pnl": -12.0
+    }
+  ],
+  "trade_log_5min": []
+}

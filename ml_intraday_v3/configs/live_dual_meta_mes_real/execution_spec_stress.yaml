@@ -1,0 +1,65 @@
+# Stressed execution costs for fragility checks (offline only).
+# Base: execution_spec.yaml — bump slippage and commission to stress net edge.
+
+instrument:
+  symbol: "MES"
+  tick_size_points: 0.25
+  contract_multiplier_usd_per_point: 5.0
+
+fill_model:
+  fill_price: "next_bar_open"
+  touch_ordering: "ohlc_path"
+
+costs:
+  slippage_ticks:
+    "1m": 2.0
+    "5m": 3.0
+  commission_per_contract: 1.25
+
+position_limits:
+  max_contracts_per_position: 1
+  max_concurrent_positions: 1
+  rounding: "floor"
+
+session_rules:
+  allowed_sessions:
+    - name: "rth"
+      start_time: "09:30"
+      end_time: "16:00"
+      timezone: "America/Chicago"
+  no_entry_before_close_bars:
+    "1m": 30
+    "5m": 6
+  force_flatten_at_close: true
+
+holding_constraints:
+  max_holding_bars:
+    "1m": 24
+    "5m": 24
+  force_exit_at_max: true
+
+decision:
+  use_meta: true
+  primary_threshold: 0.38
+  meta_threshold: 0.45
+  require_meta_for_trade: false
+
+filters:
+  confidence:
+    enabled: false
+    min_probability_distance: 0.55
+  volatility:
+    enabled: false
+    min_percentile: 30
+    max_percentile: 70
+    lookback_bars: 100
+    vol_column: "vol_20"
+  time_of_day:
+    enabled: false
+    start_hour: 9
+    start_minute: 30
+    end_hour: 13
+    end_minute: 30
+    timezone: "America/Chicago"
+
+spec_version: "1.0.0-stress"

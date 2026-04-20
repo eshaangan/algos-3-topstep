@@ -83,6 +83,12 @@ sys.path.insert(0, str(ml_v3_dir))
 sys.path.insert(0, str(project_root))
 
 # Use TopstepX REST API data fetcher (proven polling approach)
+from live_trading.decision_gate import (
+    build_live_decision_config,
+    compute_live_regime_context,
+    evaluate_live_trade_decision,
+    explain_live_decision,
+)
 from live_trading.topstepx_rest_data_fetcher import TopstepXRestDataFetcher
 from live_trading.feature_generator import LiveFeatureGenerator
 from live_trading.model_predictor import LiveModelPredictor
@@ -133,6 +139,20 @@ def _ensure_contract_matches_expected(contract_id: str, expected_symbol: str, co
         raise RuntimeError(
             f"Resolved contract_id {contract_id} not found in {expected_symbol} search results (sample={sample})"
         )
+
+
+def _contract_id_symbol_matches(contract_id: str, expected_symbol: str) -> bool:
+    """
+    Fallback sanity check when the ProjectX contract search endpoint is unavailable.
+
+    Contract IDs follow a stable pattern such as CON.F.US.MES.M26. If the API
+    search returns no rows but the explicit contract_id already encodes the
+    expected symbol, we can safely proceed because startup checks have already
+    proven the contract can fetch bars and authenticate against the account.
+    """
+    contract_upper = (contract_id or "").upper()
+    symbol_upper = (expected_symbol or "").upper()
+    return f".{symbol_upper}." in contract_upper
 
 
 class LiveTradingRunner:
@@ -304,12 +324,32 @@ class LiveTradingRunner:
         logger.info(f"Model: {model_info['model_type']}, "
                    f"features={model_info['n_features']}, "
                    f"threshold={model_info['primary_threshold']}")
+        if model_info.get("meta_route_count", 0):
+            logger.info(
+                "Live routed meta enabled: %s",
+                ", ".join(model_info.get("meta_route_names", [])),
+            )
+        self.live_decision_cfg = build_live_decision_config(
+            backtest_cfg=self.backtest_cfg,
+            live_cfg=self.live_cfg,
+            bundle_decision_cfg=self.predictor.bundle_decision_cfg,
+        )
 
         # Feature generator (reuse offline features.yaml for parity)
+        features_cfg_path = (self.live_cfg.get("features", {}) or {}).get("features_config_path")
+        if features_cfg_path:
+            candidate = Path(features_cfg_path)
+            if not candidate.is_absolute():
+                candidate = self.config_dir / features_cfg_path
+            resolved_features_cfg_path = candidate
+        else:
+            resolved_features_cfg_path = self.config_dir / "features.yaml"
+
+        logger.info("Using features config: %s", resolved_features_cfg_path)
         self.feature_generator = LiveFeatureGenerator(
             feature_columns=self.predictor.feature_columns,
             bar_size=bar_size_str,
-            features_config_path=self.config_dir / "features.yaml",
+            features_config_path=resolved_features_cfg_path,
         )
 
         # Event detector (CUSUM filter to match training event generation)
@@ -342,6 +382,11 @@ class LiveTradingRunner:
         else:
             logger.warning("Event filter DISABLED - predicting on every bar (train/test mismatch!)")
 
+        signals_cfg = self.live_cfg.get("signals", {}) or {}
+        self.decision_trace = bool(signals_cfg.get("decision_trace", False))
+        if self.decision_trace:
+            logger.info("Decision trace logging enabled (signals.decision_trace=true)")
+
         # Execution engine
         self.execution_engine = LiveExecutionEngine(
             risk_cfg=self.risk_cfg,
@@ -352,8 +397,6 @@ class LiveTradingRunner:
             account_id=resolved_account_id,
             config=self.live_cfg,  # Pass live trading config for direction_change settings
         )
-        if self.live_risk_manager:
-            self.live_risk_manager.sync_equity(self.execution_engine.get_equity())
 
         # Phase 2a: Initialize filters
         logger.info("Initializing Phase 2a safety filters...")
@@ -408,13 +451,55 @@ class LiveTradingRunner:
         self.alert_manager = AlertManager(logs_dir, enable_sound=True)
         self.dashboard = TerminalDashboard()
 
-        # Set starting equity
-        self.metrics_tracker.set_starting_equity(self.execution_engine.get_equity())
+        self._last_broker_refresh = 0.0
+        self._init_metrics_from_topstep()
+        if self.live_risk_manager:
+            self.live_risk_manager.sync_equity(self.execution_engine.get_equity())
 
         # Update frequency for dashboard (seconds)
         self.dashboard_update_interval = 10  # Update every 10 seconds
 
         logger.info("Initialization complete")
+
+    def _init_metrics_from_topstep(self) -> None:
+        """Seed dashboard and risk display from TopstepX Account/search when not dry-run."""
+        if self.dry_run:
+            self.metrics_tracker.set_starting_equity(self.execution_engine.get_equity())
+            return
+
+        if not self.execution_engine.refresh_account_from_api():
+            logger.warning("Could not load account from TopstepX at startup; using risk.yaml equity")
+            self.metrics_tracker.set_starting_equity(self.execution_engine.get_equity())
+            return
+
+        st = self.execution_engine.last_account_state
+        if st is None:
+            self.metrics_tracker.set_starting_equity(self.execution_engine.get_equity())
+            return
+
+        combine_nominal = float(self.risk_cfg.get("topstep", {}).get("starting_balance", 0) or 0)
+        if combine_nominal > 0:
+            self.metrics_tracker.set_starting_equity(combine_nominal)
+        else:
+            self.metrics_tracker.set_starting_equity(st.equity - st.daily_pnl)
+
+        self.metrics_tracker.update_equity(st.equity, st.daily_pnl)
+        self.metrics_tracker.set_broker_account_fields(
+            balance=st.balance,
+            realized_pnl=st.realized_pnl,
+            open_pnl=st.open_pnl,
+        )
+        self.metrics_tracker.update_positions(int(st.open_positions))
+        self._last_broker_refresh = time.time()
+
+        logger.info(
+            "Dashboard seeded from TopstepX: equity=%.2f daily_pnl=%.2f balance=%.2f rpnl=%.2f opnl=%.2f",
+            st.equity,
+            st.daily_pnl,
+            st.balance,
+            st.realized_pnl,
+            st.open_pnl,
+        )
 
     def _load_config(self, filename: str) -> dict:
         """Load YAML config file."""
@@ -570,8 +655,31 @@ class LiveTradingRunner:
             )
             contracts = client.search_contracts(search_text=expected_symbol, live=live_flag)
         except Exception as e:
+            if _contract_id_symbol_matches(self.resolved_contract_id, expected_symbol):
+                logger.warning(
+                    "Contract search failed (%s), but explicit contract_id %s matches expected symbol %s; "
+                    "continuing because startup checks already validated bar retrieval and account access.",
+                    e,
+                    self.resolved_contract_id,
+                    expected_symbol,
+                )
+                return
             logger.error(f"Contract validation failed: {e}")
             raise
+
+        if not contracts:
+            if _contract_id_symbol_matches(self.resolved_contract_id, expected_symbol):
+                logger.warning(
+                    "Contract search returned no %s results, but explicit contract_id %s matches expected symbol; "
+                    "continuing because startup checks already validated bar retrieval and account access.",
+                    expected_symbol,
+                    self.resolved_contract_id,
+                )
+                return
+            raise RuntimeError(
+                f"Contract search returned no {expected_symbol} results for validation and "
+                f"resolved contract_id {self.resolved_contract_id} does not encode that symbol."
+            )
 
         _ensure_contract_matches_expected(self.resolved_contract_id, expected_symbol, contracts)
         logger.info(f"Contract sanity check passed: {self.resolved_contract_id} is {expected_symbol}")
@@ -664,6 +772,21 @@ class LiveTradingRunner:
 
         while self.running:
             try:
+                if not self.dry_run:
+                    topstep_cfg = self.live_cfg.get("topstep") or {}
+                    interval = float(topstep_cfg.get("account_refresh_seconds", 15))
+                    now_ts = time.time()
+                    if now_ts - self._last_broker_refresh >= interval:
+                        if self.execution_engine.refresh_account_from_api():
+                            st = self.execution_engine.last_account_state
+                            if st is not None:
+                                self.metrics_tracker.set_broker_account_fields(
+                                    balance=st.balance,
+                                    realized_pnl=st.realized_pnl,
+                                    open_pnl=st.open_pnl,
+                                )
+                        self._last_broker_refresh = now_ts
+
                 # Check if we're in trading session
                 if not self._is_trading_time():
                     logger.debug("Outside trading hours - sleeping")
@@ -944,11 +1067,17 @@ class LiveTradingRunner:
             )
 
             if not is_event:
-                logger.debug(
-                    f"Not a CUSUM event: s_pos={event_info.get('s_pos', 0):.2f}, "
+                msg = (
+                    f"Not a CUSUM event (no model call this bar): "
+                    f"s_pos={event_info.get('s_pos', 0):.2f}, "
                     f"s_neg={event_info.get('s_neg', 0):.2f}, "
-                    f"threshold={event_info.get('threshold', 0):.2f}"
+                    f"threshold={event_info.get('threshold', 0):.2f}, "
+                    f"close={float(latest_bar.get('close', 0) or 0):.2f}"
                 )
+                if self.decision_trace:
+                    logger.info(msg)
+                else:
+                    logger.debug(msg)
                 return  # Skip prediction on non-events
 
             # Log event details
@@ -969,9 +1098,23 @@ class LiveTradingRunner:
                 logger.warning("Skipping trade due to feature quality issues")
                 return
 
+        regime_context = compute_live_regime_context(
+            timestamp=bar_time,
+            bars_df=bars_df,
+            decision_config=self.live_decision_cfg,
+        )
+        combined_regime = regime_context.get("combined_regime")
+
         # Generate prediction
-        use_meta = self.live_cfg['signals'].get('use_meta_model', False)
-        prediction = self.predictor.predict(features, use_meta=use_meta)
+        use_meta = bool((self.live_decision_cfg.get("decision", {}) or {}).get("use_meta", False))
+        prediction = self.predictor.predict(
+            features,
+            use_meta=use_meta,
+            combined_regime=combined_regime,
+        )
+        if combined_regime is not None:
+            prediction["combined_regime"] = combined_regime
+            prediction["regime_label"] = regime_context.get("regime_label")
 
         score = prediction.get('score_ev', 0.0)
         logger.info(
@@ -979,6 +1122,13 @@ class LiveTradingRunner:
             f"p_target={prediction.get('p_target', 0.0):.3f}, "
             f"p_stop={prediction.get('p_stop', 0.0):.3f}"
         )
+        if prediction.get("meta_route"):
+            logger.info(
+                "Routed meta candidate: route=%s prob=%.3f regime=%s",
+                prediction["meta_route"],
+                prediction.get("meta_prob", 0.0),
+                prediction.get("regime_label"),
+            )
 
         self.signals_generated += 1
         
@@ -1009,11 +1159,19 @@ class LiveTradingRunner:
                 is_confident = prediction_probability < (1 - self.confidence_threshold)
             
             if not is_confident:
+                side_lbl = "LONG" if predicted_side == 1 else "SHORT"
+                if self.predictor.has_side_feature:
+                    crit = f"p_target must exceed {self.confidence_threshold:.2f} for the chosen side (bidirectional)."
+                elif predicted_side == 1:
+                    crit = f"p_target must exceed {self.confidence_threshold:.2f} for LONG."
+                else:
+                    crit = (
+                        f"for SHORT, need p_target < {1 - self.confidence_threshold:.2f} "
+                        f"(i.e. p_stop > {self.confidence_threshold:.2f} from LONG-view probs)."
+                    )
                 logger.info(
-                    f"✗ Confidence filter rejected signal: "
-                    f"side={'LONG' if predicted_side == 1 else 'SHORT'}, "
-                    f"P={prediction_probability:.3f}, "
-                    f"threshold={self.confidence_threshold:.2f}"
+                    f"✗ Confidence filter rejected: side={side_lbl}, "
+                    f"P(target)={prediction_probability:.4f}, rule={crit}"
                 )
                 
                 # Record filtered signal
@@ -1027,18 +1185,8 @@ class LiveTradingRunner:
                 return
 
         # Risk manager gating before trade decision
-        base_primary_threshold = self.live_cfg['signals']['primary_threshold']
-        base_primary_threshold_long = self.live_cfg['signals'].get(
-            'primary_threshold_long',
-            base_primary_threshold,
-        )
-        base_primary_threshold_short = self.live_cfg['signals'].get(
-            'primary_threshold_short',
-            base_primary_threshold,
-        )
-        primary_threshold = base_primary_threshold
-        primary_threshold_long = base_primary_threshold_long
-        primary_threshold_short = base_primary_threshold_short
+        runtime_decision_cfg = build_live_decision_config(backtest_cfg=self.live_decision_cfg)
+        runtime_decision = runtime_decision_cfg.setdefault("decision", {})
         
         # Phase 2a: Apply circuit breaker threshold adjustment
         if self.circuit_breaker_enabled and self.circuit_breaker is not None:
@@ -1061,9 +1209,16 @@ class LiveTradingRunner:
                 # Override confidence threshold with circuit breaker's adaptive threshold
                 # This affects the primary threshold used for trading decisions
                 threshold_boost = cb_threshold - self.confidence_threshold
-                primary_threshold += threshold_boost
-                primary_threshold_long += threshold_boost
-                primary_threshold_short += threshold_boost
+                runtime_decision["primary_threshold"] = float(
+                    runtime_decision.get("primary_threshold", 0.0)
+                ) + threshold_boost
+                side_cfg = dict(runtime_decision.get("primary_threshold_by_side", {}) or {})
+                if "long" in side_cfg:
+                    side_cfg["long"] = float(side_cfg["long"]) + threshold_boost
+                if "short" in side_cfg:
+                    side_cfg["short"] = float(side_cfg["short"]) + threshold_boost
+                if side_cfg:
+                    runtime_decision["primary_threshold_by_side"] = side_cfg
 
         # Regime-aware threshold adjustment (low volatility = higher bar)
         regime_cfg = self.live_cfg['signals'].get('regime_adjustment', {})
@@ -1083,12 +1238,19 @@ class LiveTradingRunner:
                     # If current ATR is < 70% of median, boost threshold
                     if atr_current < 0.7 * atr_median:
                         boost = regime_cfg.get('low_vol_threshold_boost', 0.05)
-                        primary_threshold += boost
-                        primary_threshold_long += boost
-                        primary_threshold_short += boost
+                        runtime_decision["primary_threshold"] = float(
+                            runtime_decision.get("primary_threshold", 0.0)
+                        ) + boost
+                        side_cfg = dict(runtime_decision.get("primary_threshold_by_side", {}) or {})
+                        if "long" in side_cfg:
+                            side_cfg["long"] = float(side_cfg["long"]) + boost
+                        if "short" in side_cfg:
+                            side_cfg["short"] = float(side_cfg["short"]) + boost
+                        if side_cfg:
+                            runtime_decision["primary_threshold_by_side"] = side_cfg
                         logger.info(
                             f"Low volatility adjustment: ATR={atr_current:.2f} < 70% median, "
-                            f"boosting threshold by +{boost:.3f} -> {primary_threshold:.3f}"
+                            f"boosting threshold by +{boost:.3f}"
                         )
 
         if self.live_risk_manager:
@@ -1106,35 +1268,64 @@ class LiveTradingRunner:
 
             threshold_adjustment = self.live_risk_manager.get_threshold_adjustment()
             if threshold_adjustment > 0:
-                primary_threshold += threshold_adjustment
-                primary_threshold_long += threshold_adjustment
-                primary_threshold_short += threshold_adjustment
+                runtime_decision["primary_threshold"] = float(
+                    runtime_decision.get("primary_threshold", 0.0)
+                ) + threshold_adjustment
+                side_cfg = dict(runtime_decision.get("primary_threshold_by_side", {}) or {})
+                if "long" in side_cfg:
+                    side_cfg["long"] = float(side_cfg["long"]) + threshold_adjustment
+                if "short" in side_cfg:
+                    side_cfg["short"] = float(side_cfg["short"]) + threshold_adjustment
+                if side_cfg:
+                    runtime_decision["primary_threshold_by_side"] = side_cfg
                 logger.info(
-                    "Risk manager threshold adjustment: +%.3f -> %.3f",
+                    "Risk manager threshold adjustment: +%.3f",
                     threshold_adjustment,
-                    primary_threshold,
                 )
 
         # FIX 5: Cap threshold to prevent stacking beyond achievable range
         max_thresh = self.live_cfg['signals'].get('max_primary_threshold', 0.15)
-        primary_threshold = min(primary_threshold, max_thresh)
-        primary_threshold_long = min(primary_threshold_long, max_thresh)
-        primary_threshold_short = min(primary_threshold_short, max_thresh)
-
-        # Check if we should trade
-        should_trade, reason = self.predictor.should_trade(
-            prediction=prediction,
-            primary_threshold=primary_threshold,
-            primary_threshold_long=primary_threshold_long,
-            primary_threshold_short=primary_threshold_short,
-            meta_threshold=self.live_cfg['signals'].get('meta_threshold'),
-            require_meta_approval=self.live_cfg['signals'].get('require_meta_approval', False),
-            allowed_directions=self.live_cfg.get('signals', {}).get('allowed_directions'),
+        runtime_decision["primary_threshold"] = min(
+            float(runtime_decision.get("primary_threshold", 0.0)),
+            max_thresh,
         )
+        side_cfg = dict(runtime_decision.get("primary_threshold_by_side", {}) or {})
+        if "long" in side_cfg:
+            side_cfg["long"] = min(float(side_cfg["long"]), max_thresh)
+        if "short" in side_cfg:
+            side_cfg["short"] = min(float(side_cfg["short"]), max_thresh)
+        if side_cfg:
+            runtime_decision["primary_threshold_by_side"] = side_cfg
+
+        if self.decision_trace:
+            logger.info(
+                "Effective thresholds this bar: primary=%.4f by_side=%s meta=%.4f require_meta=%s",
+                float(runtime_decision.get("primary_threshold", 0.0) or 0.0),
+                runtime_decision.get("primary_threshold_by_side"),
+                float(runtime_decision.get("meta_threshold", 0.0) or 0.0),
+                runtime_decision.get("require_meta_for_trade"),
+            )
+
+        decision_row = evaluate_live_trade_decision(
+            timestamp=bar_time,
+            prediction=prediction,
+            bars_df=bars_df,
+            decision_config=runtime_decision_cfg,
+        )
+        should_trade = bool(decision_row.get("accept", False))
+        reason = str(decision_row.get("decision_reason") or "rejected")
 
         if not should_trade:
-            logger.info(f"✗ Signal rejected: score={score:.3f}, reason={reason}")
-            
+            explain = explain_live_decision(
+                bar_time=bar_time,
+                prediction=prediction,
+                runtime_decision_cfg=runtime_decision_cfg,
+                decision_row=decision_row,
+            )
+            logger.info(
+                "✗ Signal rejected by decision gate (same logic as backtest):\n%s",
+                explain,
+            )
             # Record rejected signal
             self.metrics_tracker.record_signal(
                 executed=False,
@@ -1157,6 +1348,18 @@ class LiveTradingRunner:
         else:
             # Fallback for non-bidirectional models
             direction = "LONG" if prediction['score_ev'] > 0 else "SHORT"
+
+        accept_explain = explain_live_decision(
+            bar_time=bar_time,
+            prediction=prediction,
+            runtime_decision_cfg=runtime_decision_cfg,
+            decision_row=decision_row,
+        )
+        logger.info(
+            "✓ Decision gate accepted — proceeding to execution (%s):\n%s",
+            direction,
+            accept_explain,
+        )
 
         # Get trade history for Kelly calculation
         trade_history = self.metrics_tracker.trade_history
@@ -1224,7 +1427,13 @@ class LiveTradingRunner:
                 prediction_score=score
             )
         else:
-            logger.warning(f"✗ Trade rejected by execution engine: score={score:.3f}, reason={exec_reason}")
+            logger.warning(
+                "✗ Trade rejected by execution engine: direction=%s score=%.3f reason=%s "
+                "(risk limits, open positions, direction-change rules, or broker error — see earlier INFO lines)",
+                direction,
+                score,
+                exec_reason,
+            )
 
             # Record signal rejection
             self.metrics_tracker.record_signal(

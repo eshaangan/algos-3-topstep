@@ -1,0 +1,368 @@
+{
+  "gap_fill_timing": {
+    "10:00": {
+      "pct_filled": 28.6,
+      "n": 140
+    },
+    "11:00": {
+      "pct_filled": 40.7,
+      "n": 140
+    },
+    "12:00": {
+      "pct_filled": 43.6,
+      "n": 140
+    },
+    "15:00": {
+      "pct_filled": 50.7,
+      "n": 140
+    }
+  },
+  "gap_distribution": {
+    "gt01pct": 140,
+    "gt02pct": 110,
+    "gt03pct": 92,
+    "gt05pct": 66,
+    "gap_up": 78,
+    "gap_down": 62
+  },
+  "continuation": {
+    "Cont thresh=0.1% PT=1.5x": {
+      "n": 140,
+      "wr": 0.45714285714285713,
+      "pnl": -1774.01,
+      "sharpe": -0.728,
+      "dd": -3071.1,
+      "mll": "False",
+      "pf": 0.904,
+      "exit_reasons": {
+        "stop_loss": 76,
+        "profit_target": 64,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.1% PT=2.0x": {
+      "n": 140,
+      "wr": 0.4142857142857143,
+      "pnl": -762.53,
+      "sharpe": -0.27,
+      "dd": -3115.28,
+      "mll": "False",
+      "pf": 0.963,
+      "exit_reasons": {
+        "stop_loss": 82,
+        "profit_target": 58,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.1% PT=3.0x": {
+      "n": 140,
+      "wr": 0.3357142857142857,
+      "pnl": -1115.01,
+      "sharpe": -0.327,
+      "dd": -5052.02,
+      "mll": "False",
+      "pf": 0.954,
+      "exit_reasons": {
+        "stop_loss": 93,
+        "profit_target": 47,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.2% PT=1.5x": {
+      "n": 110,
+      "wr": 0.45454545454545453,
+      "pnl": -1446.9,
+      "sharpe": -0.715,
+      "dd": -3003.07,
+      "mll": "False",
+      "pf": 0.906,
+      "exit_reasons": {
+        "stop_loss": 60,
+        "profit_target": 50,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.2% PT=2.0x": {
+      "n": 110,
+      "wr": 0.4,
+      "pnl": -1368.85,
+      "sharpe": -0.586,
+      "dd": -3812.37,
+      "mll": "False",
+      "pf": 0.922,
+      "exit_reasons": {
+        "stop_loss": 66,
+        "profit_target": 44,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.2% PT=3.0x": {
+      "n": 110,
+      "wr": 0.3,
+      "pnl": -3588.19,
+      "sharpe": -1.301,
+      "dd": -6185.28,
+      "mll": "False",
+      "pf": 0.829,
+      "exit_reasons": {
+        "stop_loss": 77,
+        "profit_target": 33,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.3% PT=1.5x": {
+      "n": 92,
+      "wr": 0.4673913043478261,
+      "pnl": -364.47,
+      "sharpe": -0.215,
+      "dd": -2174.63,
+      "mll": "False",
+      "pf": 0.971,
+      "exit_reasons": {
+        "stop_loss": 49,
+        "profit_target": 43,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.3% PT=2.0x": {
+      "n": 92,
+      "wr": 0.40217391304347827,
+      "pnl": -921.2,
+      "sharpe": -0.469,
+      "dd": -2840.39,
+      "mll": "False",
+      "pf": 0.937,
+      "exit_reasons": {
+        "stop_loss": 55,
+        "profit_target": 37,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.3% PT=3.0x": {
+      "n": 92,
+      "wr": 0.30434782608695654,
+      "pnl": -2623.59,
+      "sharpe": -1.129,
+      "dd": -4590.06,
+      "mll": "False",
+      "pf": 0.85,
+      "exit_reasons": {
+        "stop_loss": 64,
+        "profit_target": 28,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.5% PT=1.5x": {
+      "n": 66,
+      "wr": 0.5,
+      "pnl": 1793.26,
+      "sharpe": 1.448,
+      "dd": -1813.62,
+      "mll": "True",
+      "pf": 1.222,
+      "exit_reasons": {
+        "stop_loss": 33,
+        "profit_target": 33,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.5% PT=2.0x": {
+      "n": 66,
+      "wr": 0.4090909090909091,
+      "pnl": 464.06,
+      "sharpe": 0.317,
+      "dd": -2718.25,
+      "mll": "False",
+      "pf": 1.046,
+      "exit_reasons": {
+        "stop_loss": 39,
+        "profit_target": 27,
+        "session_close": 0
+      }
+    },
+    "Cont thresh=0.5% PT=3.0x": {
+      "n": 66,
+      "wr": 0.30303030303030304,
+      "pnl": -1525.0,
+      "sharpe": -0.879,
+      "dd": -3489.94,
+      "mll": "False",
+      "pf": 0.879,
+      "exit_reasons": {
+        "stop_loss": 46,
+        "profit_target": 20,
+        "session_close": 0
+      }
+    }
+  },
+  "fade": {
+    "Fade thresh=0.1% fill=30%": {
+      "n": 140,
+      "wr": 0.35714285714285715,
+      "pnl": -7071.31,
+      "sharpe": -2.495,
+      "dd": -7962.22,
+      "mll": "False",
+      "pf": 0.681,
+      "exit_reasons": {
+        "stop_loss": 70,
+        "profit_target": 70,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.1% fill=50%": {
+      "n": 140,
+      "wr": 0.2571428571428571,
+      "pnl": -11986.64,
+      "sharpe": -4.237,
+      "dd": -12920.43,
+      "mll": "False",
+      "pf": 0.519,
+      "exit_reasons": {
+        "stop_loss": 89,
+        "profit_target": 51,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.1% fill=80%": {
+      "n": 140,
+      "wr": 0.2571428571428571,
+      "pnl": -8577.89,
+      "sharpe": -2.412,
+      "dd": -10021.4,
+      "mll": "False",
+      "pf": 0.662,
+      "exit_reasons": {
+        "stop_loss": 99,
+        "profit_target": 41,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.2% fill=30%": {
+      "n": 110,
+      "wr": 0.36363636363636365,
+      "pnl": -5825.28,
+      "sharpe": -2.469,
+      "dd": -6866.95,
+      "mll": "False",
+      "pf": 0.685,
+      "exit_reasons": {
+        "stop_loss": 54,
+        "profit_target": 56,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.2% fill=50%": {
+      "n": 110,
+      "wr": 0.22727272727272727,
+      "pnl": -10703.49,
+      "sharpe": -4.579,
+      "dd": -11607.45,
+      "mll": "False",
+      "pf": 0.494,
+      "exit_reasons": {
+        "stop_loss": 72,
+        "profit_target": 38,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.2% fill=80%": {
+      "n": 110,
+      "wr": 0.23636363636363636,
+      "pnl": -7231.4,
+      "sharpe": -2.399,
+      "dd": -8711.69,
+      "mll": "False",
+      "pf": 0.662,
+      "exit_reasons": {
+        "stop_loss": 80,
+        "profit_target": 30,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.3% fill=30%": {
+      "n": 92,
+      "wr": 0.33695652173913043,
+      "pnl": -6341.09,
+      "sharpe": -3.143,
+      "dd": -7462.82,
+      "mll": "False",
+      "pf": 0.612,
+      "exit_reasons": {
+        "stop_loss": 47,
+        "profit_target": 45,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.3% fill=50%": {
+      "n": 92,
+      "wr": 0.20652173913043478,
+      "pnl": -9964.64,
+      "sharpe": -4.977,
+      "dd": -10868.59,
+      "mll": "False",
+      "pf": 0.458,
+      "exit_reasons": {
+        "stop_loss": 62,
+        "profit_target": 30,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.3% fill=80%": {
+      "n": 92,
+      "wr": 0.21739130434782608,
+      "pnl": -6649.87,
+      "sharpe": -2.526,
+      "dd": -8256.19,
+      "mll": "False",
+      "pf": 0.641,
+      "exit_reasons": {
+        "stop_loss": 69,
+        "profit_target": 23,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.5% fill=30%": {
+      "n": 66,
+      "wr": 0.3181818181818182,
+      "pnl": -4962.38,
+      "sharpe": -3.232,
+      "dd": -6206.4,
+      "mll": "False",
+      "pf": 0.601,
+      "exit_reasons": {
+        "stop_loss": 36,
+        "profit_target": 30,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.5% fill=50%": {
+      "n": 66,
+      "wr": 0.18181818181818182,
+      "pnl": -8035.92,
+      "sharpe": -5.145,
+      "dd": -8787.6,
+      "mll": "False",
+      "pf": 0.439,
+      "exit_reasons": {
+        "stop_loss": 48,
+        "profit_target": 18,
+        "session_close": 0
+      }
+    },
+    "Fade thresh=0.5% fill=80%": {
+      "n": 66,
+      "wr": 0.19696969696969696,
+      "pnl": -4758.26,
+      "sharpe": -2.251,
+      "dd": -6086.6,
+      "mll": "False",
+      "pf": 0.669,
+      "exit_reasons": {
+        "stop_loss": 52,
+        "profit_target": 14,
+        "session_close": 0
+      }
+    }
+  }
+}

@@ -81,3 +81,17 @@ def test_check_feature_quality_lists_columns():
     assert checks["has_nan"] and checks["nan_columns"] == ["a"]
     assert checks["has_inf"] and checks["inf_columns"] == ["b"]
 
+
+def test_merge_suffix_columns_filled_from_base():
+    """Dual-meta bundles may expect vol_regime_x / vol_regime_y; live builder emits vol_regime."""
+    bars = _make_synthetic_bars(120)
+    gen = LiveFeatureGenerator(
+        feature_columns=["vol_regime_x", "vol_regime_y", "atr_14"],
+        bar_size="5m",
+        features_config_path=Path("ml_intraday_v3/configs/features.yaml"),
+    )
+    live_series = gen.generate_features(bars)
+    assert pd.notna(live_series["vol_regime_x"])
+    assert pd.notna(live_series["vol_regime_y"])
+    assert live_series["vol_regime_x"] == live_series["vol_regime_y"]
+

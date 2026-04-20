@@ -1,0 +1,26 @@
+# Ivan Trades Fibonacci Strategy — Risk Parameters
+# Instrument: MNQ (Micro Nasdaq 100 Futures)
+# Designed for Topstep 50k Combine constraints
+
+position:
+  contracts: 2
+  instrument: "MNQ"
+  tick_size: 0.25
+  tick_value: 0.50          # $0.50 per tick for MNQ
+  point_value: 2.0          # $2.00 per point for MNQ
+
+daily_limits:
+  max_daily_loss: -700.0
+  per_trade_max_loss: 1000.0
+
+circuit_breaker:
+  max_consecutive_losses: 3
+  cooldown_bars: 3
+
+session:
+  flatten_minutes_before_close: 5
+  session_close: "12:00"    # Ivan Fib exits by noon
+  max_trades_per_day: 1
+
+drawdown:
+  buffer_from_max: 1950.0   # Topstep $2k trailing max DD with $50 buffer

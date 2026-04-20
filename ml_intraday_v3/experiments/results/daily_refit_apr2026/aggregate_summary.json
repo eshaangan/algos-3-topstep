@@ -1,0 +1,21 @@
+{
+  "test_range": {
+    "start": "2026-04-01",
+    "end": "2026-04-30"
+  },
+  "lookback_days": 180,
+  "gap_days": 0,
+  "session_days_in_index": 7,
+  "days_with_backtest": 7,
+  "aggregate_total_pnl_usd": 637.1912587210854,
+  "aggregate_trades_count": 16,
+  "skipped_days": [],
+  "daily_metrics_csv": "ml_intraday_v3/experiments/results/daily_refit_apr2026/daily_metrics.csv",
+  "all_trades_parquet": "ml_intraday_v3/experiments/results/daily_refit_apr2026/all_trades.parquet",
+  "reference_single_window_pnl": {
+    "total_pnl_usd": 1336.5438791925344,
+    "trades_count": 12,
+    "max_drawdown_usd": 196.4006436413183,
+    "note": "Single fit on full test range; UTC bounds from _period_bounds differ from per-day Chicago slices."
+  }
+}

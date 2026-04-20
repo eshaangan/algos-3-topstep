@@ -1,0 +1,55 @@
+{
+  "run_label": "ytd_2026_live_config_rerun",
+  "config": {
+    "stack": "live_dual_meta_mes_real",
+    "contracts": 2,
+    "risk_scaling": "none - risk.yaml dollar limits unchanged (same envelope as live: 1000/3000 for 2 MES)",
+    "oos_window": {
+      "start": "2026-01-01 00:00:00+00:00",
+      "end": "2026-04-12 23:59:59+00:00"
+    }
+  },
+  "totals": {
+    "total_pnl_usd": 3288.1648534119768,
+    "max_drawdown_usd": 2461.9653789902295,
+    "trades_count": 115,
+    "win_rate": 0.5565217391304348,
+    "profit_factor": 1.310470753543941,
+    "avg_trade_usd": 28.59273785575632,
+    "skipped_signals": 810,
+    "mtm_liquidations": 0
+  },
+  "daily_pnl_from_risk_tearsheet": {
+    "session_days_with_bars": 41,
+    "avg_realized_pnl_per_session_day_usd": 80.19914276614575,
+    "best_day_usd": 1241.8017040381183,
+    "worst_day_usd": -1287.5733748371044,
+    "daily_win_rate": 0.5853658536585366,
+    "daily_pnl_std_usd": 494.18316206230554,
+    "daily_sharpe": 2.576214692151341,
+    "daily_sortino": 3.4996228489261143
+  },
+  "trades_by_session_day_chicago": {
+    "session_days_in_equity": 41,
+    "days_with_at_least_one_round_trip": 41,
+    "session_days_with_zero_executed_trades": 0,
+    "trades_per_day_mean_over_session_days": 2.731707317073171,
+    "trades_per_day_median_over_session_days": 2.0,
+    "trades_per_day_min": 1,
+    "trades_per_day_max": 5,
+    "entry_dates_outside_equity_session_calendar": [
+      "2026-01-19",
+      "2026-02-16",
+      "2026-02-19"
+    ],
+    "notes": "Session-day keys match risk_tearsheet daily_pnl_by_day (Chicago session PnL dates). Trade counts use entry timestamp in America/Chicago."
+  },
+  "session_days_no_trades": [],
+  "artifacts": {
+    "metrics_summary": "ml_intraday_v3/experiments/results/ytd_2026_live_config_rerun/metrics_summary.json",
+    "promotion_summary": "ml_intraday_v3/experiments/results/ytd_2026_live_config_rerun/contracts_2/promotion_summary.json",
+    "trades_parquet": "ml_intraday_v3/experiments/results/ytd_2026_live_config_rerun/contracts_2/ytd_2026_jan_apr/trades.parquet",
+    "equity_parquet": "ml_intraday_v3/experiments/results/ytd_2026_live_config_rerun/contracts_2/ytd_2026_jan_apr/equity.parquet",
+    "daily_pnl_detail": "promotion_summary.json -> windows[0].risk_tearsheet.daily.daily_pnl_by_day"
+  }
+}

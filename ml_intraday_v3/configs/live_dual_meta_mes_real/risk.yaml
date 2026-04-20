@@ -1,0 +1,60 @@
+# Topstep-style 50K envelope (2 MES). Align with account rules:
+# - Profit target (combine): $3,000 — enforced in RiskManager as cumulative halt (set profit_target_usd: 0 to disable on funded live)
+# - Maximum loss (trailing): $2,000
+# - Daily loss limit: $1,000
+# - Max size: 5 minis or 50 micros; this stack uses 2 MES (well under cap).
+
+topstep:
+  account_type: "funded"
+  starting_balance: 50000
+  profit_target_usd: 3000
+
+daily_loss_limit:
+  enabled: true
+  max_daily_loss: 1000
+  pnl_calculation: "realized_and_unrealized"
+  reset_time: "17:00"
+  reset_timezone: "America/Chicago"
+  breach_action: "flatten_and_halt"
+
+trailing_drawdown:
+  enabled: true
+  max_drawdown: 2000
+  pnl_calculation: "realized_and_unrealized"
+  hwm_update_policy: "real_time"
+  breach_action: "flatten_and_halt"
+
+position_limits:
+  max_contracts_per_position: 2
+  max_concurrent_positions: 1
+  max_total_contracts: 2
+  max_notional_exposure: 60000
+
+intraday_controls:
+  max_trades_per_day: 12
+  min_seconds_between_trades: 120
+  max_consecutive_losses: 4
+  consecutive_loss_action: "halt_trading"
+
+forced_flatten:
+  flatten_at_session_close: true
+  flatten_at_loss_threshold: 0.80
+  flatten_at_drawdown_threshold: 0.80
+
+risk_management:
+  enabled: true
+  daily_loss_limit_usd: 1000
+  daily_loss_warning_usd: 500
+  daily_loss_critical_usd: 800
+  base_position_size: 2
+  reduce_size_on_loss: true
+  size_after_warning: 1.0
+  size_after_critical: 0.0
+  max_drawdown_from_hwm: 2000
+  drawdown_warning: 1200
+  avoid_first_hour: false
+  avoid_last_hour: false
+  threshold_increase_on_loss: 0.00
+  daily_profit_lock_usd: 0
+
+risk_spec_version: "1.0.0"

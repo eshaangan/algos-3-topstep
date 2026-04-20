@@ -1,0 +1,65 @@
+{
+  "fix": "sl_rr \u00d7 |p_entry| replaces sl_k \u00d7 sqrt(P_pp)",
+  "best_sl_rr": 1.5,
+  "best_tp_frac": 0.5,
+  "train": {
+    "label": "Training best (sl_rr=1.5, tp=0.5)",
+    "N": 825,
+    "n_days": 127,
+    "n_per_day": 6.5,
+    "WR": 53.8,
+    "avg_win": 10.2,
+    "avg_loss": -19.09,
+    "pf": 0.62,
+    "total_pnl": -2743.25,
+    "sharpe": -6.939,
+    "max_dd": -2745.78
+  },
+  "oos": {
+    "label": "OOS MES Jan-Feb 2026",
+    "N": 172,
+    "n_days": 27,
+    "n_per_day": 6.37,
+    "WR": 52.9,
+    "avg_win": 12.5,
+    "avg_loss": -24.25,
+    "pf": 0.58,
+    "total_pnl": -827.32,
+    "sharpe": -11.496,
+    "max_dd": -872.38
+  },
+  "mnq": {
+    "label": "MNQ Jan-Mar 2026",
+    "N": 434,
+    "n_days": 56,
+    "n_per_day": 7.75,
+    "WR": 61.3,
+    "avg_win": 33.81,
+    "avg_loss": -61.71,
+    "pf": 0.87,
+    "total_pnl": -1374.71,
+    "sharpe": -2.657,
+    "max_dd": -2372.99
+  },
+  "hp_filter": {
+    "label": "High-pressure only (B3)",
+    "N": 181,
+    "n_days": 61,
+    "n_per_day": 2.97,
+    "WR": 59.1,
+    "avg_win": 13.49,
+    "avg_loss": -33.14,
+    "pf": 0.59,
+    "total_pnl": -1008.75,
+    "sharpe": -5.171,
+    "max_dd": -1081.28
+  },
+  "monte_carlo": {
+    "p_pass": 0.0,
+    "p_bust_dd": 3.29,
+    "median_days": null
+  },
+  "p_entry_mono": false,
+  "Z_entry_mono": true,
+  "mnq_mono": true
+}

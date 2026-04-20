@@ -1,0 +1,616 @@
+{
+  "passed": true,
+  "passed_windows": 1,
+  "total_windows": 1,
+  "pass_ratio": 1.0,
+  "overall_total_pnl_usd": 671.5153501962543,
+  "overall_total_trades": 86,
+  "overall_direction_summary": {
+    "long_trades": 66,
+    "short_trades": 20,
+    "total_trades": 86,
+    "long_share": 0.7674418604651163,
+    "short_share": 0.23255813953488372
+  },
+  "overall_failures": [],
+  "windows": [
+    {
+      "name": "ytd_2026_jan_apr",
+      "train_period": {
+        "start": "2025-07-04 23:59:59+00:00",
+        "end": "2025-12-31 23:59:59+00:00"
+      },
+      "test_period": {
+        "start": "2026-01-01 00:00:00+00:00",
+        "end": "2026-04-12 23:59:59+00:00"
+      },
+      "train_events": 1590,
+      "test_events": 925,
+      "classification": {
+        "test_auc": 0.590348020710258,
+        "test_accuracy": 0.5654054054054054,
+        "brier_score": 0.24975465269854577,
+        "positive_prediction_rate": 0.4486486486486487,
+        "target_rate": 0.4183783783783784,
+        "rank_ic_ret": 0.17033865929390035,
+        "ece": 0.07922863634523232,
+        "decile_spread_ret_net": 13.413819851941653
+      },
+      "meta": {
+        "enabled": false,
+        "skipped": false,
+        "reason": null,
+        "metrics": null,
+        "routes": [],
+        "test_rows": 0
+      },
+      "score_diagnostics": {
+        "primary": {
+          "overall": {
+            "rows": 925,
+            "score_mean": 0.4755307631930539,
+            "score_std": 0.1706243738321244,
+            "target_rate": 0.4183783783783784,
+            "avg_ret_net": -3.1438836347335863,
+            "brier_score": 0.24975465269854577,
+            "ece": 0.07922863634523232,
+            "rank_ic_ret": 0.17033865929390035,
+            "top_quantile_avg_ret_net": 2.0606538089733872,
+            "bottom_quantile_avg_ret_net": -11.353166042968267,
+            "decile_spread_ret_net": 13.413819851941653,
+            "calibration_bins": [
+              {
+                "bin": 2,
+                "rows": 45,
+                "prob_min": 0.1,
+                "prob_max": 0.2,
+                "avg_confidence": 0.1616203938707001,
+                "target_rate": 0.3111111111111111,
+                "gap": 0.14949071724041102
+              },
+              {
+                "bin": 3,
+                "rows": 106,
+                "prob_min": 0.2,
+                "prob_max": 0.30000000000000004,
+                "avg_confidence": 0.2543063151517002,
+                "target_rate": 0.2830188679245283,
+                "gap": 0.02871255277282808
+              },
+              {
+                "bin": 4,
+                "rows": 184,
+                "prob_min": 0.30000000000000004,
+                "prob_max": 0.4,
+                "avg_confidence": 0.3508714485698682,
+                "target_rate": 0.3532608695652174,
+                "gap": 0.002389420995349223
+              },
+              {
+                "bin": 5,
+                "rows": 175,
+                "prob_min": 0.4,
+                "prob_max": 0.5,
+                "avg_confidence": 0.4478473570649187,
+                "target_rate": 0.44571428571428573,
+                "gap": 0.0021330713506329535
+              },
+              {
+                "bin": 6,
+                "rows": 180,
+                "prob_min": 0.5,
+                "prob_max": 0.6000000000000001,
+                "avg_confidence": 0.5465806833240602,
+                "target_rate": 0.4388888888888889,
+                "gap": 0.1076917944351713
+              },
+              {
+                "bin": 7,
+                "rows": 133,
+                "prob_min": 0.6000000000000001,
+                "prob_max": 0.7000000000000001,
+                "avg_confidence": 0.6493269226617298,
+                "target_rate": 0.48120300751879697,
+                "gap": 0.1681239151429328
+              },
+              {
+                "bin": 8,
+                "rows": 77,
+                "prob_min": 0.7000000000000001,
+                "prob_max": 0.8,
+                "avg_confidence": 0.7426883120506186,
+                "target_rate": 0.5454545454545454,
+                "gap": 0.19723376659607317
+              },
+              {
+                "bin": 9,
+                "rows": 25,
+                "prob_min": 0.8,
+                "prob_max": 0.9,
+                "avg_confidence": 0.8308372423943231,
+                "target_rate": 0.6,
+                "gap": 0.23083724239432313
+              }
+            ],
+            "quantile_profile": [
+              {
+                "quantile": 1,
+                "rows": 93,
+                "score_mean": 0.19624089488443378,
+                "score_min": 0.10095207285108183,
+                "score_max": 0.253803110697034,
+                "target_rate": 0.25806451612903225,
+                "avg_ret_net": -11.353166042968267
+              },
+              {
+                "quantile": 2,
+                "rows": 92,
+                "score_mean": 0.2885114252113112,
+                "score_min": 0.25392974983807737,
+                "score_max": 0.31842840654966037,
+                "target_rate": 0.358695652173913,
+                "avg_ret_net": -5.390249583951127
+              },
+              {
+                "quantile": 3,
+                "rows": 93,
+                "score_mean": 0.34528414590204654,
+                "score_min": 0.31854981733226634,
+                "score_max": 0.3703215727635893,
+                "target_rate": 0.3225806451612903,
+                "avg_ret_net": -8.605305305487873
+              },
+              {
+                "quantile": 4,
+                "rows": 92,
+                "score_mean": 0.39378098709193027,
+                "score_min": 0.3706844689815691,
+                "score_max": 0.4185124937940323,
+                "target_rate": 0.44565217391304346,
+                "avg_ret_net": -3.6784940867157654
+              },
+              {
+                "quantile": 5,
+                "rows": 93,
+                "score_mean": 0.4432706928596855,
+                "score_min": 0.41881237085157985,
+                "score_max": 0.46970563378295077,
+                "target_rate": 0.46236559139784944,
+                "avg_ret_net": 0.25263079500333857
+              },
+              {
+                "quantile": 6,
+                "rows": 92,
+                "score_mean": 0.4977135629311936,
+                "score_min": 0.46986918171851194,
+                "score_max": 0.5200033428946113,
+                "target_rate": 0.34782608695652173,
+                "avg_ret_net": -4.898035203589388
+              },
+              {
+                "quantile": 7,
+                "rows": 92,
+                "score_mean": 0.5455729284930446,
+                "score_min": 0.5203207085869573,
+                "score_max": 0.5744745363488983,
+                "target_rate": 0.43478260869565216,
+                "avg_ret_net": -2.4148117103714473
+              },
+              {
+                "quantile": 8,
+                "rows": 93,
+                "score_mean": 0.6034689383873554,
+                "score_min": 0.5751369887166381,
+                "score_max": 0.6360776693737221,
+                "target_rate": 0.4946236559139785,
+                "avg_ret_net": 0.11139326789594853
+              },
+              {
+                "quantile": 9,
+                "rows": 92,
+                "score_mean": 0.6716388310877808,
+                "score_min": 0.6385370309656508,
+                "score_max": 0.7083279811712958,
+                "target_rate": 0.532608695652174,
+                "avg_ret_net": 2.4962691845591847
+              },
+              {
+                "quantile": 10,
+                "rows": 93,
+                "score_mean": 0.7700355898005746,
+                "score_min": 0.7096411154140008,
+                "score_max": 0.8784189139656436,
+                "target_rate": 0.5268817204301075,
+                "avg_ret_net": 2.0606538089733872
+              }
+            ]
+          },
+          "by_month": [
+            {
+              "month": "2026-03",
+              "rows": 281,
+              "score_mean": 0.4662913629788692,
+              "score_std": 0.16236417521907226,
+              "target_rate": 0.40569395017793597,
+              "avg_ret_net": -4.4880272148183105,
+              "brier_score": 0.24454998684091397,
+              "ece": 0.08265550145523361,
+              "rank_ic_ret": 0.16581419180341,
+              "top_quantile_avg_ret_net": 7.224361877416787,
+              "bottom_quantile_avg_ret_net": -19.933031302801787,
+              "decile_spread_ret_net": 27.157393180218573
+            },
+            {
+              "month": "2026-02",
+              "rows": 302,
+              "score_mean": 0.47951785123295687,
+              "score_std": 0.17955942064357205,
+              "target_rate": 0.423841059602649,
+              "avg_ret_net": -2.6831328945320627,
+              "brier_score": 0.24691331593036325,
+              "ece": 0.08995642301134255,
+              "rank_ic_ret": 0.21844821141184326,
+              "top_quantile_avg_ret_net": -2.969798773268641,
+              "bottom_quantile_avg_ret_net": -8.20954250395284,
+              "decile_spread_ret_net": 5.239743730684198
+            },
+            {
+              "month": "2026-01",
+              "rows": 246,
+              "score_mean": 0.4909291438223099,
+              "score_std": 0.1738996254030304,
+              "target_rate": 0.4186991869918699,
+              "avg_ret_net": -2.6421993348832173,
+              "brier_score": 0.25437152935695034,
+              "ece": 0.11282814292396919,
+              "rank_ic_ret": 0.1411963098819416,
+              "top_quantile_avg_ret_net": -1.6790118899816735,
+              "bottom_quantile_avg_ret_net": -6.057392894089433,
+              "decile_spread_ret_net": 4.3783810041077595
+            },
+            {
+              "month": "2026-04",
+              "rows": 96,
+              "score_mean": 0.4505741927486601,
+              "score_std": 0.15132384006334784,
+              "target_rate": 0.4375,
+              "avg_ret_net": -1.9444744191111276,
+              "brier_score": 0.2620967688654013,
+              "ece": 0.1231661150987489,
+              "rank_ic_ret": 0.052007596310363544,
+              "top_quantile_avg_ret_net": 13.137274632880011,
+              "bottom_quantile_avg_ret_net": 1.7380185010266818,
+              "decile_spread_ret_net": 11.39925613185333
+            }
+          ],
+          "by_side": [
+            {
+              "side_label": "long",
+              "rows": 467,
+              "score_mean": 0.42016075330029407,
+              "score_std": 0.15938646053307035,
+              "target_rate": 0.3640256959314775,
+              "avg_ret_net": -4.4641894543989515,
+              "brier_score": 0.23704992558793692,
+              "ece": 0.09368224361852667,
+              "rank_ic_ret": 0.18622846153610506,
+              "top_quantile_avg_ret_net": 5.113768570941616,
+              "bottom_quantile_avg_ret_net": -9.283196293550917,
+              "decile_spread_ret_net": 14.396964864492533
+            },
+            {
+              "side_label": "short",
+              "rows": 458,
+              "score_mean": 0.5319888300487718,
+              "score_std": 0.16303554866058886,
+              "target_rate": 0.4737991266375546,
+              "avg_ret_net": -1.7976329408826586,
+              "brier_score": 0.2627090360187518,
+              "ece": 0.10623116199429958,
+              "rank_ic_ret": 0.14117835668439033,
+              "top_quantile_avg_ret_net": -1.9029361754347345,
+              "bottom_quantile_avg_ret_net": -11.136838715393772,
+              "decile_spread_ret_net": 9.233902539959038
+            }
+          ],
+          "by_month_side": [
+            {
+              "month": "2026-03",
+              "side_label": "long",
+              "rows": 142,
+              "score_mean": 0.4775322857710939,
+              "score_std": 0.17444664273799287,
+              "target_rate": 0.3380281690140845,
+              "avg_ret_net": -6.899483359529228,
+              "brier_score": 0.23549545312429673,
+              "ece": 0.14420562228055217,
+              "rank_ic_ret": 0.2375338176956397,
+              "top_quantile_avg_ret_net": 7.368698660439092,
+              "bottom_quantile_avg_ret_net": -18.071550514724226,
+              "decile_spread_ret_net": 25.440249175163316
+            },
+            {
+              "month": "2026-04",
+              "side_label": "short",
+              "rows": 47,
+              "score_mean": 0.47846318579837505,
+              "score_std": 0.12852933414810577,
+              "target_rate": 0.44680851063829785,
+              "avg_ret_net": -5.882701698943047,
+              "brier_score": 0.2609288462727829,
+              "ece": 0.11449216392671968,
+              "rank_ic_ret": 0.09666975023126735,
+              "top_quantile_avg_ret_net": 4.587105708289119,
+              "bottom_quantile_avg_ret_net": 8.567765550421381,
+              "decile_spread_ret_net": -3.980659842132262
+            },
+            {
+              "month": "2026-02",
+              "side_label": "long",
+              "rows": 153,
+              "score_mean": 0.3847020679431449,
+              "score_std": 0.1447556721743778,
+              "target_rate": 0.3660130718954248,
+              "avg_ret_net": -5.331824217803821,
+              "brier_score": 0.2284238891059288,
+              "ece": 0.08241949962490784,
+              "rank_ic_ret": 0.2264585259941297,
+              "top_quantile_avg_ret_net": 5.633018987878973,
+              "bottom_quantile_avg_ret_net": -4.49071547936553,
+              "decile_spread_ret_net": 10.123734467244503
+            },
+            {
+              "month": "2026-01",
+              "side_label": "long",
+              "rows": 123,
+              "score_mean": 0.3965749434560416,
+              "score_std": 0.13547017611152323,
+              "target_rate": 0.36585365853658536,
+              "avg_ret_net": -3.082098930429518,
+              "brier_score": 0.2391501775321265,
+              "ece": 0.12462217508126633,
+              "rank_ic_ret": 0.20262862596896727,
+              "top_quantile_avg_ret_net": 3.682683785947273,
+              "bottom_quantile_avg_ret_net": -5.631434136821193,
+              "decile_spread_ret_net": 9.314117922768466
+            },
+            {
+              "month": "2026-01",
+              "side_label": "short",
+              "rows": 123,
+              "score_mean": 0.5852833441885783,
+              "score_std": 0.15596333082306768,
+              "target_rate": 0.4715447154471545,
+              "avg_ret_net": -2.202299739336916,
+              "brier_score": 0.2695928811817742,
+              "ece": 0.14421568338873716,
+              "rank_ic_ret": 0.12755542944112677,
+              "top_quantile_avg_ret_net": -2.1928967399873196,
+              "bottom_quantile_avg_ret_net": -10.064164559269614,
+              "decile_spread_ret_net": 7.871267819282294
+            },
+            {
+              "month": "2026-03",
+              "side_label": "short",
+              "rows": 139,
+              "score_mean": 0.45480783034220806,
+              "score_std": 0.1481345048976557,
+              "target_rate": 0.4748201438848921,
+              "avg_ret_net": -2.0245252540344953,
+              "brier_score": 0.2537999421485374,
+              "ece": 0.09303511297143113,
+              "rank_ic_ret": 0.10215380490638544,
+              "top_quantile_avg_ret_net": 5.2253717537259785,
+              "bottom_quantile_avg_ret_net": -14.949216321411,
+              "decile_spread_ret_net": 20.17458807513698
+            },
+            {
+              "month": "2026-02",
+              "side_label": "short",
+              "rows": 149,
+              "score_mean": 0.5768790246782001,
+              "score_std": 0.1584973481718689,
+              "target_rate": 0.48322147651006714,
+              "avg_ret_net": 0.036664236075849406,
+              "brier_score": 0.26589910320646026,
+              "ece": 0.11356548815524865,
+              "rank_ic_ret": 0.1256593506257936,
+              "top_quantile_avg_ret_net": -0.5657247264676545,
+              "bottom_quantile_avg_ret_net": -15.434734699496321,
+              "decile_spread_ret_net": 14.869009973028666
+            },
+            {
+              "month": "2026-04",
+              "side_label": "long",
+              "rows": 49,
+              "score_mean": 0.42382352594587236,
+              "score_std": 0.16600000011285504,
+              "target_rate": 0.42857142857142855,
+              "avg_ret_net": 1.8330088901154102,
+              "brier_score": 0.2632170211481169,
+              "ece": 0.1903833035579917,
+              "rank_ic_ret": 0.16683673469387753,
+              "top_quantile_avg_ret_net": 15.0553565265383,
+              "bottom_quantile_avg_ret_net": -1.616317643681986,
+              "decile_spread_ret_net": 16.671674170220285
+            }
+          ],
+          "by_regime": [],
+          "problem_groups": []
+        },
+        "meta": {
+          "enabled": false
+        }
+      },
+      "target_routes": {
+        "train": {
+          "enabled": false,
+          "rows_relabeled": 0,
+          "routes": []
+        },
+        "test": {
+          "enabled": false,
+          "rows_relabeled": 0,
+          "routes": []
+        }
+      },
+      "backtest_metrics": {
+        "total_pnl_usd": 671.5153501962543,
+        "max_drawdown_usd": 1608.0341759775984,
+        "win_rate": 0.4186046511627907,
+        "profit_factor": 1.0785486460851121,
+        "avg_trade_usd": 7.808318025537841,
+        "trades_count": 86,
+        "skipped_count": 839,
+        "mtm_liquidations": 0,
+        "mtm_daily_loss_liquidations": 0,
+        "mtm_trailing_dd_liquidations": 0,
+        "cost_mode": "mixed",
+        "cost_mode_policy": "event_ret_net_preferred"
+      },
+      "risk_tearsheet": {
+        "executed_trades": 86,
+        "daily": {
+          "days": 30,
+          "avg_day_usd": 22.3838450065418,
+          "best_day_usd": 973.358236955853,
+          "worst_day_usd": -729.6576604055494,
+          "daily_win_rate": 0.4666666666666667,
+          "daily_pnl_std": 458.159990055304,
+          "daily_sharpe": 0.7755642817991496,
+          "daily_sortino": 1.619144699762811,
+          "daily_pnl_by_day": {
+            "2026-01-06": 97.01048042855794,
+            "2026-01-07": -443.79030465259564,
+            "2026-01-08": -143.52010876468236,
+            "2026-01-09": 171.16972704867894,
+            "2026-01-12": -36.5666768870678,
+            "2026-01-13": 161.2118545519125,
+            "2026-01-14": -93.30893870639463,
+            "2026-01-15": 170.4454187253728,
+            "2026-01-16": -329.806347843777,
+            "2026-01-19": 905.02,
+            "2026-01-20": -729.6576604055494,
+            "2026-01-21": 932.9032533942586,
+            "2026-01-22": -409.4509049722719,
+            "2026-01-23": -47.09372522533063,
+            "2026-01-26": 133.22683255917678,
+            "2026-01-27": -72.63957823019466,
+            "2026-01-28": 35.4718286863054,
+            "2026-01-29": -423.87342753829535,
+            "2026-01-30": 308.29624747792155,
+            "2026-02-02": -278.5878599726706,
+            "2026-02-03": 16.74155174875301,
+            "2026-02-04": 508.49147566942617,
+            "2026-02-05": 973.358236955853,
+            "2026-02-06": 874.4981521264403,
+            "2026-02-09": -325.6283881027392,
+            "2026-02-10": -249.53809369730465,
+            "2026-02-12": -564.5237521836661,
+            "2026-02-13": 221.47718363947706,
+            "2026-02-17": -62.87461964155949,
+            "2026-02-18": -626.9465059917802
+          }
+        },
+        "streaks": {
+          "longest_win_streak": 6,
+          "longest_loss_streak": 6
+        },
+        "tail": {
+          "best_trade_usd": 905.02,
+          "worst_trade_usd": -307.48,
+          "trade_pnl_p05": -289.5603403453988,
+          "trade_pnl_p95": 470.63176625453076,
+          "trade_pnl_std": 256.3058795139866
+        },
+        "equity": {
+          "final_equity": 50671.51535019615,
+          "max_drawdown_usd": 1608.0341759775984,
+          "recovery_factor": 0.4176001730734417,
+          "longest_underwater_bars": 28
+        }
+      },
+      "direction_summary": {
+        "long_trades": 66,
+        "short_trades": 20,
+        "total_trades": 86,
+        "long_share": 0.7674418604651163,
+        "short_share": 0.23255813953488372
+      },
+      "test_event_direction_summary": {
+        "long_trades": 467,
+        "short_trades": 458,
+        "total_trades": 925,
+        "long_share": 0.5048648648648648,
+        "short_share": 0.49513513513513513
+      },
+      "gate_result": {
+        "passed": true,
+        "failures": [],
+        "window_name": "ytd_2026_jan_apr"
+      }
+    }
+  ],
+  "risk_tearsheet": {
+    "executed_trades": 86,
+    "daily": {
+      "days": 30,
+      "avg_day_usd": 22.3838450065418,
+      "best_day_usd": 973.358236955853,
+      "worst_day_usd": -729.6576604055494,
+      "daily_win_rate": 0.4666666666666667,
+      "daily_pnl_std": 458.159990055304,
+      "daily_sharpe": 0.7755642817991496,
+      "daily_sortino": 1.619144699762811,
+      "daily_pnl_by_day": {
+        "2026-01-06": 97.01048042855794,
+        "2026-01-07": -443.79030465259564,
+        "2026-01-08": -143.52010876468236,
+        "2026-01-09": 171.16972704867894,
+        "2026-01-12": -36.5666768870678,
+        "2026-01-13": 161.2118545519125,
+        "2026-01-14": -93.30893870639463,
+        "2026-01-15": 170.4454187253728,
+        "2026-01-16": -329.806347843777,
+        "2026-01-19": 905.02,
+        "2026-01-20": -729.6576604055494,
+        "2026-01-21": 932.9032533942586,
+        "2026-01-22": -409.4509049722719,
+        "2026-01-23": -47.09372522533063,
+        "2026-01-26": 133.22683255917678,
+        "2026-01-27": -72.63957823019466,
+        "2026-01-28": 35.4718286863054,
+        "2026-01-29": -423.87342753829535,
+        "2026-01-30": 308.29624747792155,
+        "2026-02-02": -278.5878599726706,
+        "2026-02-03": 16.74155174875301,
+        "2026-02-04": 508.49147566942617,
+        "2026-02-05": 973.358236955853,
+        "2026-02-06": 874.4981521264403,
+        "2026-02-09": -325.6283881027392,
+        "2026-02-10": -249.53809369730465,
+        "2026-02-12": -564.5237521836661,
+        "2026-02-13": 221.47718363947706,
+        "2026-02-17": -62.87461964155949,
+        "2026-02-18": -626.9465059917802
+      }
+    },
+    "streaks": {
+      "longest_win_streak": 6,
+      "longest_loss_streak": 6
+    },
+    "tail": {
+      "best_trade_usd": 905.02,
+      "worst_trade_usd": -307.48,
+      "trade_pnl_p05": -289.5603403453988,
+      "trade_pnl_p95": 470.63176625453076,
+      "trade_pnl_std": 256.3058795139866
+    },
+    "equity": {
+      "final_equity": 50671.51535019615,
+      "max_drawdown_usd": 1608.0341759775984,
+      "recovery_factor": 0.4176001730734417,
+      "longest_underwater_bars": 28
+    }
+  }
+}
