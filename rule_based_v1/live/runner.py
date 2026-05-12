@@ -12,6 +12,7 @@ import os
 import signal
 import sys
 import time
+from collections import deque
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -20,8 +21,15 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# core/ lives at /app/core — ensure /app is on path for Docker deployments
+_app_dir = str(Path(__file__).parent.parent.parent)
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
+
+from core.projectx_client import BracketInstruction
 from rules.opening_range import OpeningRangeBreakoutRule
 from rules.time_of_day import TimeOfDayRule
+from rules.vwap_mean_reversion import VWAPMeanReversionRule
 from engine.signal_aggregator import SignalAggregator
 from engine.risk_manager import RiskManager, TradeRecord
 from utils.indicators import atr
@@ -76,7 +84,14 @@ class LiveRunner:
         self.long_only: bool = self.rules_cfg.get("opening_range_breakout", {}).get("long_only", False)
         self.skip_gap_up_pct: float | None = self.rules_cfg.get("opening_range_breakout", {}).get("skip_gap_up_pct", None)
         self.require_gex_explosive: bool = self.rules_cfg.get("opening_range_breakout", {}).get("require_gex_explosive", False)
+        self.prev_vwap_override_cfg: dict = self.rules_cfg.get("prev_vwap_bearish_override", {})
         self.session_gex_explosive: bool | None = None  # computed once per day
+
+        # Volatility Clustering filter state
+        self._init_vc_filter()
+
+        # 3-day momentum filter state
+        self._init_mom_filter()
 
         # MSITE engine (secondary signal)
         self._init_msite()
@@ -85,6 +100,176 @@ class LiveRunner:
         # GIRE engine (gap inventory repair — secondary signal)
         self._init_gire()
         self.gire_active_trade: dict | None = None
+
+        # VWAP Mean Reversion (midday 10:30-13:30 ET)
+        self._init_vwap()
+        self.vwap_active_trade: dict | None = None
+        self.vwap_trades_today: int = 0
+
+    def _init_vc_filter(self) -> None:
+        """Read VC config and initialise rolling daily-range history."""
+        cfg = self.rules_cfg.get("volatility_clustering", {})
+        self.vc_enabled: bool = cfg.get("enabled", False)
+        self.vc_lookback: int = int(cfg.get("lookback_days", 10))
+        self.vc_require_wide: bool = cfg.get("require_wide_range", True)
+        self.vc_require_direction: bool = cfg.get("require_direction_match", True)
+        self.vc_pass_on_no_history: bool = cfg.get("pass_through_on_no_history", True)
+        # Rolling deque of (daily_range, direction) tuples, oldest first
+        self._vc_history: deque[tuple[float, int]] = deque(maxlen=self.vc_lookback + 5)
+        self._vc_last_recorded_date: datetime.date | None = None
+        if self.vc_enabled:
+            logger.info(
+                f"VC filter: enabled (lookback={self.vc_lookback}d, "
+                f"wide={self.vc_require_wide}, direction={self.vc_require_direction})"
+            )
+        else:
+            logger.info("VC filter: disabled")
+
+    def _vc_record_day(self, bars_df: pd.DataFrame, date_to_record) -> None:
+        """Extract range+direction for a completed session and append to rolling history."""
+        day_bars = bars_df[bars_df.index.map(lambda t: t.date()) == date_to_record]
+        if len(day_bars) < 5:
+            return
+        day_range = float(day_bars["high"].max() - day_bars["low"].min())
+        day_open  = float(day_bars["open"].iloc[0])
+        day_close = float(day_bars["close"].iloc[-1])
+        direction = 1 if day_close > day_open else (-1 if day_close < day_open else 0)
+        self._vc_history.append((day_range, direction))
+        self._vc_last_recorded_date = date_to_record
+        logger.debug(
+            f"VC: recorded {date_to_record} range={day_range:.2f} dir={direction:+d} "
+            f"(history={len(self._vc_history)} days)"
+        )
+
+    def _vc_filter_allows(self, signal_direction: int, bars_df: pd.DataFrame) -> bool:
+        """Return True if the VC filter permits this signal.
+
+        Requires:
+          1. Prior day was a wide-range day (range > rolling median of last N days).
+          2. Signal direction matches prior day's close direction.
+        Returns True (pass-through) when not enough history, per config.
+        """
+        if not self.vc_enabled:
+            return True
+        if len(self._vc_history) < 3:
+            if self.vc_pass_on_no_history:
+                logger.debug("VC filter: insufficient history — pass-through")
+                return True
+            logger.debug("VC filter: insufficient history — blocking")
+            return False
+
+        prev_range, prev_direction = self._vc_history[-1]
+
+        if self.vc_require_wide:
+            # Median of all entries EXCEPT the last (which is "today's prior day")
+            window_ranges = [r for r, _ in list(self._vc_history)[:-1]]
+            median_range = float(sorted(window_ranges)[len(window_ranges) // 2])
+            is_wide = prev_range > median_range
+            if not is_wide:
+                logger.info(
+                    f"VC filter: BLOCK — prior day range {prev_range:.2f} ≤ median {median_range:.2f} "
+                    f"(narrow day)"
+                )
+                return False
+
+        if self.vc_require_direction and prev_direction != 0:
+            if signal_direction != prev_direction:
+                logger.info(
+                    f"VC filter: BLOCK — signal dir {signal_direction:+d} ≠ prior day dir "
+                    f"{prev_direction:+d}"
+                )
+                return False
+
+        logger.info(
+            f"VC filter: PASS — prior day range {prev_range:.2f}, dir {prev_direction:+d}, "
+            f"signal dir {signal_direction:+d}"
+        )
+        return True
+
+    def _init_mom_filter(self) -> None:
+        """Read momentum_filter config and initialise rolling daily-close history."""
+        cfg = self.rules_cfg.get("momentum_filter", {})
+        self.mom_enabled: bool = cfg.get("enabled", False)
+        self.mom_lookback: int = int(cfg.get("lookback_days", 3))
+        self.mom_threshold: float = float(cfg.get("threshold", -0.01))
+        self.mom_pass_on_no_history: bool = cfg.get("pass_through_on_no_history", True)
+        # Rolling deque of daily closing prices (most recent last); need lookback+1 values
+        self._mom_closes: deque[float] = deque(maxlen=self.mom_lookback + 3)
+        self._mom_last_recorded_date: object = None
+        if self.mom_enabled:
+            logger.info(
+                f"Momentum filter: enabled (lookback={self.mom_lookback}d, "
+                f"threshold={self.mom_threshold:+.3f})"
+            )
+        else:
+            logger.info("Momentum filter: disabled")
+
+    def _mom_record_day(self, bars_df: pd.DataFrame, date_to_record) -> None:
+        """Extract the session close price and append to the rolling close history."""
+        day_bars = bars_df[bars_df.index.map(lambda t: t.date()) == date_to_record]
+        if len(day_bars) < 5:
+            return
+        day_close = float(day_bars["close"].iloc[-1])
+        self._mom_closes.append(day_close)
+        self._mom_last_recorded_date = date_to_record
+        logger.debug(
+            f"Momentum: recorded {date_to_record} close={day_close:.2f} "
+            f"(history={len(self._mom_closes)} days)"
+        )
+
+    def _mom_seed_from_buffer(self, bars_df: pd.DataFrame) -> None:
+        """Seed the momentum close history from the historical bar buffer loaded at startup."""
+        if not self.mom_enabled or bars_df is None or len(bars_df) < 10:
+            return
+        today = bars_df.index[-1].date()
+        dates = sorted(set(bars_df.index.map(lambda t: t.date())))
+        # Only use completed sessions (exclude the current partial day)
+        completed = [d for d in dates if d < today]
+        for d in completed:
+            day_bars = bars_df[bars_df.index.map(lambda t: t.date()) == d]
+            if len(day_bars) >= 5:
+                self._mom_closes.append(float(day_bars["close"].iloc[-1]))
+                self._mom_last_recorded_date = d
+        logger.info(
+            f"Momentum filter: seeded {len(self._mom_closes)} daily closes from buffer "
+            f"(need {self.mom_lookback + 1} for full window)"
+        )
+
+    def _mom_filter_allows(self) -> bool:
+        """Return True if N-day return > threshold (or insufficient history and pass-through enabled).
+
+        N-day return = prior_close / close_N_days_ago - 1.
+        Blocks ORB LONG entries when market is in a steep short-term downtrend.
+        """
+        if not self.mom_enabled:
+            return True
+        # Need at least lookback+1 closes: close[d-1] and close[d-1-lookback]
+        if len(self._mom_closes) < self.mom_lookback + 1:
+            if self.mom_pass_on_no_history:
+                logger.debug("Momentum filter: insufficient history — pass-through")
+                return True
+            logger.debug("Momentum filter: insufficient history — blocking")
+            return False
+
+        closes_list = list(self._mom_closes)
+        prev_close = closes_list[-1]          # most recent completed session close
+        old_close  = closes_list[-(self.mom_lookback + 1)]  # N sessions before that
+        if old_close <= 0:
+            return True
+
+        n_day_return = (prev_close / old_close) - 1.0
+        if n_day_return <= self.mom_threshold:
+            logger.info(
+                f"Momentum filter: BLOCK — {self.mom_lookback}d return "
+                f"{n_day_return*100:+.2f}% ≤ threshold {self.mom_threshold*100:+.2f}%"
+            )
+            return False
+
+        logger.info(
+            f"Momentum filter: PASS — {self.mom_lookback}d return "
+            f"{n_day_return*100:+.2f}% > threshold {self.mom_threshold*100:+.2f}%"
+        )
+        return True
 
     def _init_msite(self) -> None:
         """Initialise the MSITE secondary signal engine from rules.yaml [msite] section."""
@@ -201,6 +386,36 @@ class LiveRunner:
             drawdown_buffer=cfg["drawdown"]["buffer_from_max"],
         )
 
+    def _init_vwap(self) -> None:
+        """Initialise VWAP mean reversion rule from rules.yaml [vwap_mean_reversion] section."""
+        cfg = self.rules_cfg.get("vwap_mean_reversion", {})
+        if not cfg.get("enabled", False):
+            self.vwap_rule = None
+            self.vwap_time_stop_bars = 12
+            self.vwap_max_trades = 2
+            self.vwap_pt_mult = 2.0
+            self.vwap_sl_mult = 1.5
+            logger.info("VWAP engine: disabled (rules.yaml vwap_mean_reversion.enabled=false)")
+            return
+        self.vwap_rule = VWAPMeanReversionRule(
+            entry_distance_atr=cfg.get("entry_distance_atr", 1.0),
+            max_distance_atr=cfg.get("max_distance_atr", 3.0),
+            atr_period=cfg.get("atr_period", 14),
+            time_start=cfg.get("time_start", "10:30"),
+            time_end=cfg.get("time_end", "13:30"),
+            long_only=cfg.get("long_only", False),
+            max_move_from_open_atr=cfg.get("max_move_from_open_atr", 1.0),
+        )
+        self.vwap_time_stop_bars = cfg.get("time_stop_bars", 12)
+        self.vwap_max_trades = cfg.get("max_trades", 2)
+        self.vwap_pt_mult = cfg.get("profit_target_atr", 2.0)
+        self.vwap_sl_mult = cfg.get("stop_loss_atr", 1.5)
+        logger.info(
+            f"VWAP engine: enabled (entry_dist={self.vwap_rule.entry_distance_atr}x, "
+            f"window={cfg.get('time_start')}–{cfg.get('time_end')} ET, "
+            f"PT={self.vwap_pt_mult}x, SL={self.vwap_sl_mult}x)"
+        )
+
     def _init_data_fetcher(self):
         """Initialize TopstepX data fetcher and reuse its authenticated client."""
         try:
@@ -211,7 +426,7 @@ class LiveRunner:
             self.data_fetcher = TopstepXRestDataFetcher(
                 contract_id=self.contract_id,
                 bar_size_minutes=5,
-                lookback_bars=100,
+                lookback_bars=500,
                 enable_rth_filter=True,
             )
             self.data_fetcher.initialize_buffer()
@@ -245,11 +460,6 @@ class LiveRunner:
                      stop_loss: float, profit_target: float) -> bool:
         """Place a bracketed market order via ProjectX REST API."""
         try:
-            core_dir = str(Path(__file__).parent.parent)
-            if core_dir not in sys.path:
-                sys.path.insert(0, core_dir)
-            from core.projectx_client import BracketInstruction
-
             tick_size    = self.risk_cfg["position"]["tick_size"]
             n_contracts  = self.risk_manager.contracts
 
@@ -560,6 +770,92 @@ class LiveRunner:
         logger.debug(f"Opening gap: open={today_open:.2f}  prev_close={prev_close:.2f}  gap={gap_pct*100:.3f}%")
         return gap_pct
 
+    def _prev_vwap_bearish_override_allows_long(self, bars_df: pd.DataFrame) -> bool:
+        """Allow long ORB on bearish PrevVWAP days only when the open is unusually strong."""
+        cfg = self.prev_vwap_override_cfg or {}
+        if not cfg.get("enabled", False):
+            return False
+        if bars_df is None or len(bars_df) < 2:
+            return False
+
+        try:
+            idx = bars_df.index
+            today = idx[-1].date()
+            today_bars = bars_df[idx.map(lambda t: t.date()) == today]
+            if today_bars.empty:
+                return False
+
+            orb_cfg = self.rules_cfg.get("opening_range_breakout", {})
+            session_start = orb_cfg.get("session_start_time", "09:30")
+            or_end = orb_cfg.get("or_end_time", "10:04")
+            start_h, start_m = [int(x) for x in session_start.split(":", 1)]
+            end_h, end_m = [int(x) for x in or_end.split(":", 1)]
+
+            et_index = today_bars.index.tz_convert("US/Eastern")
+            or_mask = (
+                ((et_index.hour > start_h) | ((et_index.hour == start_h) & (et_index.minute >= start_m)))
+                & ((et_index.hour < end_h) | ((et_index.hour == end_h) & (et_index.minute <= end_m)))
+            )
+            or_bars = today_bars[or_mask]
+            min_or_bars = int(orb_cfg.get("min_or_bars", 7))
+            if len(or_bars) < min_or_bars:
+                return False
+
+            atr_val = float(atr(bars_df["high"], bars_df["low"], bars_df["close"], orb_cfg.get("atr_period", 14)).iloc[-1])
+            if pd.isna(atr_val) or atr_val <= 0:
+                return False
+
+            or_high = float(or_bars["high"].max())
+            or_low = float(or_bars["low"].min())
+            or_width = or_high - or_low
+            if or_width <= 0:
+                return False
+
+            current_close = float(bars_df["close"].iloc[-1])
+            today_open = float(today_bars["open"].iloc[0])
+            avg_or_volume = float(or_bars["volume"].mean())
+            current_volume = float(bars_df["volume"].iloc[-1])
+            gap_pct = self._compute_opening_gap_pct(bars_df)
+
+            gap_up = gap_pct is not None and gap_pct >= float(cfg.get("min_gap_up_pct", 0.001))
+            drive = (current_close - today_open) / atr_val >= float(cfg.get("min_drive_from_open_atr", 0.75))
+            or_expansion = or_width / atr_val >= float(cfg.get("min_or_range_atr", 0.8))
+            breakout = (current_close - or_high) / atr_val >= float(cfg.get("min_breakout_excess_atr", 0.15))
+            volume = avg_or_volume > 0 and current_volume / avg_or_volume >= float(cfg.get("min_volume_ratio", 1.1))
+            metrics = {
+                "gap_up": gap_up,
+                "drive": drive,
+                "or_expansion": or_expansion,
+                "breakout": breakout,
+                "volume": volume,
+            }
+
+            if cfg.get("require_breakout", True) and not breakout:
+                return False
+
+            score = sum(1 for passed in metrics.values() if passed)
+            min_score = int(cfg.get("min_score", 4))
+            if score >= min_score:
+                logger.info(
+                    "PrevVWAP override: bearish prior session but strong open allows ORB "
+                    f"(score={score}/{len(metrics)}, "
+                    f"gap={gap_pct * 100 if gap_pct is not None else float('nan'):.2f}%, "
+                    f"drive={(current_close - today_open) / atr_val:.2f}xATR, "
+                    f"OR={or_width / atr_val:.2f}xATR, "
+                    f"breakout={(current_close - or_high) / atr_val:.2f}xATR, "
+                    f"vol={current_volume / avg_or_volume if avg_or_volume > 0 else 0.0:.2f}x)"
+                )
+                return True
+
+            logger.info(
+                "PrevVWAP override: conditions not strong enough "
+                f"(score={score}/{len(metrics)}, needed={min_score}, details={metrics})"
+            )
+            return False
+        except Exception as exc:
+            logger.warning(f"PrevVWAP override check failed, keeping filter active: {exc}")
+            return False
+
     def _compute_gex_explosive(self) -> bool:
         """
         GEX proxy: returns True when today's VXN is below its 60-day rolling mean.
@@ -616,6 +912,10 @@ class LiveRunner:
         if self.gire_engine is not None:
             self._process_gire_bar(bar_time, latest_bar, bars_df)
 
+        # VWAP mean reversion — midday window, independent of ORB
+        if self.vwap_rule is not None:
+            self._process_vwap_bar(bar_time, latest_bar, bars_df)
+
     def _process_orb_signal(self, bar_time, latest_bar, bars_df) -> None:
         """Evaluate ORB rule and place order when conditions are met."""
         # Daily trade cap
@@ -634,8 +934,9 @@ class LiveRunner:
         if self.require_prev_vwap:
             _pv_session = self._compute_prev_vwap_bullish(bars_df)
             if self.long_only and _pv_session is False:
-                logger.info("PrevVWAP filter: yesterday bearish — no long trade today")
-                return
+                if not self._prev_vwap_bearish_override_allows_long(bars_df):
+                    logger.info("PrevVWAP filter: yesterday bearish — no long trade today")
+                    return
 
         # Skip gap-up filter: skip days where today opened >threshold above prior close
         # (overextended opens tend to revert rather than continue through the OR breakout)
@@ -665,6 +966,14 @@ class LiveRunner:
         logger.info(f"Signal: {decision.summary}")
 
         if not decision.should_trade:
+            return
+
+        # VC directional filter: gate on prior day range + direction alignment
+        if not self._vc_filter_allows(decision.direction, bars_df):
+            return
+
+        # 3-day momentum filter: block when market in steep short-term downtrend
+        if not self._mom_filter_allows():
             return
 
         # PrevVWAP direction alignment for bidirectional mode:
@@ -1137,6 +1446,165 @@ class LiveRunner:
         except Exception as e:
             logger.error(f"_check_gire_fill error: {e}", exc_info=True)
 
+    def _process_vwap_bar(self, bar_time, latest_bar, bars_df) -> None:
+        """Process one bar through the VWAP mean reversion rule and manage its active trade."""
+        if self.vwap_active_trade is not None:
+            self.vwap_active_trade["bars_since_entry"] += 1
+            self.vwap_active_trade["last_bar_close"] = latest_bar["close"]
+            if self.vwap_active_trade["bars_since_entry"] >= self.vwap_time_stop_bars:
+                self._apply_vwap_time_stop()
+            return
+
+        if self.vwap_trades_today >= self.vwap_max_trades:
+            return
+
+        can_trade, reason = self.risk_manager.can_trade()
+        if not can_trade:
+            logger.debug(f"VWAP risk block: {reason}")
+            return
+
+        signal = self.vwap_rule.evaluate(bars_df)
+        if not signal.has_signal:
+            return
+
+        cur_atr = signal.metadata.get("atr", 0.0)
+        if cur_atr <= 0:
+            return
+
+        entry_price = float(latest_bar["close"])
+        if signal.direction == 1:
+            stop_loss    = entry_price - self.vwap_sl_mult * cur_atr
+            profit_target = entry_price + self.vwap_pt_mult * cur_atr
+        else:
+            stop_loss    = entry_price + self.vwap_sl_mult * cur_atr
+            profit_target = entry_price - self.vwap_pt_mult * cur_atr
+
+        direction_str = "LONG" if signal.direction == 1 else "SHORT"
+        vwap = signal.metadata.get("vwap", 0.0)
+        dev  = signal.metadata.get("deviation_atr", 0.0)
+        logger.info(
+            f"VWAP SIGNAL: {self.symbol} {direction_str} @ {entry_price:.2f} "
+            f"(VWAP={vwap:.2f}, dev={dev:.2f}x ATR, SL={stop_loss:.2f}, TP={profit_target:.2f})"
+        )
+
+        if self.dry_run:
+            logger.info("[DRY RUN] VWAP trade logged but not executed")
+            self.vwap_active_trade = {
+                "direction": signal.direction,
+                "entry_price": entry_price,
+                "stop_loss": stop_loss,
+                "profit_target": profit_target,
+                "bars_since_entry": 0,
+                "last_bar_close": entry_price,
+            }
+            self.vwap_trades_today += 1
+            return
+
+        success = self._place_order(direction_str, entry_price, stop_loss, profit_target)
+        if success:
+            logger.info(f"[LIVE] VWAP order placed: {self.symbol} {direction_str}")
+            self.vwap_active_trade = {
+                "direction": signal.direction,
+                "entry_price": entry_price,
+                "stop_loss": stop_loss,
+                "profit_target": profit_target,
+                "bars_since_entry": 0,
+                "last_bar_close": entry_price,
+            }
+            self.vwap_trades_today += 1
+        else:
+            logger.error(f"[LIVE] VWAP order placement FAILED for {self.symbol} {direction_str}")
+
+    def _apply_vwap_time_stop(self) -> None:
+        """Flatten VWAP position after time_stop_bars elapsed."""
+        trade = self.vwap_active_trade
+        direction_label = "LONG" if trade["direction"] == 1 else "SHORT"
+        logger.info(f"VWAP time stop: {self.vwap_time_stop_bars} bars ({direction_label})")
+
+        if self.dry_run:
+            logger.info("[DRY RUN] VWAP time stop would flatten position")
+            self.vwap_active_trade = None
+            return
+
+        try:
+            positions = self.client.search_open_positions()
+            if not positions:
+                logger.info("VWAP time stop: position already closed")
+                self.vwap_active_trade = None
+                return
+
+            open_orders = self.client.search_open_orders()
+            for order in open_orders:
+                try:
+                    self.client.cancel_order(str(order.order_id))
+                except Exception as e:
+                    logger.warning(f"VWAP time stop cancel failed id={order.order_id}: {e}")
+
+            entry_price  = trade["entry_price"]
+            direction    = trade["direction"]
+            last_close   = trade["last_bar_close"]
+            n_contracts  = self.risk_manager.contracts
+
+            close_side = "SELL" if direction == 1 else "BUY"
+            self.client.place_order(
+                symbol=self.symbol, side=close_side,
+                quantity=n_contracts, order_type="MARKET",
+                contract_id=self.contract_id,
+            )
+
+            point_value = self.risk_cfg["position"]["point_value"]
+            commission  = self.risk_cfg["position"].get("commission_per_side", 0.62)
+            pnl = (last_close - entry_price) * direction * n_contracts * point_value \
+                  - 2 * commission * n_contracts
+
+            self.risk_manager.record_trade(TradeRecord(
+                entry_bar=0, exit_bar=0, direction=direction,
+                entry_price=entry_price, exit_price=last_close,
+                pnl=pnl, exit_reason="time_stop",
+            ))
+            logger.info(f"[VWAP TIME STOP] PnL=${pnl:+.2f}")
+        except Exception as e:
+            logger.error(f"VWAP time stop flatten failed: {e}", exc_info=True)
+        finally:
+            self.vwap_active_trade = None
+
+    def _check_vwap_fill(self) -> None:
+        """Infer VWAP trade exit when position disappears from API."""
+        if self.vwap_active_trade is None:
+            return
+        try:
+            if self.client.search_open_positions():
+                return
+
+            trade       = self.vwap_active_trade
+            entry_price = trade["entry_price"]
+            direction   = trade["direction"]
+            sl, tp      = trade["stop_loss"], trade["profit_target"]
+            last_close  = trade["last_bar_close"]
+            n_contracts = self.risk_manager.contracts
+
+            if direction == 1:
+                exit_price = tp if last_close >= tp else (sl if last_close <= sl else last_close)
+                reason     = "profit_target" if last_close >= tp else ("stop_loss" if last_close <= sl else "bracket_fill")
+            else:
+                exit_price = tp if last_close <= tp else (sl if last_close >= sl else last_close)
+                reason     = "profit_target" if last_close <= tp else ("stop_loss" if last_close >= sl else "bracket_fill")
+
+            point_value = self.risk_cfg["position"]["point_value"]
+            commission  = self.risk_cfg["position"].get("commission_per_side", 0.62)
+            pnl = (exit_price - entry_price) * direction * n_contracts * point_value \
+                  - 2 * commission * n_contracts
+
+            self.risk_manager.record_trade(TradeRecord(
+                entry_bar=0, exit_bar=0, direction=direction,
+                entry_price=entry_price, exit_price=exit_price,
+                pnl=pnl, exit_reason=reason,
+            ))
+            logger.info(f"[VWAP FILL] {reason}: PnL=${pnl:+.2f}")
+            self.vwap_active_trade = None
+        except Exception as e:
+            logger.error(f"_check_vwap_fill error: {e}", exc_info=True)
+
     def _signal_handler(self, signum, frame):
         logger.warning(f"Signal {signum} received - shutting down")
         self.running = False
@@ -1153,6 +1621,16 @@ class LiveRunner:
         if not self._init_data_fetcher():
             logger.error("Failed to initialize - aborting")
             return
+
+        # Seed momentum (and VC) history from the historical buffer loaded at startup
+        seed_bars = self.data_fetcher.get_buffer()
+        if seed_bars is not None:
+            self._mom_seed_from_buffer(seed_bars)
+            if self.vc_enabled:
+                today = seed_bars.index[-1].date()
+                for d in sorted(set(seed_bars.index.map(lambda t: t.date()))):
+                    if d < today:
+                        self._vc_record_day(seed_bars, d)
 
         signal.signal(signal.SIGINT,  self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -1172,6 +1650,14 @@ class LiveRunner:
                 # New-day state reset
                 now_date = datetime.now().date()
                 if current_date is not None and now_date != current_date:
+                    # Record completed session into VC and momentum rolling history before reset
+                    bars_snapshot = self.data_fetcher.get_buffer() if self.data_fetcher else None
+                    if bars_snapshot is not None:
+                        if self.vc_enabled:
+                            self._vc_record_day(bars_snapshot, current_date)
+                        if self.mom_enabled:
+                            self._mom_record_day(bars_snapshot, current_date)
+
                     self.risk_manager.reset_daily()
                     self.trades_today = 0
                     self.active_trade = None
@@ -1186,6 +1672,8 @@ class LiveRunner:
                     self.gire_active_trade = None
                     if self.gire_engine is not None:
                         self.gire_engine.reset_day()
+                    self.vwap_active_trade = None
+                    self.vwap_trades_today = 0
                     logger.info("New trading day — risk state reset")
                 current_date = now_date
 
@@ -1212,6 +1700,12 @@ class LiveRunner:
                         self._check_gire_fill()
                     except Exception as e:
                         logger.error(f"_check_gire_fill error: {e}", exc_info=True)
+
+                if self.vwap_active_trade is not None and not self.dry_run:
+                    try:
+                        self._check_vwap_fill()
+                    except Exception as e:
+                        logger.error(f"_check_vwap_fill error: {e}", exc_info=True)
 
                 latest_bar = self.data_fetcher.get_latest_bar()
                 if latest_bar is not None and (

@@ -1,7 +1,9 @@
-# Conservative ORB sidecar — 1 MNQ; align limits with combine-style buffers.
+# ORB sidecar — 10 MNQ contracts, funded account.
+# Topstep 50k funded hard limits: $1,000/day loss, $2,000 trailing drawdown.
+# At 10 MNQ, one SL ≈ $1,200 — circuit breaker stops after 1 consecutive loss.
 
 position:
-  contracts: 1
+  contracts: 10             # 50k funded account
   instrument: "MNQ"
   tick_size: 0.25
   tick_value: 0.50
@@ -9,17 +11,17 @@ position:
   commission_per_side: 0.62
 
 daily_limits:
-  max_daily_loss: -950.0
-  per_trade_max_loss: 1000.0
+  max_daily_loss: -950.0    # Topstep funded 50k hard cap is $1,000; $50 buffer
+  per_trade_max_loss: 1800.0
 
 circuit_breaker:
-  max_consecutive_losses: 3
-  cooldown_bars: 3
+  max_consecutive_losses: 1  # one loss at 10 contracts ≈ $1,200 — stop for the day
+  cooldown_bars: 5
 
 session:
   flatten_minutes_before_close: 5
   session_close: "16:00"
-  max_trades_per_day: 1
+  max_trades_per_day: 2     # VC filter already limits signals; 2 max per day
 
 drawdown:
-  buffer_from_max: 1950.0
+  buffer_from_max: 1950.0   # Topstep funded 50k trailing max DD $2,000; $50 buffer

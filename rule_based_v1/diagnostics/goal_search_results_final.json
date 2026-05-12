@@ -1,0 +1,59 @@
+{
+  "goal": {
+    "pnl_target": 15000,
+    "max_dd_limit": -2000,
+    "contracts": 5
+  },
+  "achieved": true,
+  "config": {
+    "strategy": "LO_ORB + 3d_momentum_filter",
+    "or_end_time": "10:04",
+    "min_or_bars": 7,
+    "entry_cutoff": "12:00",
+    "long_only": true,
+    "pt_mult": 3.0,
+    "sl_mult": 1.5,
+    "max_trades_per_day": 1,
+    "time_stop_bars": 24,
+    "momentum_filter": {
+      "lookback_days": 3,
+      "threshold": -0.01,
+      "description": "Only enter LONG ORB when 3-day return > -1% (skip steep short-term downtrends)"
+    }
+  },
+  "results_5c_2026ytd": {
+    "n_trades": 37,
+    "win_rate": 0.703,
+    "total_pnl": 15548.0,
+    "max_drawdown": -1417.0,
+    "sharpe": 7.91,
+    "monthly_pnl": {
+      "2026-01": 2292,
+      "2026-02": -36,
+      "2026-03": 3220,
+      "2026-04": 8958,
+      "2026-05": 1115
+    }
+  },
+  "comparison_baseline_no_filter_lo_5c": {
+    "n_trades": 49,
+    "win_rate": 0.653,
+    "total_pnl": 18084,
+    "max_drawdown": -3624,
+    "sharpe": "~5"
+  },
+  "filter_analysis": {
+    "bad_dates_blocked": [
+      "2026-02-13 (-2.27%)",
+      "2026-03-23 (-1.25%)",
+      "2026-03-24 (-1.59%)"
+    ],
+    "bad_dates_still_allowed": [
+      "2026-02-20 (+0.47%)",
+      "2026-03-19 (+0.15%)"
+    ],
+    "trades_removed_vs_baseline": 12,
+    "interpretation": "Blocks ORB longs when market has sold off >1% over prior 3 trading days; avoids breakouts into sustained downtrends"
+  },
+  "note": "Data: MNQ 5-min RTH bars Jan 2 - May 8 2026, 89 trading days. Contract params: point_value=2.0, commission=0.62/side, slippage=1 tick."
+}

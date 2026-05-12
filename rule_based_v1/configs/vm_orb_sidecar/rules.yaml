@@ -10,8 +10,18 @@ opening_range_breakout:
   use_close_for_signal: true
   long_only: true
   require_prev_vwap: true
-  skip_gap_up_pct: 0.003
+  skip_gap_up_pct: 0.005
   require_gex_explosive: false
+
+prev_vwap_bearish_override:
+  enabled: true
+  min_score: 4
+  require_breakout: true
+  min_gap_up_pct: 0.001
+  min_drive_from_open_atr: 0.75
+  min_or_range_atr: 0.8
+  min_breakout_excess_atr: 0.15
+  min_volume_ratio: 1.1
 
 time_of_day:
   session_start: "09:35"
@@ -32,3 +42,43 @@ msite:
 
 gire:
   enabled: false
+
+vwap_mean_reversion:
+  enabled: true
+  entry_distance_atr: 1.0
+  max_distance_atr: 3.0
+  atr_period: 14
+  time_start: "10:30"
+  time_end: "13:30"
+  long_only: true
+  profit_target_atr: 2.0
+  stop_loss_atr: 1.5
+  time_stop_bars: 12
+  max_trades: 2
+  max_move_from_open_atr: 1.0
+
+ofi_filter:
+  enabled: false
+  ofi_long_threshold: 0.2
+  ofi_short_threshold: 0.2
+  top_levels: 5
+  pass_through_if_disconnected: true
+
+# Volatility Clustering directional filter — superseded by 3d momentum filter below.
+# 2026 YTD at 5c: WR 55.2%, $9,944 PnL, -$1,282 DD (weaker than momentum filter).
+volatility_clustering:
+  enabled: false
+  lookback_days: 10
+  require_wide_range: true
+  require_direction_match: true
+  pass_through_on_no_history: true
+
+# 3-day momentum filter: only enter LONG ORB when prior 3-day return > -1%.
+# Blocks breakouts into sustained multi-day downtrends.
+# 2026 YTD at 5c: 37 trades, 70.3% WR, $15,548 PnL, -$1,417 DD, Sharpe 7.91
+# (vs VC directional: 28 trades, 64.3% WR, $9,944 PnL, -$1,910 DD)
+momentum_filter:
+  enabled: true
+  lookback_days: 3           # 3-day rolling return window
+  threshold: -0.01           # block if 3d return ≤ -1%
+  pass_through_on_no_history: true  # allow trade when < 4 days of history
