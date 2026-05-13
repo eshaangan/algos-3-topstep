@@ -55,7 +55,7 @@ vwap_mean_reversion:
   stop_loss_atr: 1.5
   time_stop_bars: 12
   max_trades: 2
-  max_move_from_open_atr: 1.0
+  max_move_from_open_atr: 2.0  # was 1.0; relaxed to allow more setups (+37% signals)
 
 ofi_filter:
   enabled: false
