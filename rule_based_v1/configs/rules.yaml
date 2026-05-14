@@ -7,6 +7,8 @@ opening_range_breakout:
   or_end_time: "10:04"          # OR window: 09:30-10:04 ET (7 bars) — first signal at 10:05
   min_or_bars: 7                # Need at least 7 bars in OR window
   min_range_atr: 0.3            # Range must be >= 0.3x ATR (filters flat opens)
+  max_or_range_atr: 5.0         # Skip if OR range > 5x ATR — only extreme opens (2026 YTD: 2 days hit this, WR=50%, pnl=$32)
+                                # Note: 4x ATR threshold would filter profitable days (WR=85.7% at 4-5x ATR range)
   entry_cutoff_time: "12:00"    # No new entries after noon
   atr_period: 14
   use_close_for_signal: true    # Trigger on close > range_high (confirmed break)

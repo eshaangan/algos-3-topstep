@@ -55,6 +55,10 @@ class OpeningRangeBreakoutRule(BaseRule):
     long_only : bool
         If True, only take LONG breakout signals. SHORT signals are suppressed.
         Default False.
+    max_or_range_atr : float
+        Skip ORB signal if OR range > this multiple of ATR. Avoids entering on
+        abnormally wide-range opens where breakouts fail more often.
+        Default 999 (disabled). Recommended: 4.0.
     """
 
     def __init__(
@@ -68,6 +72,7 @@ class OpeningRangeBreakoutRule(BaseRule):
         atr_period: int = 14,
         use_close_for_signal: bool = True,
         long_only: bool = False,
+        max_or_range_atr: float = 999.0,
     ):
         super().__init__(name="opening_range_breakout", role="primary")
         self.session_timezone = session_timezone
@@ -79,6 +84,7 @@ class OpeningRangeBreakoutRule(BaseRule):
         self.atr_period = atr_period
         self.use_close_for_signal = use_close_for_signal
         self.long_only = long_only
+        self.max_or_range_atr = max_or_range_atr
 
         # Parse time strings in the active session clock (Eastern or Tokyo)
         h_ss, m_ss = map(int, session_start_time.split(":"))
@@ -195,6 +201,12 @@ class OpeningRangeBreakoutRule(BaseRule):
             return RuleSignal.no_signal(
                 self.name,
                 f"Range too narrow: {range_width:.2f} < {self.min_range_atr} × ATR({atr_val:.2f})",
+            )
+
+        if range_width > self.max_or_range_atr * atr_val:
+            return RuleSignal.no_signal(
+                self.name,
+                f"OR too wide: {range_width:.2f} > {self.max_or_range_atr} × ATR({atr_val:.2f}) — skipping volatile open",
             )
 
         # --- Breakout detection ---

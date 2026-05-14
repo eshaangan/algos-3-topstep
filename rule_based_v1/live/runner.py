@@ -347,6 +347,7 @@ class LiveRunner:
             or_end_time=orb_cfg["or_end_time"],
             min_or_bars=orb_cfg.get("min_or_bars", 4),
             min_range_atr=orb_cfg["min_range_atr"],
+            max_or_range_atr=orb_cfg.get("max_or_range_atr", 999.0),
             entry_cutoff_time=orb_cfg["entry_cutoff_time"],
             atr_period=orb_cfg.get("atr_period", 14),
             use_close_for_signal=orb_cfg.get("use_close_for_signal", True),

@@ -5,6 +5,7 @@ opening_range_breakout:
   or_end_time: "10:04"
   min_or_bars: 7
   min_range_atr: 0.3
+  max_or_range_atr: 5.0
   entry_cutoff_time: "12:00"
   atr_period: 14
   use_close_for_signal: true

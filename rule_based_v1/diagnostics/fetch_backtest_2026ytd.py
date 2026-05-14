@@ -54,6 +54,7 @@ PT_MULT            = 3.0
 SL_MULT            = 1.5
 ENTRY_CUTOFF       = "12:00"
 MIN_RANGE_ATR      = 0.3
+MAX_OR_RANGE_ATR   = 999.0
 ATR_PERIOD         = 14
 TIME_STOP_BARS     = 24
 TRAILING_ACT_ATR   = 999.0
@@ -78,7 +79,7 @@ STARTING_EQUITY    = 50_000.0
 def apply_config(config_dir: Path) -> dict:
     """Load live-style YAML config and update module-level backtest constants."""
     global OR_END_TIME, MIN_OR_BARS, PT_MULT, SL_MULT, ENTRY_CUTOFF
-    global MIN_RANGE_ATR, ATR_PERIOD, TIME_STOP_BARS, TRAILING_ACT_ATR
+    global MIN_RANGE_ATR, MAX_OR_RANGE_ATR, ATR_PERIOD, TIME_STOP_BARS, TRAILING_ACT_ATR
     global TRAILING_DIST_ATR, POINT_VALUE, TICK_SIZE, TICK_VALUE, COMMISSION
     global N_CONTRACTS, MAX_TRADES_PER_DAY, MAX_DAILY_LOSS, DRAWDOWN_BUFFER
     global PER_TRADE_MAX_LOSS, COOLDOWN_BARS, MAX_CONSEC_LOSSES
@@ -97,6 +98,7 @@ def apply_config(config_dir: Path) -> dict:
     OR_END_TIME = orb_cfg.get("or_end_time", OR_END_TIME)
     MIN_OR_BARS = int(orb_cfg.get("min_or_bars", MIN_OR_BARS))
     MIN_RANGE_ATR = float(orb_cfg.get("min_range_atr", MIN_RANGE_ATR))
+    MAX_OR_RANGE_ATR = float(orb_cfg.get("max_or_range_atr", MAX_OR_RANGE_ATR))
     ENTRY_CUTOFF = orb_cfg.get("entry_cutoff_time", ENTRY_CUTOFF)
     ATR_PERIOD = int(orb_cfg.get("atr_period", ATR_PERIOD))
 
@@ -361,7 +363,8 @@ def run_backtest(
 ) -> dict:
     orb = OpeningRangeBreakoutRule(
         or_end_time=OR_END_TIME, min_or_bars=MIN_OR_BARS,
-        min_range_atr=MIN_RANGE_ATR, entry_cutoff_time=ENTRY_CUTOFF,
+        min_range_atr=MIN_RANGE_ATR, max_or_range_atr=MAX_OR_RANGE_ATR,
+        entry_cutoff_time=ENTRY_CUTOFF,
         atr_period=ATR_PERIOD, long_only=long_only,
     )
     agg = SignalAggregator(primary_rule=orb, filter_rules=[], confirmation_rules=[], min_confirmations=0)
