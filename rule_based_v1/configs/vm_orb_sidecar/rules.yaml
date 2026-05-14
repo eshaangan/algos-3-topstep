@@ -45,7 +45,7 @@ gire:
   enabled: false
 
 vwap_mean_reversion:
-  enabled: true
+  enabled: false  # SURVIVAL MODE: disabled — too much DD variance with $500 buffer
   entry_distance_atr: 1.0
   max_distance_atr: 3.0
   atr_period: 14

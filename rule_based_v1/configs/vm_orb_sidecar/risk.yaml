@@ -1,9 +1,9 @@
-# ORB sidecar — 10 MNQ contracts, funded account.
-# Topstep 50k funded hard limits: $1,000/day loss, $2,000 trailing drawdown.
-# At 10 MNQ, one SL ≈ $1,200 — circuit breaker stops after 1 consecutive loss.
+# SURVIVAL MODE — 50k funded account at -$1,500 (~$500 DD buffer remaining)
+# Goal: recover without blowing account. Scale back up after positive.
+# At 3 MNQ: avg win ~$410, avg loss ~$300. One loss still leaves ~$200 buffer.
 
 position:
-  contracts: 10             # 50k funded account
+  contracts: 3              # SURVIVAL: reduced from 10 MNQ; one SL = ~$300
   instrument: "MNQ"
   tick_size: 0.25
   tick_value: 0.50
@@ -11,17 +11,17 @@ position:
   commission_per_side: 0.62
 
 daily_limits:
-  max_daily_loss: -1600.0   # 10 MNQ: allows up to 2 losing trades before daily halt
-  per_trade_max_loss: 1800.0
+  max_daily_loss: -350.0    # 3 MNQ: hard stop after one losing ORB trade
+  per_trade_max_loss: 400.0
 
 circuit_breaker:
-  max_consecutive_losses: 3  # allow ORB loss + 2 VWAP attempts before full stop
-  cooldown_bars: 3
+  max_consecutive_losses: 1  # stop immediately after any loss — protect remaining $500
+  cooldown_bars: 5
 
 session:
   flatten_minutes_before_close: 5
   session_close: "16:00"
-  max_trades_per_day: 5     # ORB(1) + VWAP(2) + buffer; was 2 blocking VWAP after ORB
+  max_trades_per_day: 1     # ORB only — one shot per day, best setup only
 
 drawdown:
-  buffer_from_max: 1950.0   # Topstep funded 50k trailing max DD $2,000; $50 buffer
+  buffer_from_max: 450.0    # Only $500 left; stop trading if within $50 of DD limit
