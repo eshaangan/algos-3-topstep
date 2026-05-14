@@ -2,7 +2,7 @@
 # Designed for Topstep 50k Combine
 
 position:
-  contracts: 2              # P0-A: reduced from 3 — Feb 13 took -$1,452 at 3c, pushing cumulative DD past $2k limit
+  contracts: 2              # 50k Express funded account
   instrument: "MNQ"
   tick_size: 0.25
   tick_value: 0.50          # $0.50 per tick for MNQ
@@ -19,7 +19,7 @@ circuit_breaker:
 session:
   flatten_minutes_before_close: 5
   session_close: "16:00"    # ET
-  max_trades_per_day: 1     # 1 trade/day: WR=73%, Sharpe=4.95 vs 2 trades WR=55%, Sharpe=0.34
+  max_trades_per_day: 4     # 1 ORB + up to 2 VWAP + 1 buffer; validate on backtest before increasing
 
 drawdown:
   # Topstep trailing max drawdown $2,000; stop at $1,950 ($50 buffer)

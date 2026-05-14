@@ -21,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 RBV1 = ROOT / "rule_based_v1"
@@ -39,8 +40,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-DATA_PATH    = ROOT / "data" / "processed" / "mnq_2026ytd_5min.h5"
-RESULTS_PATH = ROOT / "rule_based_v1" / "diagnostics" / "2026ytd_results.json"
+DATA_PATH      = ROOT / "data" / "processed" / "mnq_2026ytd_5min.h5"
+DATA_5MIN_PATH = ROOT / "data" / "processed" / "mnq_2026ytd_databento_5min_rth.h5"
+DATA_1MIN_PATH = ROOT / "data" / "processed" / "mnq_2026ytd_databento_1min_eth.h5"
+RESULTS_PATH   = ROOT / "rule_based_v1" / "diagnostics" / "2026ytd_results.json"
 
 # ---------------------------------------------------------------------------
 # Live config (mirrors deployed rules.yaml + risk.yaml)
@@ -70,6 +73,52 @@ PER_TRADE_MAX_LOSS = 1_000.0
 COOLDOWN_BARS      = 3
 MAX_CONSEC_LOSSES  = 10
 STARTING_EQUITY    = 50_000.0
+
+
+def apply_config(config_dir: Path) -> dict:
+    """Load live-style YAML config and update module-level backtest constants."""
+    global OR_END_TIME, MIN_OR_BARS, PT_MULT, SL_MULT, ENTRY_CUTOFF
+    global MIN_RANGE_ATR, ATR_PERIOD, TIME_STOP_BARS, TRAILING_ACT_ATR
+    global TRAILING_DIST_ATR, POINT_VALUE, TICK_SIZE, TICK_VALUE, COMMISSION
+    global N_CONTRACTS, MAX_TRADES_PER_DAY, MAX_DAILY_LOSS, DRAWDOWN_BUFFER
+    global PER_TRADE_MAX_LOSS, COOLDOWN_BARS, MAX_CONSEC_LOSSES
+
+    rules = yaml.safe_load((config_dir / "rules.yaml").read_text())
+    risk = yaml.safe_load((config_dir / "risk.yaml").read_text())
+
+    orb_cfg = rules.get("opening_range_breakout", {})
+    exit_cfg = rules.get("exit_strategy", {})
+    pos_cfg = risk.get("position", {})
+    daily_cfg = risk.get("daily_limits", {})
+    circuit_cfg = risk.get("circuit_breaker", {})
+    session_cfg = risk.get("session", {})
+    dd_cfg = risk.get("drawdown", {})
+
+    OR_END_TIME = orb_cfg.get("or_end_time", OR_END_TIME)
+    MIN_OR_BARS = int(orb_cfg.get("min_or_bars", MIN_OR_BARS))
+    MIN_RANGE_ATR = float(orb_cfg.get("min_range_atr", MIN_RANGE_ATR))
+    ENTRY_CUTOFF = orb_cfg.get("entry_cutoff_time", ENTRY_CUTOFF)
+    ATR_PERIOD = int(orb_cfg.get("atr_period", ATR_PERIOD))
+
+    PT_MULT = float(exit_cfg.get("profit_target_atr", PT_MULT))
+    SL_MULT = float(exit_cfg.get("stop_loss_atr", SL_MULT))
+    TIME_STOP_BARS = int(exit_cfg.get("time_stop_bars", TIME_STOP_BARS))
+    TRAILING_ACT_ATR = float(exit_cfg.get("trailing_activation_atr", TRAILING_ACT_ATR))
+    TRAILING_DIST_ATR = float(exit_cfg.get("trailing_distance_atr", TRAILING_DIST_ATR))
+
+    N_CONTRACTS = int(pos_cfg.get("contracts", N_CONTRACTS))
+    POINT_VALUE = float(pos_cfg.get("point_value", POINT_VALUE))
+    TICK_SIZE = float(pos_cfg.get("tick_size", TICK_SIZE))
+    TICK_VALUE = float(pos_cfg.get("tick_value", TICK_VALUE))
+    COMMISSION = float(pos_cfg.get("commission_per_side", COMMISSION))
+
+    MAX_DAILY_LOSS = float(daily_cfg.get("max_daily_loss", MAX_DAILY_LOSS))
+    PER_TRADE_MAX_LOSS = float(daily_cfg.get("per_trade_max_loss", PER_TRADE_MAX_LOSS))
+    MAX_CONSEC_LOSSES = int(circuit_cfg.get("max_consecutive_losses", MAX_CONSEC_LOSSES))
+    COOLDOWN_BARS = int(circuit_cfg.get("cooldown_bars", COOLDOWN_BARS))
+    MAX_TRADES_PER_DAY = int(session_cfg.get("max_trades_per_day", MAX_TRADES_PER_DAY))
+    DRAWDOWN_BUFFER = float(dd_cfg.get("buffer_from_max", DRAWDOWN_BUFFER))
+    return rules
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +169,15 @@ def fetch(start: str = "2026-01-01", end: str | None = None) -> pd.DataFrame:
 
     DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
     df5.to_hdf(str(DATA_PATH), key="bars_5min", mode="w", complevel=5)
-    logger.info(f"Saved → {DATA_PATH}")
+    df5.to_hdf(str(DATA_5MIN_PATH), key="bars_5min", mode="w", complevel=5)
+    logger.info(f"Saved 5-min → {DATA_5MIN_PATH}")
+
+    # Also save 1-min ETH for VWAP backtest (wider time coverage)
+    df1_eth = df.copy()
+    df1_eth.index = df1_eth.index.tz_convert("US/Eastern")
+    df1_eth.to_hdf(str(DATA_1MIN_PATH), key="bars_1min", mode="w", complevel=5)
+    logger.info(f"Saved 1-min ETH → {DATA_1MIN_PATH}")
+
     return df5
 
 
@@ -226,14 +283,86 @@ def _build_daily_meta(bars: pd.DataFrame) -> dict:
     return meta
 
 
+def _opening_gap_pct(bars: pd.DataFrame, i: int) -> float | None:
+    today = bars.index[i].date()
+    prior = bars[bars.index.date < today]
+    if prior.empty:
+        return None
+    prev_close = float(prior["close"].iloc[-1])
+    if prev_close == 0:
+        return None
+    today_bars = bars[bars.index.date == today]
+    if today_bars.empty:
+        return None
+    return (float(today_bars["open"].iloc[0]) - prev_close) / prev_close
+
+
+def _prev_vwap_override_allows_long(
+    bars: pd.DataFrame,
+    i: int,
+    cfg: dict | None,
+    atr_s: pd.Series,
+) -> bool:
+    """Backtest equivalent of LiveRunner._prev_vwap_bearish_override_allows_long."""
+    if not cfg or not cfg.get("enabled", False):
+        return False
+    today = bars.index[i].date()
+    through_now = bars.iloc[: i + 1]
+    today_bars = through_now[through_now.index.date == today]
+    if today_bars.empty:
+        return False
+
+    orb_end_h, orb_end_m = [int(x) for x in OR_END_TIME.split(":", 1)]
+    et_index = today_bars.index.tz_convert("US/Eastern")
+    or_mask = (
+        ((et_index.hour > 9) | ((et_index.hour == 9) & (et_index.minute >= 30)))
+        & ((et_index.hour < orb_end_h) | ((et_index.hour == orb_end_h) & (et_index.minute <= orb_end_m)))
+    )
+    or_bars = today_bars[or_mask]
+    if len(or_bars) < MIN_OR_BARS:
+        return False
+
+    atr_val = float(atr_s.iloc[i])
+    if np.isnan(atr_val) or atr_val <= 0:
+        return False
+
+    or_high = float(or_bars["high"].max())
+    or_width = float(or_bars["high"].max() - or_bars["low"].min())
+    if or_width <= 0:
+        return False
+
+    current_close = float(bars["close"].iloc[i])
+    today_open = float(today_bars["open"].iloc[0])
+    avg_or_volume = float(or_bars["volume"].mean())
+    current_volume = float(bars["volume"].iloc[i])
+    gap_pct = _opening_gap_pct(bars, i)
+
+    metrics = {
+        "gap_up": gap_pct is not None and gap_pct >= float(cfg.get("min_gap_up_pct", 0.001)),
+        "drive": (current_close - today_open) / atr_val >= float(cfg.get("min_drive_from_open_atr", 0.75)),
+        "or_expansion": or_width / atr_val >= float(cfg.get("min_or_range_atr", 0.8)),
+        "breakout": (current_close - or_high) / atr_val >= float(cfg.get("min_breakout_excess_atr", 0.15)),
+        "volume": avg_or_volume > 0 and current_volume / avg_or_volume >= float(cfg.get("min_volume_ratio", 1.1)),
+    }
+    if cfg.get("require_breakout", True) and not metrics["breakout"]:
+        return False
+    return sum(1 for passed in metrics.values() if passed) >= int(cfg.get("min_score", 4))
+
+
 # ---------------------------------------------------------------------------
 # Backtest
 # ---------------------------------------------------------------------------
-def run_backtest(bars: pd.DataFrame, require_prev_vwap: bool = False) -> dict:
+def run_backtest(
+    bars: pd.DataFrame,
+    require_prev_vwap: bool = False,
+    prev_vwap_override_cfg: dict | None = None,
+    skip_gap_up_pct: float | None = None,
+    long_only: bool = True,
+) -> dict:
     orb = OpeningRangeBreakoutRule(
         or_end_time=OR_END_TIME, min_or_bars=MIN_OR_BARS,
         min_range_atr=MIN_RANGE_ATR, entry_cutoff_time=ENTRY_CUTOFF,
-        atr_period=ATR_PERIOD, long_only=True,
+        atr_period=ATR_PERIOD, long_only=long_only,
     )
     agg = SignalAggregator(primary_rule=orb, filter_rules=[], confirmation_rules=[], min_confirmations=0)
     rm = RiskManager(
@@ -293,10 +422,15 @@ def run_backtest(bars: pd.DataFrame, require_prev_vwap: bool = False) -> dict:
         if pos is None and not sess_close and trades_today < MAX_TRADES_PER_DAY:
             ok, _ = rm.can_trade()
             if ok:
+                if skip_gap_up_pct is not None:
+                    gap = _opening_gap_pct(bars, i)
+                    if gap is not None and gap > skip_gap_up_pct:
+                        continue
                 if require_prev_vwap:
                     pv = daily_meta.get(bdate, {}).get("prev_vwap_bullish")
                     if pv is False:
-                        continue
+                        if not _prev_vwap_override_allows_long(bars, i, prev_vwap_override_cfg, atr_s):
+                            continue
                 lookback = bars.iloc[max(0, i - min_bars_needed + 1): i + 1]
                 dec = agg.evaluate(lookback)
                 if dec.should_trade:
@@ -390,24 +524,51 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--backtest-only", action="store_true", help="Skip fetch, use cached data")
     parser.add_argument("--start", default="2026-01-01")
+    parser.add_argument("--end", default=None, help="Exclusive end date, e.g. 2026-05-01")
     parser.add_argument("--prev-vwap", action="store_true",
                         help="Enable PrevVWAP filter (only trade when yesterday close > yesterday VWAP)")
+    parser.add_argument("--prev-vwap-override", action="store_true",
+                        help="Allow configured strong-open override on bearish PrevVWAP days")
+    parser.add_argument("--config-dir", default=str(RBV1 / "configs" / "vm_orb_sidecar"),
+                        help="Config directory whose rules/risk YAML should drive the backtest")
+    parser.add_argument("--long-short", action="store_true",
+                        help="Allow both long and short ORB signals instead of the config's long_only setting")
     args = parser.parse_args()
 
+    rules_cfg = apply_config(Path(args.config_dir))
+
     if args.backtest_only:
-        if not DATA_PATH.exists():
-            logger.error(f"No cached data at {DATA_PATH}. Run without --backtest-only first.")
+        cached_path = DATA_5MIN_PATH if DATA_5MIN_PATH.exists() else DATA_PATH
+        if not cached_path.exists():
+            logger.error(f"No cached data at {cached_path}. Run without --backtest-only first.")
             sys.exit(1)
-        bars = pd.read_hdf(str(DATA_PATH), key="bars_5min")
+        bars = pd.read_hdf(str(cached_path), key="bars_5min")
         if bars.index.tz is None:
             bars.index = bars.index.tz_localize("US/Eastern")
     else:
         bars = fetch(start=args.start)
+    if args.start:
+        bars = bars.loc[bars.index >= pd.Timestamp(args.start, tz="US/Eastern")]
+    if args.end:
+        bars = bars.loc[bars.index < pd.Timestamp(args.end, tz="US/Eastern")]
 
     logger.info(f"Running backtest on {len(bars):,} bars: {bars.index[0].date()} → {bars.index[-1].date()}")
     if args.prev_vwap:
         logger.info("PrevVWAP filter: ENABLED")
-    trades, eq_vals, eq_times, daily_pnl = run_backtest(bars, require_prev_vwap=args.prev_vwap)
+    if args.prev_vwap_override:
+        logger.info("PrevVWAP bearish override: ENABLED")
+    override_cfg = rules_cfg.get("prev_vwap_bearish_override", {}) if args.prev_vwap_override else None
+    orb_cfg = rules_cfg.get("opening_range_breakout", {})
+    skip_gap_up_pct = orb_cfg.get("skip_gap_up_pct")
+    long_only = bool(orb_cfg.get("long_only", False)) and not args.long_short
+    logger.info("ORB direction mode: %s", "LONG_ONLY" if long_only else "LONG_SHORT")
+    trades, eq_vals, eq_times, daily_pnl = run_backtest(
+        bars,
+        require_prev_vwap=args.prev_vwap,
+        prev_vwap_override_cfg=override_cfg,
+        skip_gap_up_pct=skip_gap_up_pct,
+        long_only=long_only,
+    )
     result = print_results(trades, eq_vals, eq_times, daily_pnl)
 
     with open(RESULTS_PATH, "w") as f:

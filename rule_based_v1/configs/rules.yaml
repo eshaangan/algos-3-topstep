@@ -13,10 +13,21 @@ opening_range_breakout:
   long_only: true               # SHORT side WR=33% (2026 YTD) — below breakeven for 3.0/1.5 system; long-only confirmed best
   require_prev_vwap: true       # PrevVWAP gate: only trade days where prior close > prior VWAP (bullish alignment)
                                 # Extended 162d: PrevVWAP+SkipGapUp = WR=52.6%, Sharpe=6.02, DD=-$906, P(pass)=84.7%
-  skip_gap_up_pct: 0.003        # Skip days where today opened >0.3% above prior close (overextended opens
-                                # that revert instead of break). Extended 162d validation: key to P(pass)=84.7%
+  skip_gap_up_pct: 0.005        # Skip days where today opened >0.5% above prior close (overextended opens
+                                # that revert instead of break). 0.5% optimal: Sharpe 1.84 vs 1.36 at 0.3%, PnL $3,890
+                                # Raised from 0.3% after May 6 2026 US-China tariff deal gap (0.87%) was missed
   require_gex_explosive: false  # GEX proxy filter — DISABLED for combine (N=10 too small); enable on PRACTICE only
                                 # Backtest: PrevVWAP+GEX = 10t, 80% WR, Sharpe=10.08, DD=-$796
+
+prev_vwap_bearish_override:
+  enabled: true
+  min_score: 4                  # Require 4 of: gap, drive, OR expansion, breakout excess, volume confirmation
+  require_breakout: true         # Never override until price is actually breaking the OR high
+  min_gap_up_pct: 0.001          # +0.10% opening gap vs prior close
+  min_drive_from_open_atr: 0.75  # Current close at least 0.75x ATR above today's open
+  min_or_range_atr: 0.8          # Opening range is meaningfully expanded
+  min_breakout_excess_atr: 0.15  # Breakout close clears OR high by at least 0.15x ATR
+  min_volume_ratio: 1.1          # Breakout bar volume >= 1.1x opening-range average
 
 time_of_day:
   # Eastern Time
@@ -52,3 +63,31 @@ gire:
   n_contracts: 6           # scaled from 5x — sweep: no DD change, +$378 PnL, Sharpe 5.50→5.65
   time_stop_bars: 48       # fallback bar count
   afternoon_cutoff: [12, 0]
+
+# VWAP Mean Reversion — active 10:30-13:30 ET (after ORB window closes)
+# Fades price dislocations from session VWAP back toward the mean.
+vwap_mean_reversion:
+  enabled: true
+  entry_distance_atr: 1.0   # Min ATR deviation from VWAP to trigger entry
+  max_distance_atr: 3.0     # Skip extreme moves (trend days, not mean reversion)
+  atr_period: 14
+  time_start: "10:30"       # ET — after ORB window closes
+  time_end: "13:30"         # ET — before afternoon momentum
+  long_only: true           # LONG-ONLY: 2026 bull market — SHORT VWAP fights trend (WR=45.8%, -$207)
+                            # LONG-ONLY: WR=59.7%, Sharpe=4.31, DD=-$1,123 vs bidirectional Sharpe=3.41, DD=-$1,848
+  profit_target_atr: 2.0   # Tighter than ORB (targeting return to VWAP)
+  stop_loss_atr: 1.5
+  time_stop_bars: 12        # 60 min at 5-min bars
+  max_trades: 2             # Max VWAP trades per day
+  max_move_from_open_atr: 1.0  # Regime gate: skip VWAP LONG if price already fell >1×ATR from day open.
+                               # Identifies trend days (gap-up then continuous sell-off) where fading is dangerous.
+                               # Backtested: turns 2024 H2 + 2025 H2 from -$1,518 combined → +$767.
+
+# OFI (Order Flow Imbalance) filter — uses Level 2 DOM via GatewayDepth WebSocket
+# Vetoes trades where book imbalance opposes the signal direction.
+ofi_filter:
+  enabled: false            # Enable after DOM subscription ($35/mo) is active
+  ofi_long_threshold: 0.2   # Require OFI > 0.2 for LONG entries
+  ofi_short_threshold: 0.2  # Require OFI < -0.2 for SHORT entries
+  top_levels: 5             # Number of book levels to aggregate
+  pass_through_if_disconnected: true  # Allow trades if DOM feed is down
