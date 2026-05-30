@@ -9,3 +9,4 @@ lightgbm
 pytz
 async-rithmic>=1.6.1
 setproctitle
+pyarrow

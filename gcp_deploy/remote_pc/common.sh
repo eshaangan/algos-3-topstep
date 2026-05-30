@@ -157,6 +157,7 @@ deploy_native() {
     ml_intraday_v3/__init__.py \
     ml_intraday_v3/scripts/__init__.py \
     ml_intraday_v3/scripts/ml_scalper_v7.py \
+    data/processed/mnq_microstructure_5min.parquet \
     gcp_deploy/requirements_ml_strategy.txt \
     | ssh_remote "mkdir -p '${REMOTE_DIR}/${REMOTE_WORK_DIR}' && tar xzf - -C '${REMOTE_DIR}/${REMOTE_WORK_DIR}'"
 
