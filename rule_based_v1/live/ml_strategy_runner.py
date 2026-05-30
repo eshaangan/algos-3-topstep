@@ -237,8 +237,6 @@ class MLStrategyRunner:
     def _signal_direction(self, prob: float) -> int | None:
         if prob >= self.conf_threshold:
             return 1
-        if prob <= (1 - self.conf_threshold):
-            return -1
         return None
 
     def _place_order(
