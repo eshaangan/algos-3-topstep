@@ -1,0 +1,80 @@
+[
+  {
+    "n_contracts": 5,
+    "n_trades": 71,
+    "win_rate": 0.634,
+    "total_pnl": 22237.25,
+    "weekly_pnl": 1323.65,
+    "max_drawdown": -2078.1,
+    "sharpe": 6.56,
+    "orb_trades": 34,
+    "vwap_trades": 37,
+    "orb_wr": 0.676,
+    "vwap_wr": 0.595
+  },
+  {
+    "n_contracts": 10,
+    "n_trades": 71,
+    "win_rate": 0.634,
+    "total_pnl": 44474.5,
+    "weekly_pnl": 2647.29,
+    "max_drawdown": -4156.21,
+    "sharpe": 6.56,
+    "orb_trades": 34,
+    "vwap_trades": 37,
+    "orb_wr": 0.676,
+    "vwap_wr": 0.595
+  },
+  {
+    "n_contracts": 15,
+    "n_trades": 71,
+    "win_rate": 0.634,
+    "total_pnl": 66711.76,
+    "weekly_pnl": 3970.94,
+    "max_drawdown": -6234.31,
+    "sharpe": 6.56,
+    "orb_trades": 34,
+    "vwap_trades": 37,
+    "orb_wr": 0.676,
+    "vwap_wr": 0.595
+  },
+  {
+    "n_contracts": 20,
+    "n_trades": 71,
+    "win_rate": 0.634,
+    "total_pnl": 88949.01,
+    "weekly_pnl": 5294.58,
+    "max_drawdown": -8312.42,
+    "sharpe": 6.56,
+    "orb_trades": 34,
+    "vwap_trades": 37,
+    "orb_wr": 0.676,
+    "vwap_wr": 0.595
+  },
+  {
+    "n_contracts": 25,
+    "n_trades": 71,
+    "win_rate": 0.634,
+    "total_pnl": 111186.26,
+    "weekly_pnl": 6618.23,
+    "max_drawdown": -10390.52,
+    "sharpe": 6.56,
+    "orb_trades": 34,
+    "vwap_trades": 37,
+    "orb_wr": 0.676,
+    "vwap_wr": 0.595
+  },
+  {
+    "n_contracts": 30,
+    "n_trades": 71,
+    "win_rate": 0.634,
+    "total_pnl": 133423.51,
+    "weekly_pnl": 7941.88,
+    "max_drawdown": -12468.63,
+    "sharpe": 6.56,
+    "orb_trades": 34,
+    "vwap_trades": 37,
+    "orb_wr": 0.676,
+    "vwap_wr": 0.595
+  }
+]

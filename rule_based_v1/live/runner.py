@@ -84,6 +84,9 @@ class LiveRunner:
         self.long_only: bool = self.rules_cfg.get("opening_range_breakout", {}).get("long_only", False)
         self.skip_gap_up_pct: float | None = self.rules_cfg.get("opening_range_breakout", {}).get("skip_gap_up_pct", None)
         self.require_gex_explosive: bool = self.rules_cfg.get("opening_range_breakout", {}).get("require_gex_explosive", False)
+        _pss_cfg = self.rules_cfg.get("pss_veto", {})
+        self.pss_veto_enabled: bool = _pss_cfg.get("enabled", True)
+        self.pss_fs_threshold: float = _pss_cfg.get("fs_threshold", 0.80)
         self.prev_vwap_override_cfg: dict = self.rules_cfg.get("prev_vwap_bearish_override", {})
         self.session_gex_explosive: bool | None = None  # computed once per day
 
@@ -203,6 +206,10 @@ class LiveRunner:
             )
         else:
             logger.info("Momentum filter: disabled")
+        if self.pss_veto_enabled:
+            logger.info(f"PSS veto: enabled (FS threshold={self.pss_fs_threshold:.2f})")
+        else:
+            logger.info("PSS veto: disabled")
 
     def _mom_record_day(self, bars_df: pd.DataFrame, date_to_record) -> None:
         """Extract the session close price and append to the rolling close history."""
@@ -642,7 +649,7 @@ class LiveRunner:
         finally:
             self.active_trade = None
 
-    def _pss_veto_active(self, bars_df: pd.DataFrame) -> bool:
+    def _pss_veto_active(self, bars_df: pd.DataFrame, fs_threshold: float = 0.80) -> bool:
         """Return True if a prior-session-high sweep with strong rejection occurred today.
 
         Scans post-OR bars (timestamp >= 10:05 ET) in the current session for any bar
@@ -702,11 +709,11 @@ class LiveRunner:
             body_signed = c - o
             fs          = -clv + (uw - lw) / rng - body_signed / rng
 
-            if fs >= 0.80:
+            if fs >= fs_threshold:
                 logger.info(
                     f"PSS veto: prior-session-high sweep detected at {ts} "
                     f"(bar_high={h:.2f} > prev_sess_high={prev_sess_high:.2f}, "
-                    f"FS={fs:.2f}, cl={cl_val:.2f}) — blocking ORB entry"
+                    f"FS={fs:.2f}, cl={cl_val:.2f}, threshold={fs_threshold:.2f}) — blocking ORB entry"
                 )
                 return True
 
@@ -959,7 +966,7 @@ class LiveRunner:
                 return
 
         # PSS veto: prior-session-high sweep with strong rejection → ORB likely to fail
-        if self._pss_veto_active(bars_df):
+        if self.pss_veto_enabled and self._pss_veto_active(bars_df, fs_threshold=self.pss_fs_threshold):
             return
 
         # Evaluate rules

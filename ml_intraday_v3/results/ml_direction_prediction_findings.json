@@ -1,0 +1,78 @@
+{
+  "summary": "MNQ intraday direction prediction — ML feasibility study",
+  "date": "2026-05-15",
+  "experiments": [
+    {
+      "version": "v1",
+      "bars": "5min ETH",
+      "train_period": "Aug-Nov 2025",
+      "horizon": "triple-barrier PT=2x SL=1x ATR 12-bar",
+      "long_auc": 0.4917,
+      "short_auc": 0.5388,
+      "trades_oos": 0,
+      "finding": "No OFI in training (all-zero features). AUC near-random."
+    },
+    {
+      "version": "v2a",
+      "bars": "1min RTH",
+      "train_period": "Dec2025-Jan2026",
+      "horizon": "triple-barrier PT=1.5x SL=1x ATR 20-bar",
+      "long_auc": 0.4898,
+      "short_auc": 0.4867,
+      "trades_oos": 0,
+      "finding": "With OFI in training. Still AUC < 0.5. Early stop iter=1."
+    },
+    {
+      "version": "v2b",
+      "bars": "1min RTH",
+      "train_period": "Dec2025-Jan2026",
+      "horizon": "triple-barrier PT=3x SL=1.5x ATR 60-bar",
+      "long_auc": 0.5065,
+      "short_auc": 0.4505,
+      "trades_oos": 0,
+      "finding": "LONG barely above random (0.5065), SHORT anti-predictive."
+    },
+    {
+      "version": "v2c",
+      "bars": "1min RTH",
+      "train_period": "Dec2025-Jan2026",
+      "horizon": "30-bar forward return direction (no PT/SL)",
+      "long_auc": 0.4912,
+      "short_auc": 0.4912,
+      "trades_oos": 0,
+      "finding": "Clean directional label. Still AUC=0.49. Features have zero predictive power."
+    }
+  ],
+  "conclusion": "MNQ 1-60 min direction is a near-random-walk for our feature set. No ML edge found.",
+  "features_tested": ["ret_1-24", "rsi_5-14", "ema_ratios", "norm_range", "vol_zscore", "vwap_dev", "ofi_imb", "ofi_5", "ofi_norm", "ofi_accel", "time_features"],
+  "missing_alpha_sources": [
+    "L2 order book (bid-ask, queue depth)",
+    "Institutional flow (dark pool prints, block trades)",
+    "News/macro sentiment",
+    "Cross-asset signals (VIX, overnight NQ, international markets)",
+    "Options market (GEX, put-call skew)"
+  ],
+  "feasible_target": {
+    "approach": "ML filter on ORB signals",
+    "mechanism": "Score each ORB entry with XGBoost trained on OFI + context at entry bar",
+    "expected_wr_improvement": "53% -> 58-62%",
+    "n_contracts": 5,
+    "weekly_pnl_estimate": "$2,500-3,500",
+    "max_dd_p95": "$3,400",
+    "weekly_target_gap": "$10k target unreachable with $4k DD constraint at any position size"
+  },
+  "math_for_10k_week": {
+    "with_current_ORB_edge": {
+      "ev_per_trade_5c": 88.5,
+      "trades_per_week": 10,
+      "weekly_pnl": 885,
+      "contracts_needed_for_10k": 113,
+      "p95_dd_at_113c": "$76,000 (catastrophic)"
+    },
+    "required_for_10k_with_4k_dd": {
+      "sharpe_needed": ">15 annualized",
+      "wr_needed": ">80% with 2:1 R:R",
+      "conclusion": "Mathematically incompatible without L2 HFT-grade data"
+    }
+  }
+}

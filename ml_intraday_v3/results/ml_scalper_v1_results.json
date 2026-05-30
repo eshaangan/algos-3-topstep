@@ -1,0 +1,48 @@
+{
+  "val": {
+    "label": "Dec 2025 Validation",
+    "n_trades": 0
+  },
+  "oos": {
+    "label": "Jan-Apr 2026 OOS",
+    "n_trades": 0
+  },
+  "feature_importance_long": {
+    "ema21_50_cross": 12,
+    "ret_24": 7,
+    "dow": 7,
+    "ema9_21_cross": 5,
+    "range_pos": 5,
+    "rsi_14": 4,
+    "vol_zscore": 4,
+    "hour_cos": 4,
+    "rsi_5": 3,
+    "ema21_ratio": 3,
+    "ret_1": 2,
+    "ret_12": 2,
+    "lower_wick": 2,
+    "upper_wick": 1,
+    "is_last_hour": 1
+  },
+  "cfg": {
+    "pt_atr": 2.0,
+    "sl_atr": 1.0,
+    "horizon_bars": 12,
+    "atr_period": 14,
+    "n_estimators": 800,
+    "learning_rate": 0.03,
+    "num_leaves": 63,
+    "min_child_samples": 30,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "long_threshold": 0.54,
+    "short_threshold": 0.54,
+    "min_atr_filter": 3.0,
+    "n_contracts": 10,
+    "pt_mult": 2.0,
+    "sl_mult": 1.0,
+    "max_trades_per_day": 8,
+    "max_daily_loss_pts": 200,
+    "cooldown_bars": 2
+  }
+}

@@ -1,0 +1,26 @@
+# ML Strategy live runner — LightGBM 5-min MNQ on TopstepX REST bars
+# Default CMD is dry-run. Pass --live --yes only for real orders.
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app:/app/rule_based_v1:/app/ml_intraday_v3 \
+    ML_N_CONTRACTS=6 \
+    ML_STDOUT_ONLY=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY gcp_deploy/requirements_ml_strategy.txt .
+RUN pip install --no-cache-dir -r requirements_ml_strategy.txt
+
+COPY core/ /app/core/
+COPY rule_based_v1/ /app/rule_based_v1/
+COPY ml_intraday_v3/live_trading/ /app/ml_intraday_v3/live_trading/
+
+ENTRYPOINT ["python", "rule_based_v1/live/ml_strategy_runner.py"]
+CMD ["--dry-run"]

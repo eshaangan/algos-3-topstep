@@ -1,15 +1,12 @@
 **
 !core/
 !core/**
-!rule_based_v1/
-!rule_based_v1/**
 !gcp_deploy/
 !gcp_deploy/**
 !ml_intraday_v3/
 !ml_intraday_v3/__init__.py
-!ml_intraday_v3/**
-ml_intraday_v3/backtest_results/**
-ml_intraday_v3/experiments/**
-ml_intraday_v3/research papers/**
-ml_intraday_v3/runs/**
+!ml_intraday_v3/live/
+!ml_intraday_v3/live/**
+!ml_intraday_v3/models/
+!ml_intraday_v3/models/ml_scalper_v3_long.pkl
 !.gcloudignore

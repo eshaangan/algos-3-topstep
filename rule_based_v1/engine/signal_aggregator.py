@@ -31,7 +31,12 @@ class TradeDecision:
     @property
     def summary(self) -> str:
         if not self.should_trade:
-            reasons = "; ".join(self.veto_reasons) if self.veto_reasons else "No primary signal"
+            if self.veto_reasons:
+                reasons = "; ".join(self.veto_reasons)
+            elif self.primary_signal and self.primary_signal.reason:
+                reasons = f"No primary signal ({self.primary_signal.reason})"
+            else:
+                reasons = "No primary signal"
             return f"NO TRADE: {reasons}"
         side = "LONG" if self.direction == 1 else "SHORT"
         confirms = [s.rule_name for s in self.confirmation_signals if s.has_signal]

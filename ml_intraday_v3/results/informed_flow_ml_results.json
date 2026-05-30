@@ -1,0 +1,120 @@
+{
+  "val_auc": 0.6765063660692563,
+  "cal_auc": 0.7101005595653233,
+  "fi_top10": {
+    "kyles_lambda": 504,
+    "roll_spread": 498,
+    "rsi_14": 478,
+    "atr_z": 463,
+    "ret_6": 440,
+    "size_std": 426,
+    "max_run": 425,
+    "norm_range": 412,
+    "avg_size": 405,
+    "trade_rate": 392
+  },
+  "oos": {
+    "label": "OOS Feb-May 2026",
+    "n_trades": 65,
+    "n_days": 33,
+    "trades_per_day": 1.97,
+    "total_pnl": 617.16,
+    "final_combine_pnl": 617.18,
+    "max_drawdown": -738.88,
+    "win_rate": 0.2769,
+    "avg_win": 182.17,
+    "avg_loss": -56.64,
+    "profit_factor": 1.232,
+    "weekly_avg": 61.72,
+    "weekly_median": 72.52,
+    "weekly_best": 494.89,
+    "weekly_worst": -509.4,
+    "sharpe_daily": 1.775,
+    "by_exit": {
+      "PT": {
+        "n": 10,
+        "pnl": 2044.1
+      },
+      "SL": {
+        "n": 28,
+        "pnl": -2516.94
+      },
+      "TIME": {
+        "n": 27,
+        "pnl": 1090.0
+      }
+    },
+    "p_signal_pctiles": {
+      "p50": 0.1919,
+      "p75": 0.1919,
+      "p90": 0.1919,
+      "p95": 0.2982
+    },
+    "avg_contracts": 1.25
+  },
+  "monte_carlo": {
+    "p_pass": 0.0046,
+    "median_days": 26,
+    "p95_max_dd": 1168.68,
+    "p25_max_dd": 84.59,
+    "n_paths": 10000
+  },
+  "cfg": {
+    "pt_atr": 2.5,
+    "sl_atr": 1.25,
+    "horizon_bars": 8,
+    "n_estimators": 600,
+    "learning_rate": 0.04,
+    "num_leaves": 48,
+    "min_child_samples": 30,
+    "subsample": 0.75,
+    "colsample_bytree": 0.75,
+    "reg_alpha": 0.5,
+    "reg_lambda": 1.5,
+    "base_contracts": 2,
+    "max_contracts": 3,
+    "long_threshold": 0.18,
+    "min_atr_pts": 4.0,
+    "max_trades_per_day": 3,
+    "cooldown_bars": 2,
+    "mnq_tick_value": 2.0
+  },
+  "combine_cfg": {
+    "profit_target": 3000,
+    "daily_loss_limit": 1000,
+    "trailing_dd_limit": 2000,
+    "min_trading_days": 5,
+    "max_days": 30
+  },
+  "features_used": [
+    "lg_ofi_imb",
+    "lg_sm_diverge",
+    "large_frac",
+    "ofi_imb",
+    "ofi_accel",
+    "ofi_early",
+    "ofi_late",
+    "kyles_lambda",
+    "roll_spread",
+    "trade_rate",
+    "max_run",
+    "avg_size",
+    "max_size",
+    "size_std",
+    "ret_1",
+    "ret_3",
+    "ret_6",
+    "rsi_14",
+    "ema9_ratio",
+    "ema21_ratio",
+    "norm_range",
+    "norm_body",
+    "vol_z",
+    "atr_z",
+    "vwap_dev",
+    "hour_sin",
+    "hour_cos",
+    "dow"
+  ],
+  "micro_feature_count": 14
+}

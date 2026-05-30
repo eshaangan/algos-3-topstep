@@ -1,0 +1,192 @@
+{
+  "W1": {
+    "val": {
+      "label": "Val Feb 1-9 2026",
+      "n_trades": 7,
+      "n_days": 5,
+      "trades_per_day": 1.4,
+      "total_pnl": -4386.75,
+      "weekly_avg": -2193.38,
+      "weekly_median": -2193.38,
+      "weekly_best": -1116.63,
+      "weekly_worst": -3270.12,
+      "win_rate": 0.1429,
+      "avg_win": 1305.43,
+      "avg_loss": -948.7,
+      "max_drawdown": -3641.6,
+      "sharpe_daily": -14.763,
+      "by_direction": {
+        "LONG": {
+          "n": 7,
+          "wr": 0.143,
+          "pnl": -4386.75
+        }
+      },
+      "by_exit": {
+        "PT": {
+          "n": 1,
+          "pnl": 1305.43
+        },
+        "SL": {
+          "n": 6,
+          "pnl": -5692.18
+        }
+      }
+    },
+    "oos": {
+      "label": "OOS Mar-May 2026",
+      "n_trades": 54,
+      "n_days": 26,
+      "trades_per_day": 2.08,
+      "total_pnl": 24483.09,
+      "weekly_avg": 3060.39,
+      "weekly_median": 1966.91,
+      "weekly_best": 11590.45,
+      "weekly_worst": -1810.08,
+      "win_rate": 0.537,
+      "avg_win": 1456.44,
+      "avg_loss": -710.15,
+      "max_drawdown": -4106.26,
+      "sharpe_daily": 7.67,
+      "by_direction": {
+        "LONG": {
+          "n": 54,
+          "wr": 0.537,
+          "pnl": 24483.09
+        }
+      },
+      "by_exit": {
+        "PT": {
+          "n": 24,
+          "pnl": 38929.28
+        },
+        "SL": {
+          "n": 24,
+          "pnl": -16501.19
+        },
+        "TIME": {
+          "n": 6,
+          "pnl": 2055.0
+        }
+      }
+    },
+    "fi": {
+      "ema9_21_cross": 29,
+      "kyles_lambda_3": 25,
+      "rsi_14": 23,
+      "vol_z": 19,
+      "kyles_lambda": 16,
+      "ema21_ratio": 16,
+      "large_frac": 15,
+      "range_pos": 14,
+      "avg_size_z": 13,
+      "trade_rate_z_3": 13,
+      "ofi_late_n": 12,
+      "ema9_ratio": 11,
+      "norm_range": 11,
+      "ret_6": 10,
+      "hour_sin": 10
+    },
+    "auc": {
+      "long": 0.5587836435342144,
+      "short": 0.5174008679626657
+    }
+  },
+  "W2": {
+    "val": {
+      "label": "Val Feb 1-9 2026",
+      "n_trades": 7,
+      "n_days": 4,
+      "trades_per_day": 1.75,
+      "total_pnl": -832.04,
+      "weekly_avg": -416.02,
+      "weekly_median": -416.02,
+      "weekly_best": 1637.15,
+      "weekly_worst": -2469.19,
+      "win_rate": 0.4286,
+      "avg_win": 1292.07,
+      "avg_loss": -1177.07,
+      "max_drawdown": -2749.32,
+      "sharpe_daily": -1.753,
+      "by_direction": {
+        "LONG": {
+          "n": 7,
+          "wr": 0.429,
+          "pnl": -832.04
+        }
+      },
+      "by_exit": {
+        "PT": {
+          "n": 2,
+          "pnl": 3291.22
+        },
+        "SL": {
+          "n": 3,
+          "pnl": -3455.76
+        },
+        "TIME": {
+          "n": 2,
+          "pnl": -667.5
+        }
+      }
+    },
+    "oos": {
+      "label": "OOS Mar-May 2026",
+      "n_trades": 30,
+      "n_days": 19,
+      "trades_per_day": 1.58,
+      "total_pnl": 19173.52,
+      "weekly_avg": 2739.07,
+      "weekly_median": 2348.47,
+      "weekly_best": 7066.09,
+      "weekly_worst": -995.61,
+      "win_rate": 0.5667,
+      "avg_win": 1649.06,
+      "avg_loss": -681.58,
+      "max_drawdown": -3171.52,
+      "sharpe_daily": 10.147,
+      "by_direction": {
+        "LONG": {
+          "n": 30,
+          "wr": 0.567,
+          "pnl": 19173.52
+        }
+      },
+      "by_exit": {
+        "PT": {
+          "n": 14,
+          "pnl": 24441.55
+        },
+        "SL": {
+          "n": 13,
+          "pnl": -8860.53
+        },
+        "TIME": {
+          "n": 3,
+          "pnl": 3592.5
+        }
+      }
+    },
+    "fi": {
+      "kyles_lambda_3": 24,
+      "ofi_late_n": 23,
+      "ret_12": 23,
+      "ema9_21_cross": 23,
+      "norm_range": 23,
+      "kyles_lambda": 17,
+      "large_frac": 15,
+      "rsi_14": 15,
+      "ema21_ratio": 13,
+      "hour_sin": 13,
+      "dow": 13,
+      "trade_rate_z_3": 13,
+      "avg_size_z": 12,
+      "lg_ofi_imb_3": 12,
+      "ema9_ratio": 10
+    },
+    "auc": {
+      "long": 0.5497536210243392,
+      "short": 0.5097102108936428
+    }
+  }
+}

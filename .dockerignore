@@ -1,0 +1,45 @@
+# Large data — never needed in the image
+data/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+
+# Runtime / secrets (never in image)
+.env
+.env.*
+.venv/
+venv/
+
+# Logs and temp
+logs/
+*.log
+*.tmp
+
+# Dev tools
+.git/
+.gitignore
+.vscode/
+.idea/
+.cursor/
+.DS_Store
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Notebooks (not needed at runtime)
+*.ipynb
+
+# Test outputs / experiment artifacts
+artifacts/
+runs/
+coverage/
+
+# Large research data inside ml_intraday_v3
+ml_intraday_v3/data/
+ml_intraday_v3/research papers/
+
+# Keep models (needed at runtime)
+!ml_intraday_v3/models/*.pkl
+!ml_intraday_v3/models/*.joblib

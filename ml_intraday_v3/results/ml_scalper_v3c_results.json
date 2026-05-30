@@ -1,0 +1,30 @@
+{
+  "oos": {
+    "label": "Full OOS Feb1-May12 2026",
+    "n_trades": 0
+  },
+  "fi": {
+    "range_pos": 8,
+    "norm_range": 7,
+    "ema21_ratio": 6,
+    "ret_6": 5,
+    "rsi_14": 5,
+    "rsi_5": 4,
+    "norm_body": 4,
+    "atr_z": 4,
+    "ema9_ratio": 3,
+    "vol_z": 3,
+    "vwap_dev": 3,
+    "hour_cos": 3,
+    "ret_range_6": 3,
+    "hour_sin": 2,
+    "ret_1": 1,
+    "dow": 1,
+    "ret_3": 0,
+    "ret_12": 0,
+    "ema9_21_cross": 0,
+    "is_open_30": 0,
+    "is_close_30": 0
+  },
+  "auc": 0.48140178509651976
+}

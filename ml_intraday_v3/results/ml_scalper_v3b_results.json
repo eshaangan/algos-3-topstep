@@ -1,0 +1,30 @@
+{
+  "val": {
+    "label": "Val Feb 1-9 2026",
+    "n_trades": 0
+  },
+  "oos": {
+    "label": "OOS Mar-May 2026",
+    "n_trades": 0
+  },
+  "fi": {
+    "ret_12": 17,
+    "ema21_ratio": 17,
+    "rsi_14": 15,
+    "kyles_lambda_3": 14,
+    "ret_6": 12,
+    "vol_z": 10,
+    "trade_rate_z": 9,
+    "ofi_late_n": 9,
+    "rsi_5": 8,
+    "range_pos": 8,
+    "ofi_accel": 7,
+    "avg_size_z": 7,
+    "norm_range": 7,
+    "lg_ofi_imb": 6,
+    "hour_sin": 6
+  },
+  "auc": {
+    "long": 0.5442857998084292
+  }
+}

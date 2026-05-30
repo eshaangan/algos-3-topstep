@@ -1,0 +1,22 @@
+{
+  "config": {
+    "entry_dist": 1.0,
+    "time_end": "13:30",
+    "pt": 2.0,
+    "sl": 1.5
+  },
+  "num_trades": 2,
+  "trades_per_day": 0.1,
+  "win_rate": 0.5,
+  "total_pnl": 23.52,
+  "avg_win": 268.0,
+  "avg_loss": -244.48,
+  "profit_factor": 1.096,
+  "sharpe": 0.219,
+  "max_drawdown": -244.48,
+  "exit_reasons": {
+    "time_stop": 50.0,
+    "profit_target": 50.0
+  },
+  "n_days": 21
+}

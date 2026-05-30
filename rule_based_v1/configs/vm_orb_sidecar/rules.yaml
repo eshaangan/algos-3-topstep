@@ -83,3 +83,9 @@ momentum_filter:
   lookback_days: 3           # 3-day rolling return window
   threshold: -0.01           # block if 3d return ≤ -1%
   pass_through_on_no_history: true  # allow trade when < 4 days of history
+
+# PSS veto — disable in SURVIVAL MODE (fires ~5% of days, marginal EV, every trade counts)
+# Re-enable (enabled: true) after recovering to positive territory.
+pss_veto:
+  enabled: false
+  fs_threshold: 0.80         # failure score threshold (0.80 = original, 1.80 = only extreme events)

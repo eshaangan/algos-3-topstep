@@ -2,13 +2,10 @@ numpy
 pandas
 scikit-learn==1.5.2
 joblib
-tables
 python-dotenv
 requests
 PyYAML
-matplotlib
-seaborn
 lightgbm
 pytz
-hmmlearn>=0.3.0
-signalrcore
+async-rithmic>=1.6.1
+setproctitle
