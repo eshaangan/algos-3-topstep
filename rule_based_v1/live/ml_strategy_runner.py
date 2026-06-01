@@ -567,6 +567,10 @@ class MLStrategyRunner:
         signal.signal(signal.SIGTERM, self._signal_handler)
         self.running = True
         update_interval = 30
+        # Stale-bar threshold: if no bar arrives within this many seconds during
+        # market hours, the Rithmic time-bar subscription silently dropped — reconnect.
+        STALE_BAR_SECONDS = 12 * 60
+        last_bar_wall_time: float = time.time()
 
         logger.info("Live trading started")
         while self.running:
@@ -597,6 +601,26 @@ class MLStrategyRunner:
                     bars_df = self.data_fetcher.get_buffer()
                     self._process_bar(bar_time, latest_bar, bars_df)
                     self.last_bar_time = bar_time
+                    last_bar_wall_time = time.time()
+
+                # Stale-bar watchdog: reconnect if subscription silently dropped
+                now_utc = pd.Timestamp.utcnow()
+                h_et = (now_utc.hour - 4) % 24  # approximate ET offset
+                in_market_hours = 9 <= h_et < 16
+                if in_market_hours and (time.time() - last_bar_wall_time) > STALE_BAR_SECONDS:
+                    logger.warning(
+                        "Stale bar watchdog: no bar for >%ds during market hours — reconnecting",
+                        STALE_BAR_SECONDS,
+                    )
+                    try:
+                        self.data_fetcher.disconnect()
+                    except Exception:
+                        pass
+                    if self._init_data_fetcher():
+                        logger.info("Reconnected successfully")
+                        last_bar_wall_time = time.time()
+                    else:
+                        logger.error("Reconnect failed — will retry next cycle")
 
                 time.sleep(update_interval)
             except KeyboardInterrupt:
