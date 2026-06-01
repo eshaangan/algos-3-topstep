@@ -605,8 +605,8 @@ class MLStrategyRunner:
 
                 # Stale-bar watchdog: reconnect if subscription silently dropped
                 now_utc = pd.Timestamp.utcnow()
-                h_et = (now_utc.hour - 4) % 24  # approximate ET offset
-                in_market_hours = 9 <= h_et < 16
+                h_et = (now_utc.hour - 4) % 24  # approximate ET offset (EDT)
+                in_market_hours = 6 <= h_et < 20  # pre-market through post-market
                 if in_market_hours and (time.time() - last_bar_wall_time) > STALE_BAR_SECONDS:
                     logger.warning(
                         "Stale bar watchdog: no bar for >%ds during market hours — reconnecting",
@@ -679,6 +679,9 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
         handlers=handlers,
     )
+    # Silence noisy third-party loggers regardless of verbosity level
+    for _noisy in ("websockets", "websockets.client", "asyncio", "rithmic"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
 
     dry_run = not args.live
     if not dry_run:
