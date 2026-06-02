@@ -311,18 +311,27 @@ class RithmicClient:
                 )
                 if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
                     logger.error(
-                        "Time-bar watchdog: %d consecutive failures — forcing disconnect for clean restart",
+                        "Time-bar watchdog: %d consecutive failures — exiting so bash watchdog restarts process",
                         consecutive_failures,
                     )
-                    self.disconnect()
-                    return
+                    try:
+                        await self._arith.disconnect()
+                    except Exception:
+                        pass
+                    os._exit(1)
             except Exception as exc:
                 consecutive_failures += 1
                 logger.warning("Time-bar watchdog error (%d/%d): %s", consecutive_failures, MAX_CONSECUTIVE_FAILURES, exc)
                 if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                    logger.error("Time-bar watchdog: %d consecutive failures — forcing disconnect", consecutive_failures)
-                    self.disconnect()
-                    return
+                    logger.error(
+                        "Time-bar watchdog: %d consecutive failures — exiting so bash watchdog restarts process",
+                        consecutive_failures,
+                    )
+                    try:
+                        await self._arith.disconnect()
+                    except Exception:
+                        pass
+                    os._exit(1)
 
     async def _backfill_bars(self) -> None:
         """Load historical bars from the precomputed microstructure parquet."""
