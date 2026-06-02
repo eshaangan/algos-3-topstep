@@ -75,16 +75,18 @@ class CalibratedPipeline:
     """Chains a LightGBM model with a Platt calibrator. Required for pickle deserialization of v7 bundle."""
 
     def __init__(self, lgbm_model, calibrator):
-        self.lgbm_model = lgbm_model
+        # Pickle stores the LGBM model as self.lgbm (not self.lgbm_model).
+        # Accept both attribute names so deserialization works regardless of which
+        # name was used when the bundle was created.
+        self.lgbm = lgbm_model
         self.calibrator = calibrator
 
     def predict_proba(self, X):
         import numpy as np
-        raw_prob = self.lgbm_model.predict_proba(X)[:, 1].reshape(-1, 1)
+        raw_prob = self.lgbm.predict_proba(X)[:, 1].reshape(-1, 1)
         return self.calibrator.predict_proba(raw_prob)
 
     def predict(self, X):
-        import numpy as np
         proba = self.predict_proba(X)
         return (proba[:, 1] >= 0.5).astype(int)
 
