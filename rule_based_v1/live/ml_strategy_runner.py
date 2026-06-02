@@ -469,19 +469,29 @@ class MLStrategyRunner:
     @staticmethod
     def _in_trading_window(ts: pd.Timestamp) -> bool:
         """
-        Session gate matching the v3/v7 backtest EXACTLY (ml_scalper_v3.py:294-297):
-            h_et = (UTC_hour - 5) % 24
-            allow if h_et >= 11 and h_et != 13 and weekday != Thursday
+        Session gate for the v3 model, BOUNDED to the hours where the edge was
+        actually validated on dense data.
 
-        NOTE: this uses the hardcoded -5 (EST) offset that the model was trained
-        with, applied to the UTC bar index — NOT true ET. This is intentional:
-        the model's hour_sin/hour_cos features and its backtest session filter both
-        use (UTC_hour - 5), so live must match to reproduce validated performance.
-        Do not "fix" this to real ET — that would diverge from the validated edge.
+        The backtest filter was `h_et >= 11 and h_et != 13` (ml_scalper_v3.py),
+        but that worked only because the TRAINING parquet was RTH-dense: hours
+        UTC 14-20 had ~1100 bars each, while overnight hours had only ~140 sparse
+        bars and produced ZERO OOS trades. v3's validated trades fired only at
+        UTC {16,17,19,20} = h_et {11,12,14,15}.
+
+        Live Rithmic delivers a full 24h Globex feed, so an unbounded `h_et >= 11`
+        would trade UTC {22,23,0,1,2,3,4} (h_et 17-23) — overnight hours that are
+        dense live but were never validated. We add an explicit upper bound so live
+        trades ONLY the validated afternoon-RTH window:
+            11 <= h_et <= 15 and h_et != 13 and weekday != Thursday
+        where h_et = (UTC_hour - 5) % 24 (the same EST-anchored convention the
+        model's hour features were trained with — do NOT change to real ET).
+
+        This bound removes zero validated trades (the overnight hours had none),
+        so the backtested metrics are unchanged.
         """
         ts_utc = ts.tz_convert("UTC") if ts.tz else ts.tz_localize("UTC")
         h_et = (ts_utc.hour - 5) % 24
-        if h_et < 11 or h_et == 13:
+        if h_et < 11 or h_et > 15 or h_et == 13:
             return False
         if ts_utc.weekday() == 3:   # Thursday excluded (OOS WR=25%, no edge)
             return False

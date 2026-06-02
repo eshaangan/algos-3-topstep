@@ -24,8 +24,8 @@ circuit_breaker:
   cooldown_bars: 3            # matches v3 CFG cooldown_bars
 
 session:
-  flatten_minutes_before_close: 5   # Flatten near session end
-  session_close: "16:55"            # ET; v3 session runs midday into evening (h_et>=11)
+  flatten_minutes_before_close: 5   # Flatten at 17:10 ET (after last natural exit ~17:00)
+  session_close: "17:15"            # ET; last v3 entry ~16:00 ET, time-stops by ~17:00 ET
   max_trades_per_day: 6             # v3 validated at 6/day (matches model config)
 
 drawdown:
