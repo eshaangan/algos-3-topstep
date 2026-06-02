@@ -238,13 +238,23 @@ class MLStrategyRunner:
 
     # ─────────────────────────────────────── state persistence ───────────────
 
+    # Required keys a restored trade dict MUST have to be usable
+    _REQUIRED_STATE_KEYS = (
+        "direction", "entry_price", "stop_loss", "profit_target",
+        "bars_in", "last_bar_close", "entry_time",
+    )
+
     def _save_state(self) -> None:
-        """Persist active_trade to disk so bash-watchdog restarts can recover."""
+        """
+        Persist active_trade to disk atomically so a crash mid-write cannot corrupt
+        the file (write to .tmp then os.replace, which is atomic on POSIX).
+        Stamps the trading date so stale (prior-day) state is rejected on restore.
+        """
         if self.active_trade is None:
             _STATE_FILE.unlink(missing_ok=True)
             return
         try:
-            state = {}
+            state = {"_saved_date": datetime.now(tz=_TZ_ET).strftime("%Y-%m-%d")}
             for k, v in self.active_trade.items():
                 if isinstance(v, pd.Timestamp):
                     state[k] = str(v)
@@ -252,7 +262,9 @@ class MLStrategyRunner:
                     state[k] = v
                 else:
                     state[k] = str(v)
-            _STATE_FILE.write_text(json.dumps(state))
+            tmp = _STATE_FILE.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(state))
+            os.replace(tmp, _STATE_FILE)   # atomic
         except Exception as e:
             logger.warning("Failed to save state: %s", e)
 
@@ -261,23 +273,52 @@ class MLStrategyRunner:
             return None
         try:
             raw = json.loads(_STATE_FILE.read_text())
-            if "entry_time" in raw and raw["entry_time"]:
-                raw["entry_time"] = pd.Timestamp(raw["entry_time"])
-            # Ensure numeric fields are correct types
+        except Exception as e:
+            logger.warning("State file unreadable/corrupt (%s) — discarding.", e)
+            _STATE_FILE.unlink(missing_ok=True)
+            return None
+
+        # Reject stale state from a prior trading day
+        saved_date = raw.get("_saved_date")
+        today = datetime.now(tz=_TZ_ET).strftime("%Y-%m-%d")
+        if saved_date and saved_date != today:
+            logger.warning("State file is from %s (today=%s) — stale, discarding.", saved_date, today)
+            _STATE_FILE.unlink(missing_ok=True)
+            return None
+
+        # Require all critical keys before trusting the dict
+        missing = [k for k in self._REQUIRED_STATE_KEYS if k not in raw or raw[k] is None]
+        if missing:
+            logger.warning("State file missing required keys %s — discarding.", missing)
+            _STATE_FILE.unlink(missing_ok=True)
+            return None
+
+        try:
+            raw["entry_time"] = pd.Timestamp(raw["entry_time"])
             for f in ("entry_price", "actual_entry", "stop_loss", "profit_target",
                       "last_bar_close", "fill_poll_start"):
                 if raw.get(f) is not None:
-                    raw[f] = float(raw[f]) if raw[f] is not None else None
+                    raw[f] = float(raw[f])
             for f in ("direction", "bars_in", "consecutive_no_pos"):
-                if f in raw and raw[f] is not None:
+                if raw.get(f) is not None:
                     raw[f] = int(raw[f])
-            for f in ("fill_confirmed",):
-                if f in raw:
-                    raw[f] = bool(raw[f])
+            raw["fill_confirmed"] = bool(raw.get("fill_confirmed", False))
             return raw
         except Exception as e:
-            logger.warning("Failed to load state file: %s", e)
+            logger.warning("State file type coercion failed (%s) — discarding.", e)
+            _STATE_FILE.unlink(missing_ok=True)
             return None
+
+    def _cancel_all_contract_orders(self) -> None:
+        """Cancel every open order on the account/contract. Used during recovery to
+        clear orphaned stop/limit orders left by a crash before re-placing fresh ones."""
+        try:
+            for o in self.client.search_open_orders():
+                oid = getattr(o, "order_id", None) or getattr(o, "basket_id", None)
+                if oid:
+                    self._cancel_order(str(oid), "orphaned")
+        except Exception as e:
+            logger.warning("Could not enumerate/cancel open orders during recovery: %s", e)
 
     def _init_data_fetcher(self) -> bool:
         broker = os.getenv("TRADING_BROKER", "rithmic").lower()
@@ -409,37 +450,79 @@ class MLStrategyRunner:
         # ── 3. State recovery from disk ───────────────────────────────────
         saved = self._load_state()
         if saved is not None:
-            logger.warning(
-                "Found saved trade state — previous session may have crashed mid-trade. "
-                "Checking if position still exists…"
-            )
+            logger.warning("Found saved trade state — previous session may have crashed mid-trade.")
             try:
                 positions = self.client.search_open_positions()
             except Exception as exc:
                 positions = None
-                logger.warning("Position query failed during state recovery: %s", exc)
+                logger.critical("Position query failed during recovery (%s) — blocking trades for safety.", exc)
+                self.trades_today = self.max_trades_per_day
+                return False
 
-            if positions:
-                logger.warning(
-                    "Restoring active trade from disk: %s. "
-                    "Will re-place protective orders on next poll.",
-                    saved,
-                )
-                # Restore state but force re-confirmation of stop/limit
-                saved["fill_confirmed"]    = True   # position exists, fill was confirmed
-                saved["stop_order_id"]     = None   # need to re-place
-                saved["limit_order_id"]    = None   # need to re-place
+            if not positions:
+                logger.warning("Saved state but account is flat — trade closed while down. Discarding state.")
+                _STATE_FILE.unlink(missing_ok=True)
+                # fall through to normal flatness check below
+            else:
+                # Validate the open position matches the saved trade before adopting it
+                pos = positions[0]
+                pos_size = int(pos.get("size", 0))
+                if pos_size != self.n_contracts:
+                    logger.critical(
+                        "Recovery: open position size %d != expected %d. "
+                        "Cannot safely adopt — flattening and blocking. Resolve manually.",
+                        pos_size, self.n_contracts,
+                    )
+                    self._cancel_all_contract_orders()
+                    self._send_market_close(saved["direction"])
+                    _STATE_FILE.unlink(missing_ok=True)
+                    self.trades_today = self.max_trades_per_day
+                    return False
+
+                logger.warning("Recovering trade: %s", {k: saved.get(k) for k in
+                               ("direction", "entry_price", "stop_loss", "profit_target", "entry_time")})
+
+                # Clear any orphaned stop/limit left on the exchange from before the crash
+                self._cancel_all_contract_orders()
+
+                # Re-confirm the actual fill price from history (fallback to saved)
+                actual = self._confirm_fill_via_history(saved["entry_time"])
+                if actual is not None:
+                    saved["actual_entry"] = actual
+                    diff = actual - saved["entry_price"]
+                    if abs(diff) > TICK_SIZE:
+                        saved["stop_loss"]     = saved["stop_loss"] + diff
+                        saved["profit_target"] = saved["profit_target"] + diff
+                        logger.info("Recovery: adjusted sl/pt by %.2f to actual fill %.2f", diff, actual)
+                else:
+                    saved["actual_entry"] = saved.get("actual_entry") or saved["entry_price"]
+
+                # Recompute bars_in from wall clock so the time-stop honours real elapsed time
+                elapsed_min = (datetime.now(tz=timezone.utc) - saved["entry_time"].tz_convert("UTC")).total_seconds() / 60.0
+                saved["bars_in"] = max(int(saved.get("bars_in", 0)), int(elapsed_min // 5))
+                logger.info("Recovery: bars_in set to %d (%.0f min elapsed, lookahead=%d)",
+                            saved["bars_in"], elapsed_min, self.lookahead)
+
+                saved["fill_confirmed"]     = True
                 saved["consecutive_no_pos"] = 0
-                saved["fill_poll_start"]   = time.monotonic()
+                saved["stop_order_id"]      = None
+                saved["limit_order_id"]     = None
                 self.active_trade = saved
                 self.trades_today += 1
+
+                # Re-place protective orders NOW (do not wait for a poll)
+                stop_id = self._place_stop_order(saved["stop_loss"], saved["direction"])
+                saved["stop_order_id"] = stop_id
+                limit_side = "SELL" if saved["direction"] == 1 else "BUY"
+                try:
+                    saved["limit_order_id"] = self.client.place_limit_order(
+                        limit_price=saved["profit_target"], quantity=self.n_contracts, side=limit_side)
+                    logger.info("Recovery: re-placed stop=%s limit=%s", stop_id, saved["limit_order_id"])
+                except Exception as exc:
+                    logger.warning("Recovery: limit re-placement failed (%s); software target active.", exc)
+                self._save_state()
+                logger.warning("Trade recovered and re-protected. Resuming management.")
                 return True
-            else:
-                logger.warning(
-                    "Saved state found but no open position — trade closed while runner was down. "
-                    "Deleting stale state file."
-                )
-                _STATE_FILE.unlink(missing_ok=True)
 
         # ── 4. Flatness check ─────────────────────────────────────────────
         logger.info("Startup safety check: querying open positions…")
