@@ -362,29 +362,36 @@ class MLStrategyRunner:
             initial  = self.risk_cfg.get("account", {}).get("initial_balance", 100000.0)
             mll      = self.risk_cfg.get("account", {}).get("mll_limit", 3000.0)
             min_mll  = self.risk_cfg.get("drawdown", {}).get("min_remaining_mll", 500.0)
-            equity   = acct.equity if acct else initial
+            equity   = acct.equity if acct else 0.0
 
-            # Conservative: assume peak is max of initial and current equity
-            approx_drawdown = max(0.0, initial - equity)
-            remaining_mll   = mll - approx_drawdown
-            logger.info(
-                "Account equity: $%.2f | Approx MLL used: $%.2f | Remaining: $%.2f",
-                equity, approx_drawdown, remaining_mll,
-            )
-            if remaining_mll < min_mll:
-                logger.critical(
-                    "MLL nearly exhausted ($%.2f remaining, min=$%.2f). "
-                    "Blocking all new trades to protect combine account.",
-                    remaining_mll, min_mll,
+            # Lucid sim accounts often return equity=0 — treat as unreliable query
+            if equity <= 0.0:
+                logger.warning(
+                    "Account balance query returned $%.2f — API unreliable on sim. "
+                    "Using configured daily loss limit unchanged.", equity,
                 )
-                self.trades_today = self.max_trades_per_day
-                return False
+            else:
+                # Conservative: assume peak is max of initial and current equity
+                approx_drawdown = max(0.0, initial - equity)
+                remaining_mll   = mll - approx_drawdown
+                logger.info(
+                    "Account equity: $%.2f | Approx MLL used: $%.2f | Remaining: $%.2f",
+                    equity, approx_drawdown, remaining_mll,
+                )
+                if remaining_mll < min_mll:
+                    logger.critical(
+                        "MLL nearly exhausted ($%.2f remaining, min=$%.2f). "
+                        "Blocking all new trades to protect combine account.",
+                        remaining_mll, min_mll,
+                    )
+                    self.trades_today = self.max_trades_per_day
+                    return False
 
-            # Set dynamic daily loss limit: 40% of remaining MLL, capped at configured max
-            configured_max = abs(self.risk_cfg["daily_limits"]["max_daily_loss"])
-            dynamic_limit  = min(configured_max, remaining_mll * 0.40)
-            self.risk_manager.max_daily_loss = -dynamic_limit
-            logger.info("Daily loss limit set dynamically to $%.2f", dynamic_limit)
+                # Set dynamic daily loss limit: 40% of remaining MLL, capped at configured max
+                configured_max = abs(self.risk_cfg["daily_limits"]["max_daily_loss"])
+                dynamic_limit  = min(configured_max, remaining_mll * 0.40)
+                self.risk_manager.max_daily_loss = -dynamic_limit
+                logger.info("Daily loss limit set dynamically to $%.2f", dynamic_limit)
         except Exception as exc:
             logger.warning(
                 "Balance query failed (%s) — using configured daily loss limit $%.2f",
