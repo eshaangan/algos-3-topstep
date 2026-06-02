@@ -355,8 +355,9 @@ class MLStrategyRunner:
             # ── Phase 1: wait for fill confirmation ──────────────────────────
             if not trade.get("fill_confirmed"):
                 # Timeout guard: if entry fill never appears, abandon.
-                wait_start = trade.get("fill_wait_start", _time.monotonic())
-                trade["fill_wait_start"] = wait_start
+                if trade.get("fill_wait_start") is None:
+                    trade["fill_wait_start"] = _time.monotonic()
+                wait_start = trade["fill_wait_start"]
                 if _time.monotonic() - wait_start > self._FILL_WAIT_TIMEOUT_S:
                     logger.error(
                         "Fill confirmation timeout after %ds — entry may have been rejected. "
