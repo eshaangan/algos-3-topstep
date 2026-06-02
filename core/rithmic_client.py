@@ -607,6 +607,41 @@ class RithmicClient:
         logger.info("Stop order accepted: id=%s", resolved)
         return resolved
 
+    def place_limit_order(
+        self,
+        limit_price: float,
+        quantity: int,
+        side: str = "SELL",
+        client_order_id: Optional[str] = None,
+    ) -> str:
+        """Place a LIMIT order (e.g. profit target). Returns order_id."""
+        order_id = client_order_id or str(uuid.uuid4())[:16]
+        tx_type  = TransactionType.BUY if side.upper() == "BUY" else TransactionType.SELL
+        logger.info(
+            "place_limit_order: %s %d×%s LIMIT @ %.2f  id=%s",
+            side.upper(), quantity, self._contract, limit_price, order_id,
+        )
+        responses = self._run_async(
+            self._arith.submit_order(
+                order_id=order_id,
+                symbol=self._contract,
+                exchange=_EXCHANGE,
+                qty=quantity,
+                transaction_type=tx_type,
+                order_type=OrderType.LIMIT,
+                account_id=self._account_id,
+                price=limit_price,
+            ),
+            timeout=15,
+        )
+        basket_id = None
+        if responses:
+            first = responses[0]
+            basket_id = getattr(first, "basket_id", None) or getattr(first, "order_id", None)
+        resolved = str(basket_id or order_id)
+        logger.info("Limit order accepted: id=%s", resolved)
+        return resolved
+
     def cancel_order(self, order_id: str, account_id: Optional[int] = None) -> None:
         self._run_async(
             self._arith.cancel_order(

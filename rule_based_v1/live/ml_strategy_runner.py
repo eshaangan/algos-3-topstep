@@ -374,14 +374,17 @@ class MLStrategyRunner:
         )
         return None
 
-    def _cancel_stop_order(self, stop_id: str | None) -> None:
-        if not stop_id:
+    def _cancel_order(self, order_id: str | None, label: str = "order") -> None:
+        if not order_id:
             return
         try:
-            self.client.cancel_order(stop_id)
-            logger.info("Stop order cancelled: %s", stop_id)
+            self.client.cancel_order(order_id)
+            logger.info("%s cancelled: %s", label, order_id)
         except Exception as e:
-            logger.warning("Could not cancel stop %s: %s", stop_id, e)
+            logger.warning("Could not cancel %s %s: %s", label, order_id, e)
+
+    def _cancel_stop_order(self, stop_id: str | None) -> None:
+        self._cancel_order(stop_id, "stop")
 
     def _send_market_close(self, direction: int) -> bool:
         """Send a MARKET order to close the position. Returns True on acceptance."""
@@ -519,9 +522,11 @@ class MLStrategyRunner:
         if trade is None:
             return
 
-        # Cancel protective stop first (best-effort)
-        self._cancel_stop_order(trade.get("stop_order_id"))
-        trade["stop_order_id"] = None
+        # Cancel both protective orders first (best-effort)
+        self._cancel_order(trade.get("stop_order_id"),  "stop")
+        self._cancel_order(trade.get("limit_order_id"), "limit")
+        trade["stop_order_id"]  = None
+        trade["limit_order_id"] = None
 
         # Verify position still exists before sending close
         try:
@@ -616,11 +621,27 @@ class MLStrategyRunner:
             trade["profit_target"] += diff
             logger.info("Adjusted sl/pt by %.2f to match actual fill", diff)
 
-        # Place exchange stop (best-effort belt-and-suspenders)
+        # Place exchange stop (primary protection)
         stop_id = self._place_stop_order(trade["stop_loss"], trade["direction"])
         trade["stop_order_id"] = stop_id
         if stop_id is None:
             logger.warning("No exchange stop placed. Software stop is sole protection.")
+
+        # Place exchange limit for profit target — gives exchange-quality fill
+        # rather than waiting for bar close and exiting at market.
+        # Tracked separately; whichever fills first, we cancel the other.
+        limit_side = "SELL" if trade["direction"] == 1 else "BUY"
+        try:
+            limit_id = self.client.place_limit_order(
+                limit_price=trade["profit_target"],
+                quantity=self.n_contracts,
+                side=limit_side,
+            )
+            trade["limit_order_id"] = limit_id
+            logger.info("Profit-target limit placed: %s @ %.2f", limit_id, trade["profit_target"])
+        except Exception as exc:
+            logger.warning("Could not place profit-target limit: %s — software target check active", exc)
+            trade["limit_order_id"] = None
 
     # ─────────────────────────────────────────── phase 2: close detection ────
 
@@ -652,7 +673,12 @@ class MLStrategyRunner:
         if trade["consecutive_no_pos"] < _CLOSE_CONFIRM_POLLS:
             return
 
-        # Position confirmed closed by exchange (stop hit or similar)
+        # Position confirmed closed — cancel the surviving protective order
+        self._cancel_order(trade.get("stop_order_id"),  "stop")
+        self._cancel_order(trade.get("limit_order_id"), "limit")
+        trade["stop_order_id"]  = None
+        trade["limit_order_id"] = None
+
         exit_price, reason = self._resolve_exit_price(
             direction=trade["direction"],
             entry=trade.get("actual_entry") or trade["entry_price"],
@@ -788,6 +814,7 @@ class MLStrategyRunner:
             "fill_confirmed": False,
             "fill_poll_start": time.monotonic(),
             "stop_order_id": None,
+            "limit_order_id": None,
             "consecutive_no_pos": 0,
         }
         self.trades_today += 1
