@@ -531,27 +531,19 @@ class RithmicClient:
         stop_loss: Optional[float] = None,
         take_profit: Optional[float] = None,
         client_order_id: Optional[str] = None,
-        stop_loss_bracket: Optional[BracketInstruction] = None,
-        take_profit_bracket: Optional[BracketInstruction] = None,
+        stop_loss_bracket: Optional[BracketInstruction] = None,  # kept for API compat, ignored
+        take_profit_bracket: Optional[BracketInstruction] = None,  # kept for API compat, ignored
         account_id: Optional[int] = None,
         contract_id: Optional[str] = None,   # unused for Rithmic
         linked_order_id: Optional[int] = None,
     ) -> OrderState:
+        # Bracket orders (template 330) are silently rejected on paper/sim accounts.
+        # Submit a plain MARKET entry only; caller is responsible for placing the
+        # stop via place_stop_order() after confirming the fill.
         order_id = client_order_id or str(uuid.uuid4())[:16]
         tx_type  = TransactionType.BUY if side.upper() == "BUY" else TransactionType.SELL
 
-        kwargs: Dict[str, Any] = {}
-        if stop_loss_bracket is not None:
-            kwargs["stop_ticks"]   = abs(stop_loss_bracket.ticks)
-            kwargs["stop_market_on_reject"] = True
-        if take_profit_bracket is not None:
-            kwargs["target_ticks"] = abs(take_profit_bracket.ticks)
-
-        logger.info(
-            "place_order: %s %d×%s  stop_ticks=%s  target_ticks=%s  id=%s",
-            side.upper(), quantity, self._contract,
-            kwargs.get("stop_ticks"), kwargs.get("target_ticks"), order_id,
-        )
+        logger.info("place_order: %s %d×%s MARKET  id=%s", side.upper(), quantity, self._contract, order_id)
 
         responses = self._run_async(
             self._arith.submit_order(
@@ -562,7 +554,6 @@ class RithmicClient:
                 transaction_type=tx_type,
                 order_type=OrderType.MARKET,
                 account_id=self._account_id,
-                **kwargs,
             ),
             timeout=15,
         )
@@ -580,6 +571,41 @@ class RithmicClient:
             status="ACCEPTED",
             avg_fill_price=None,
         )
+
+    def place_stop_order(
+        self,
+        stop_price: float,
+        quantity: int,
+        side: str = "SELL",
+        client_order_id: Optional[str] = None,
+    ) -> str:
+        """Place a STOP_MARKET order to protect an open position.  Returns order_id."""
+        order_id = client_order_id or str(uuid.uuid4())[:16]
+        tx_type  = TransactionType.BUY if side.upper() == "BUY" else TransactionType.SELL
+        logger.info(
+            "place_stop_order: %s %d×%s STOP_MARKET @ %.2f  id=%s",
+            side.upper(), quantity, self._contract, stop_price, order_id,
+        )
+        responses = self._run_async(
+            self._arith.submit_order(
+                order_id=order_id,
+                symbol=self._contract,
+                exchange=_EXCHANGE,
+                qty=quantity,
+                transaction_type=tx_type,
+                order_type=OrderType.STOP_MARKET,
+                account_id=self._account_id,
+                price=stop_price,
+            ),
+            timeout=15,
+        )
+        basket_id = None
+        if responses:
+            first = responses[0]
+            basket_id = getattr(first, "basket_id", None) or getattr(first, "order_id", None)
+        resolved = str(basket_id or order_id)
+        logger.info("Stop order accepted: id=%s", resolved)
+        return resolved
 
     def cancel_order(self, order_id: str, account_id: Optional[int] = None) -> None:
         self._run_async(
