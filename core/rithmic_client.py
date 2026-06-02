@@ -24,6 +24,9 @@ import os
 import threading
 import time
 import uuid
+from zoneinfo import ZoneInfo
+
+_TZ_ET = ZoneInfo("America/New_York")
 from collections import deque, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -255,44 +258,71 @@ class RithmicClient:
     async def _time_bar_subscription_watchdog(self) -> None:
         """
         Runs forever inside the async event loop. If no on_time_bar callback fires
-        for >10 minutes during active futures hours (08:00-21:00 UTC = 4am-5pm ET),
+        for >10 minutes during active ET hours (4 AM - 5 PM ET, CME break excluded),
         re-sends subscribe_to_time_bar_data() on the live connection without disconnecting.
+
+        After MAX_CONSECUTIVE_FAILURES failed repair attempts, escalates to a full
+        disconnect so the outer watchdog-bash restarts the process cleanly.
 
         Uses two separate timestamps:
           _last_bar_received_at   — updated only when a real bar arrives (truthful)
           _last_resubscribe_at    — updated after each repair attempt (cooldown guard)
         """
-        STALE_SECONDS     = 10 * 60   # declare stale after 10 min no bar
-        RESUBSCRIBE_COOLDOWN = 12 * 60  # minimum gap between repair attempts
-        SUBSCRIBE_TIMEOUT = 30          # max seconds to wait for Rithmic ack
-        CHECK_INTERVAL    = 60
+        STALE_SECONDS            = 10 * 60
+        RESUBSCRIBE_COOLDOWN     = 12 * 60
+        SUBSCRIBE_TIMEOUT        = 30
+        MAX_CONSECUTIVE_FAILURES = 3
+        CHECK_INTERVAL           = 60
+        consecutive_failures     = 0
+
         while True:
             await asyncio.sleep(CHECK_INTERVAL)
             try:
-                now_utc = datetime.now(tz=timezone.utc)
-                # 08:00-21:00 UTC covers 4 AM ET (before the ~5:10 AM drop)
-                # through 5 PM ET, excluding CME daily break (21:00-22:00 UTC)
-                in_active_hours = 8 <= now_utc.hour < 21
-                stale = (time.monotonic() - self._last_bar_received_at) > STALE_SECONDS
+                now_et = datetime.now(tz=_TZ_ET)
+                h_et = now_et.hour
+                # CME MNQ active: 4 AM – 5 PM ET (excludes 5–6 PM daily maintenance)
+                in_active_hours = 4 <= h_et < 17
+                stale      = (time.monotonic() - self._last_bar_received_at) > STALE_SECONDS
                 cooldown_ok = (time.monotonic() - self._last_resubscribe_at) > RESUBSCRIBE_COOLDOWN
-                if in_active_hours and stale and cooldown_ok and self._contract and self._arith:
-                    logger.warning(
-                        "Time-bar subscription watchdog: no bar for >%ds — re-subscribing",
-                        STALE_SECONDS,
-                    )
-                    self._last_resubscribe_at = time.monotonic()
-                    await asyncio.wait_for(
-                        self._arith.subscribe_to_time_bar_data(
-                            self._contract, _EXCHANGE,
-                            TimeBarType.MINUTE_BAR, self._bar_size_minutes,
-                        ),
-                        timeout=SUBSCRIBE_TIMEOUT,
-                    )
-                    logger.info("Time-bar re-subscription sent successfully")
+
+                if not (in_active_hours and stale and cooldown_ok and self._contract and self._arith):
+                    continue
+
+                logger.warning(
+                    "Time-bar watchdog: no bar for >%ds at %s ET — re-subscribing (attempt %d/%d)",
+                    STALE_SECONDS, now_et.strftime("%H:%M"), consecutive_failures + 1, MAX_CONSECUTIVE_FAILURES,
+                )
+                self._last_resubscribe_at = time.monotonic()
+                await asyncio.wait_for(
+                    self._arith.subscribe_to_time_bar_data(
+                        self._contract, _EXCHANGE,
+                        TimeBarType.MINUTE_BAR, self._bar_size_minutes,
+                    ),
+                    timeout=SUBSCRIBE_TIMEOUT,
+                )
+                logger.info("Time-bar re-subscription sent successfully")
+                consecutive_failures = 0
+
             except asyncio.TimeoutError:
-                logger.warning("Time-bar watchdog: re-subscribe timed out after %ds", SUBSCRIBE_TIMEOUT)
+                consecutive_failures += 1
+                logger.warning(
+                    "Time-bar watchdog: re-subscribe timed out (%d/%d consecutive failures)",
+                    consecutive_failures, MAX_CONSECUTIVE_FAILURES,
+                )
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    logger.error(
+                        "Time-bar watchdog: %d consecutive failures — forcing disconnect for clean restart",
+                        consecutive_failures,
+                    )
+                    self.disconnect()
+                    return
             except Exception as exc:
-                logger.warning("Time-bar watchdog error: %s", exc)
+                consecutive_failures += 1
+                logger.warning("Time-bar watchdog error (%d/%d): %s", consecutive_failures, MAX_CONSECUTIVE_FAILURES, exc)
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    logger.error("Time-bar watchdog: %d consecutive failures — forcing disconnect", consecutive_failures)
+                    self.disconnect()
+                    return
 
     async def _backfill_bars(self) -> None:
         """Load historical bars from the precomputed microstructure parquet."""
