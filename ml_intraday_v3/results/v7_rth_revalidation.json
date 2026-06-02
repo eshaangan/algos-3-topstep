@@ -1,0 +1,140 @@
+{
+  "v7_original": {
+    "label": "v7_original",
+    "n_trades": 198,
+    "n_days": 40,
+    "trades_per_day": 4.95,
+    "total_pnl": 1180.79,
+    "win_rate": 0.4697,
+    "avg_win": 79.82,
+    "avg_loss": -59.46,
+    "max_drawdown": -535.7,
+    "sharpe_daily": 2.851,
+    "daily_pnl_mean": 29.52,
+    "daily_pnl_std": 164.37,
+    "mc_by_contracts": {
+      "1": {
+        "p_pass": 0.9833,
+        "p_bust_mll": 0.013,
+        "median_days": 192
+      },
+      "2": {
+        "p_pass": 0.838,
+        "p_bust_mll": 0.162,
+        "median_days": 83
+      },
+      "3": {
+        "p_pass": 0.6902,
+        "p_bust_mll": 0.3098,
+        "median_days": 47
+      },
+      "4": {
+        "p_pass": 0.6003,
+        "p_bust_mll": 0.3997,
+        "median_days": 30
+      },
+      "5": {
+        "p_pass": 0.5426,
+        "p_bust_mll": 0.4574,
+        "median_days": 22
+      },
+      "6": {
+        "p_pass": 0.5066,
+        "p_bust_mll": 0.4934,
+        "median_days": 16
+      }
+    }
+  },
+  "rth_strict": {
+    "label": "rth_strict",
+    "n_trades": 240,
+    "n_days": 48,
+    "trades_per_day": 5.0,
+    "total_pnl": 938.95,
+    "win_rate": 0.45,
+    "avg_win": 114.6,
+    "avg_loss": -86.65,
+    "max_drawdown": -1066.08,
+    "sharpe_daily": 1.363,
+    "daily_pnl_mean": 19.56,
+    "daily_pnl_std": 227.78,
+    "mc_by_contracts": {
+      "1": {
+        "p_pass": 0.6477,
+        "p_bust_mll": 0.3405,
+        "median_days": 199
+      },
+      "2": {
+        "p_pass": 0.4228,
+        "p_bust_mll": 0.5772,
+        "median_days": 62
+      },
+      "3": {
+        "p_pass": 0.357,
+        "p_bust_mll": 0.643,
+        "median_days": 31
+      },
+      "4": {
+        "p_pass": 0.3327,
+        "p_bust_mll": 0.6673,
+        "median_days": 20
+      },
+      "5": {
+        "p_pass": 0.3195,
+        "p_bust_mll": 0.6805,
+        "median_days": 14
+      },
+      "6": {
+        "p_pass": 0.3069,
+        "p_bust_mll": 0.6931,
+        "median_days": 10
+      }
+    }
+  },
+  "rth_v7_intersect": {
+    "label": "rth_v7_intersect",
+    "n_trades": 190,
+    "n_days": 38,
+    "trades_per_day": 5.0,
+    "total_pnl": -64.67,
+    "win_rate": 0.4316,
+    "avg_win": 112.46,
+    "avg_loss": -85.99,
+    "max_drawdown": -1285.47,
+    "sharpe_daily": -0.126,
+    "daily_pnl_mean": -1.7,
+    "daily_pnl_std": 213.65,
+    "mc_by_contracts": {
+      "1": {
+        "p_pass": 0.1105,
+        "p_bust_mll": 0.8554,
+        "median_days": 254
+      },
+      "2": {
+        "p_pass": 0.1465,
+        "p_bust_mll": 0.8535,
+        "median_days": 75
+      },
+      "3": {
+        "p_pass": 0.1688,
+        "p_bust_mll": 0.8312,
+        "median_days": 36
+      },
+      "4": {
+        "p_pass": 0.1847,
+        "p_bust_mll": 0.8153,
+        "median_days": 23
+      },
+      "5": {
+        "p_pass": 0.2014,
+        "p_bust_mll": 0.7986,
+        "median_days": 16
+      },
+      "6": {
+        "p_pass": 0.2059,
+        "p_bust_mll": 0.7941,
+        "median_days": 11
+      }
+    }
+  }
+}
