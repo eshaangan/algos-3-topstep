@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import pickle
@@ -25,6 +26,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 try:
     import setproctitle
@@ -102,13 +104,23 @@ COMMISSION  = 0.62       # per side per contract
 
 # Maximum safe contracts — override from risk yaml if present
 _MAX_SAFE_CONTRACTS = 3
+_TZ_ET = ZoneInfo("America/New_York")
 
-# Phase-1 fill confirmation: how long to poll fill-history before giving up
+# State persistence: survives bash-watchdog restarts (30s) and keeps position tracked
+_STATE_FILE = Path(os.path.expanduser("~/.ml_trader_state.json"))
+
+# Phase-1 fill confirmation
 _FILL_CONFIRM_TIMEOUT_S = 90
-_FILL_POLL_INTERVAL_S   = 5   # seconds between fill-history polls in phase 1
+_FILL_POLL_INTERVAL_S   = 5
 
-# Phase-2 close detection: consecutive clean-empty position polls before declaring closed
-_CLOSE_CONFIRM_POLLS = 3
+# Phase-2 close detection
+# Orders are cancelled on the FIRST absent poll to prevent the limit order from
+# filling on a flat account. We require 2 more clean polls after that to confirm.
+_CANCEL_ON_FIRST_ABSENT = True
+_CLOSE_CONFIRM_POLLS    = 3   # total polls (cancel fires on poll 1, record on poll 3)
+
+# Contract expiry warning: log alert this many days before front-month expiry
+_ROLLOVER_WARN_DAYS = 7
 
 
 class MLStrategyRunner:
@@ -177,7 +189,10 @@ class MLStrategyRunner:
         self.sl_atr   = float(cfg["sl"])
         self.lookahead = int(cfg["lookahead"])
         self.conf_threshold = float(cfg["conf"])
-        self.max_trades_per_day = int(cfg["max_trades"])
+        # Use the more conservative of model config and risk yaml
+        model_max = int(cfg["max_trades"])
+        yaml_max  = int(self.risk_cfg.get("session", {}).get("max_trades_per_day", model_max))
+        self.max_trades_per_day = min(model_max, yaml_max)
 
     # ─────────────────────────────────────────── initialisation ──────────────
 
@@ -212,6 +227,49 @@ class MLStrategyRunner:
             flatten_minutes_before_close=cfg["session"]["flatten_minutes_before_close"],
             drawdown_buffer=cfg["drawdown"]["buffer_from_max"],
         )
+
+    # ─────────────────────────────────────── state persistence ───────────────
+
+    def _save_state(self) -> None:
+        """Persist active_trade to disk so bash-watchdog restarts can recover."""
+        if self.active_trade is None:
+            _STATE_FILE.unlink(missing_ok=True)
+            return
+        try:
+            state = {}
+            for k, v in self.active_trade.items():
+                if isinstance(v, pd.Timestamp):
+                    state[k] = str(v)
+                elif v is None or isinstance(v, (int, float, bool, str)):
+                    state[k] = v
+                else:
+                    state[k] = str(v)
+            _STATE_FILE.write_text(json.dumps(state))
+        except Exception as e:
+            logger.warning("Failed to save state: %s", e)
+
+    def _load_state(self) -> dict | None:
+        if not _STATE_FILE.exists():
+            return None
+        try:
+            raw = json.loads(_STATE_FILE.read_text())
+            if "entry_time" in raw and raw["entry_time"]:
+                raw["entry_time"] = pd.Timestamp(raw["entry_time"])
+            # Ensure numeric fields are correct types
+            for f in ("entry_price", "actual_entry", "stop_loss", "profit_target",
+                      "last_bar_close", "fill_poll_start"):
+                if raw.get(f) is not None:
+                    raw[f] = float(raw[f]) if raw[f] is not None else None
+            for f in ("direction", "bars_in", "consecutive_no_pos"):
+                if f in raw and raw[f] is not None:
+                    raw[f] = int(raw[f])
+            for f in ("fill_confirmed",):
+                if f in raw:
+                    raw[f] = bool(raw[f])
+            return raw
+        except Exception as e:
+            logger.warning("Failed to load state file: %s", e)
+            return None
 
     def _init_data_fetcher(self) -> bool:
         broker = os.getenv("TRADING_BROKER", "rithmic").lower()
@@ -258,20 +316,125 @@ class MLStrategyRunner:
 
     def _startup_position_check(self) -> bool:
         """
-        Verify the account is flat before entering the main loop.
-        Returns True if safe to trade, False if pre-existing positions were found.
-        If the position query itself fails, treats it as UNSAFE (returns False).
+        Startup safety sequence:
+        1. Rollover warning — alert if contract expires within _ROLLOVER_WARN_DAYS
+        2. Real balance query — set dynamic daily loss limit from actual equity
+        3. State recovery — restore active_trade from disk if a crash happened mid-trade
+        4. Flatness check — refuse new entries if unexpected position exists
+
+        Returns True if safe to proceed, False to block all new entries.
         """
         if self.dry_run:
+            _STATE_FILE.unlink(missing_ok=True)
             return True
+
+        # ── 1. Rollover warning ───────────────────────────────────────────
+        try:
+            contract = getattr(self.client, "_contract", "") or ""
+            # Parse expiry month from contract code (e.g. MNQM6 → June)
+            month_codes = {"F":1,"G":2,"H":3,"J":4,"K":5,"M":6,
+                           "N":7,"Q":8,"U":9,"V":10,"X":11,"Z":12}
+            if len(contract) >= 5:
+                mc = contract[-2]  # e.g. 'M' from MNQM6
+                yr = int("202" + contract[-1])
+                mo = month_codes.get(mc.upper())
+                if mo:
+                    from datetime import date
+                    # Third Friday of expiry month ≈ rollover date
+                    import calendar
+                    c = calendar.monthcalendar(yr, mo)
+                    fridays = [w[4] for w in c if w[4] > 0]
+                    expiry = date(yr, mo, fridays[2])
+                    days_to_expiry = (expiry - date.today()).days
+                    if days_to_expiry <= _ROLLOVER_WARN_DAYS:
+                        logger.warning(
+                            "CONTRACT EXPIRY IN %d DAYS: %s expires ~%s. "
+                            "Restart runner after rollover to pick up next front month.",
+                            days_to_expiry, contract, expiry
+                        )
+        except Exception:
+            pass  # rollover check is advisory only
+
+        # ── 2. Real balance → dynamic daily loss limit ────────────────────
+        logger.info("Startup safety check: querying account balance…")
+        try:
+            acct = self.client.get_account_state()
+            initial  = self.risk_cfg.get("account", {}).get("initial_balance", 100000.0)
+            mll      = self.risk_cfg.get("account", {}).get("mll_limit", 3000.0)
+            min_mll  = self.risk_cfg.get("drawdown", {}).get("min_remaining_mll", 500.0)
+            equity   = acct.equity if acct else initial
+
+            # Conservative: assume peak is max of initial and current equity
+            approx_drawdown = max(0.0, initial - equity)
+            remaining_mll   = mll - approx_drawdown
+            logger.info(
+                "Account equity: $%.2f | Approx MLL used: $%.2f | Remaining: $%.2f",
+                equity, approx_drawdown, remaining_mll,
+            )
+            if remaining_mll < min_mll:
+                logger.critical(
+                    "MLL nearly exhausted ($%.2f remaining, min=$%.2f). "
+                    "Blocking all new trades to protect combine account.",
+                    remaining_mll, min_mll,
+                )
+                self.trades_today = self.max_trades_per_day
+                return False
+
+            # Set dynamic daily loss limit: 40% of remaining MLL, capped at configured max
+            configured_max = abs(self.risk_cfg["daily_limits"]["max_daily_loss"])
+            dynamic_limit  = min(configured_max, remaining_mll * 0.40)
+            self.risk_manager.max_daily_loss = -dynamic_limit
+            logger.info("Daily loss limit set dynamically to $%.2f", dynamic_limit)
+        except Exception as exc:
+            logger.warning(
+                "Balance query failed (%s) — using configured daily loss limit $%.2f",
+                exc, abs(self.risk_manager.max_daily_loss),
+            )
+
+        # ── 3. State recovery from disk ───────────────────────────────────
+        saved = self._load_state()
+        if saved is not None:
+            logger.warning(
+                "Found saved trade state — previous session may have crashed mid-trade. "
+                "Checking if position still exists…"
+            )
+            try:
+                positions = self.client.search_open_positions()
+            except Exception as exc:
+                positions = None
+                logger.warning("Position query failed during state recovery: %s", exc)
+
+            if positions:
+                logger.warning(
+                    "Restoring active trade from disk: %s. "
+                    "Will re-place protective orders on next poll.",
+                    saved,
+                )
+                # Restore state but force re-confirmation of stop/limit
+                saved["fill_confirmed"]    = True   # position exists, fill was confirmed
+                saved["stop_order_id"]     = None   # need to re-place
+                saved["limit_order_id"]    = None   # need to re-place
+                saved["consecutive_no_pos"] = 0
+                saved["fill_poll_start"]   = time.monotonic()
+                self.active_trade = saved
+                self.trades_today += 1
+                return True
+            else:
+                logger.warning(
+                    "Saved state found but no open position — trade closed while runner was down. "
+                    "Deleting stale state file."
+                )
+                _STATE_FILE.unlink(missing_ok=True)
+
+        # ── 4. Flatness check ─────────────────────────────────────────────
         logger.info("Startup safety check: querying open positions…")
         try:
             positions = self.client.search_open_positions()
         except Exception as exc:
             logger.critical(
-                "Startup position query failed (%s). Treating as UNSAFE — will not trade. "
-                "Resolve manually and restart.", exc
+                "Position query failed (%s). Treating as UNSAFE — blocking new trades.", exc
             )
+            self.trades_today = self.max_trades_per_day
             return False
 
         if not positions:
@@ -279,11 +442,10 @@ class MLStrategyRunner:
             return True
 
         logger.critical(
-            "STARTUP ABORT: account has %d open position(s) before trading started: %s. "
-            "Close them manually and restart. Will not enter any trades.",
+            "STARTUP ABORT: %d unexpected open position(s): %s. "
+            "Close manually and restart.",
             len(positions), positions,
         )
-        # Block trading for the day but keep running (so logs remain accessible)
         self.trades_today = self.max_trades_per_day
         return False
 
@@ -512,6 +674,7 @@ class MLStrategyRunner:
         logger.info("[%s] PnL=$%+.2f (entry=%.2f, exit=%.2f)",
                     reason.upper(), pnl, entry, exit_price)
         self.active_trade = None
+        self._save_state()
 
     def _exit_trade(self, reason: str, last_close: float) -> None:
         """
@@ -626,6 +789,7 @@ class MLStrategyRunner:
         trade["stop_order_id"] = stop_id
         if stop_id is None:
             logger.warning("No exchange stop placed. Software stop is sole protection.")
+        self._save_state()  # persist after stop placed
 
         # Place exchange limit for profit target — gives exchange-quality fill
         # rather than waiting for bar close and exiting at market.
@@ -642,6 +806,7 @@ class MLStrategyRunner:
         except Exception as exc:
             logger.warning("Could not place profit-target limit: %s — software target check active", exc)
             trade["limit_order_id"] = None
+        self._save_state()  # persist after both protective orders placed
 
     # ─────────────────────────────────────────── phase 2: close detection ────
 
@@ -670,14 +835,16 @@ class MLStrategyRunner:
         trade["consecutive_no_pos"] = trade.get("consecutive_no_pos", 0) + 1
         logger.debug("Phase 2: position absent (%d/%d)", trade["consecutive_no_pos"], _CLOSE_CONFIRM_POLLS)
 
+        # Cancel both orders on the FIRST absent poll — prevents the limit from
+        # filling on a flat account if price bounces back to target after stop hit.
+        if trade["consecutive_no_pos"] == 1:
+            self._cancel_order(trade.get("stop_order_id"),  "stop")
+            self._cancel_order(trade.get("limit_order_id"), "limit")
+            trade["stop_order_id"]  = None
+            trade["limit_order_id"] = None
+
         if trade["consecutive_no_pos"] < _CLOSE_CONFIRM_POLLS:
             return
-
-        # Position confirmed closed — cancel the surviving protective order
-        self._cancel_order(trade.get("stop_order_id"),  "stop")
-        self._cancel_order(trade.get("limit_order_id"), "limit")
-        trade["stop_order_id"]  = None
-        trade["limit_order_id"] = None
 
         exit_price, reason = self._resolve_exit_price(
             direction=trade["direction"],
@@ -818,6 +985,7 @@ class MLStrategyRunner:
             "consecutive_no_pos": 0,
         }
         self.trades_today += 1
+        self._save_state()  # persist entry immediately
 
     def _process_bar_dry_run(self, trade: dict, h: float, l: float,
                               c: float, slip: float) -> None:
@@ -897,6 +1065,18 @@ class MLStrategyRunner:
                 new_bar = self.data_fetcher.fetch_latest_bar()
                 if new_bar is not None:
                     self.data_fetcher.update_buffer(new_bar)
+
+                # ── EOD flatten: close any position by session_close - flatten_mins ─
+                if self.active_trade is not None and not self.dry_run:
+                    now_et = datetime.now(tz=_TZ_ET)
+                    flatten_mins = self.risk_cfg.get("session", {}).get("flatten_minutes_before_close", 5)
+                    session_h, session_m = map(int, self.risk_cfg.get("session", {}).get("session_close", "15:00").split(":"))
+                    flatten_total_mins = session_h * 60 + session_m - flatten_mins
+                    current_mins = now_et.hour * 60 + now_et.minute
+                    if current_mins >= flatten_total_mins:
+                        logger.info("EOD flatten: %02d:%02d ET — closing position before session close",
+                                    now_et.hour, now_et.minute)
+                        self._exit_trade(reason="eod_flatten", last_close=0.0)
 
                 # ── Trade management (every poll) ─────────────────────────
                 if self.active_trade is not None and not self.dry_run:
