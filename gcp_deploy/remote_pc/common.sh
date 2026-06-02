@@ -150,7 +150,7 @@ deploy_native() {
     core \
     rule_based_v1/live \
     rule_based_v1/diagnostics/ml_strategy_search.py \
-    rule_based_v1/models/ml_strategy_mnq_v7.pkl \
+    rule_based_v1/models/ml_strategy_mnq_v3.pkl \
     rule_based_v1/configs/risk_lucid_100k.yaml \
     rule_based_v1/engine \
     ml_intraday_v3/live_trading \
@@ -174,7 +174,7 @@ wd = os.path.join(remote_dir, '.wd')
 script = (
     '#!/bin/bash\n'
     'cd \"' + remote_dir + '\"\n'
-    'until .venv/bin/python -u .w/rule_based_v1/live/.run.py --model-path .w/rule_based_v1/models/ml_strategy_mnq_v7.pkl ' + runner_cmd + '; do\n'
+    'until .venv/bin/python -u .w/rule_based_v1/live/.run.py --model-path .w/rule_based_v1/models/ml_strategy_mnq_v3.pkl ' + runner_cmd + '; do\n'
     '  echo \"[watchdog \$(date -u)] crash - restarting in 30s\"\n'
     '  sleep 30\n'
     'done\n'
@@ -249,7 +249,7 @@ preflight_remote_docker() {
 }
 
 ensure_model() {
-  local model_path="${REPO_ROOT}/rule_based_v1/models/ml_strategy_mnq_v7.pkl"
+  local model_path="${REPO_ROOT}/rule_based_v1/models/ml_strategy_mnq_v3.pkl"
   if [[ ! -f "${model_path}" ]]; then
     echo "Model bundle missing: ${model_path}" >&2
     exit 1

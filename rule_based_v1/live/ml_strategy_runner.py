@@ -103,7 +103,7 @@ SLIPPAGE_T  = 1          # ticks of assumed slippage on entry/exit
 COMMISSION  = 0.62       # per side per contract
 
 # Maximum safe contracts — override from risk yaml if present
-_MAX_SAFE_CONTRACTS = 3
+_MAX_SAFE_CONTRACTS = 6   # Lucid 100k hard cap on MNQ micros
 _TZ_ET = ZoneInfo("America/New_York")
 
 # State persistence: survives bash-watchdog restarts (30s) and keeps position tracked
@@ -189,10 +189,18 @@ class MLStrategyRunner:
         self.sl_atr   = float(cfg["sl"])
         self.lookahead = int(cfg["lookahead"])
         self.conf_threshold = float(cfg["conf"])
-        # Use the more conservative of model config and risk yaml
+        # min_atr_pts: skip entries in low-vol chop (v3 default 5.0). 0.0 = disabled.
+        self.min_atr_pts = float(cfg.get("min_atr_pts", 0.0))
+        # max_trades_per_day: use the model's validated value, but never exceed the
+        # risk yaml cap (which is the combine-safety bound).
         model_max = int(cfg["max_trades"])
         yaml_max  = int(self.risk_cfg.get("session", {}).get("max_trades_per_day", model_max))
         self.max_trades_per_day = min(model_max, yaml_max)
+        logger.info(
+            "Strategy params: pt=%.2f sl=%.2f lookahead=%d conf=%.4f min_atr=%.2f max_trades=%d",
+            self.pt_atr, self.sl_atr, self.lookahead, self.conf_threshold,
+            self.min_atr_pts, self.max_trades_per_day,
+        )
 
     # ─────────────────────────────────────────── initialisation ──────────────
 
@@ -460,9 +468,24 @@ class MLStrategyRunner:
 
     @staticmethod
     def _in_trading_window(ts: pd.Timestamp) -> bool:
-        ts_et = ts.tz_convert("US/Eastern") if ts.tz else ts.tz_localize("US/Eastern")
-        h, m = ts_et.hour, ts_et.minute
-        return (h > 9 or (h == 9 and m >= 45)) and h < 15
+        """
+        Session gate matching the v3/v7 backtest EXACTLY (ml_scalper_v3.py:294-297):
+            h_et = (UTC_hour - 5) % 24
+            allow if h_et >= 11 and h_et != 13 and weekday != Thursday
+
+        NOTE: this uses the hardcoded -5 (EST) offset that the model was trained
+        with, applied to the UTC bar index — NOT true ET. This is intentional:
+        the model's hour_sin/hour_cos features and its backtest session filter both
+        use (UTC_hour - 5), so live must match to reproduce validated performance.
+        Do not "fix" this to real ET — that would diverge from the validated edge.
+        """
+        ts_utc = ts.tz_convert("UTC") if ts.tz else ts.tz_localize("UTC")
+        h_et = (ts_utc.hour - 5) % 24
+        if h_et < 11 or h_et == 13:
+            return False
+        if ts_utc.weekday() == 3:   # Thursday excluded (OOS WR=25%, no edge)
+            return False
+        return True
 
     def _predict_prob(self, bars_df: pd.DataFrame) -> tuple[float | None, float | None]:
         feat = build_features(bars_df)
@@ -934,7 +957,7 @@ class MLStrategyRunner:
             return
 
         if not self._in_trading_window(bar_time):
-            logger.debug("Skip: outside 9:45–15:00 ET window (%s)", bar_time)
+            logger.debug("Skip: outside model session window (%s)", bar_time)
             return
 
         prob, atr_val = self._predict_prob(bars_df)
@@ -943,6 +966,10 @@ class MLStrategyRunner:
             return
         if atr_val is None:
             logger.debug("Skip: invalid ATR")
+            return
+        # min_atr_pts filter: v3/v7 backtest skips entries when ATR < min (low-vol chop)
+        if atr_val < self.min_atr_pts:
+            logger.debug("Skip: ATR %.2f < min_atr_pts %.2f", atr_val, self.min_atr_pts)
             return
 
         direction = self._signal_direction(prob)

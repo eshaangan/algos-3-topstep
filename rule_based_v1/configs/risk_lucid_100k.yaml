@@ -8,7 +8,7 @@ account:
   profit_target: 6000.0       # Combine profit target
 
 position:
-  contracts: 1                # Start at 1; scale after 10 validated trades
+  contracts: 5                # v3 balanced sizing (median ~20 days, 99.4% pass, 0.6% bust)
   instrument: "MNQ"
   tick_size: 0.25
   tick_value: 0.50
@@ -17,16 +17,16 @@ position:
 
 daily_limits:
   max_daily_loss: -1500.0     # Conservative internal cap (50% of MLL); overridden dynamically at startup
-  per_trade_max_loss: 800.0   # ~400pts per trade max; keeps single loss well within MLL
+  per_trade_max_loss: 800.0   # ~80pts per trade at 5c; keeps single loss well within MLL
 
 circuit_breaker:
   max_consecutive_losses: 3
-  cooldown_bars: 3
+  cooldown_bars: 3            # matches v3 CFG cooldown_bars
 
 session:
-  flatten_minutes_before_close: 5   # Flatten at 2:55 PM ET
-  session_close: "15:00"            # ET trading window close (runner uses 9:45-15:00 window)
-  max_trades_per_day: 3             # Conservative for combine; model default is 5
+  flatten_minutes_before_close: 5   # Flatten near session end
+  session_close: "16:55"            # ET; v3 session runs midday into evening (h_et>=11)
+  max_trades_per_day: 6             # v3 validated at 6/day (matches model config)
 
 drawdown:
   # Halt at $2,700 drawdown from peak (leaves $300 MLL buffer)
