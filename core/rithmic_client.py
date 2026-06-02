@@ -22,6 +22,7 @@ import asyncio
 import logging
 import os
 import threading
+import time
 import uuid
 from collections import deque, defaultdict
 from dataclasses import dataclass
@@ -163,6 +164,9 @@ class RithmicClient:
         self._bar_lock   = threading.Lock()
         self._last_delivered_bar_time: Optional[pd.Timestamp] = None
 
+        # Timestamp of last on_time_bar callback — used by subscription watchdog
+        self._last_bar_received_at: float = time.monotonic()
+
         # Live tick accumulator for intrabar microstructure features
         self._tick_acc = TickAccumulator(bar_size_minutes=bar_size_minutes)
 
@@ -242,6 +246,37 @@ class RithmicClient:
         )
         self._arith.on_time_bar += self._on_time_bar
 
+        # Start async watchdog that re-subscribes if Rithmic silently drops time bars
+        self._loop.create_task(self._time_bar_subscription_watchdog())
+
+    async def _time_bar_subscription_watchdog(self) -> None:
+        """
+        Runs forever inside the async event loop. If no on_time_bar callback fires
+        for >10 minutes during active futures hours (10:00-21:00 UTC, i.e. 6am-5pm ET),
+        Rithmic has silently dropped the subscription — re-subscribe without disconnecting.
+        """
+        STALE_SECONDS = 10 * 60
+        CHECK_INTERVAL = 60
+        while True:
+            await asyncio.sleep(CHECK_INTERVAL)
+            try:
+                now_utc = datetime.now(tz=timezone.utc)
+                # Futures active: roughly 10:00-21:00 UTC (CME opens 14:30, MNQ nearly 24h)
+                in_active_hours = 10 <= now_utc.hour < 21
+                stale = (time.monotonic() - self._last_bar_received_at) > STALE_SECONDS
+                if in_active_hours and stale and self._contract and self._arith:
+                    logger.warning(
+                        "Time-bar subscription watchdog: no bar for >%ds — re-subscribing",
+                        STALE_SECONDS,
+                    )
+                    await self._arith.subscribe_to_time_bar_data(
+                        self._contract, _EXCHANGE, TimeBarType.MINUTE_BAR, self._bar_size_minutes
+                    )
+                    self._last_bar_received_at = time.monotonic()
+                    logger.info("Time-bar re-subscription sent")
+            except Exception as exc:
+                logger.warning("Time-bar watchdog error: %s", exc)
+
     async def _backfill_bars(self) -> None:
         """Load historical bars from the precomputed microstructure parquet."""
         if _MICRO_PARQUET.exists():
@@ -293,6 +328,7 @@ class RithmicClient:
 
     async def _on_time_bar(self, data: dict) -> None:
         """Bar close event: finalize microstructure from accumulated ticks then ingest."""
+        self._last_bar_received_at = time.monotonic()
         end_dt = data.get("bar_end_datetime")
         if end_dt is None:
             marker = data.get("marker")
