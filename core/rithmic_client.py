@@ -164,8 +164,11 @@ class RithmicClient:
         self._bar_lock   = threading.Lock()
         self._last_delivered_bar_time: Optional[pd.Timestamp] = None
 
-        # Timestamp of last on_time_bar callback — used by subscription watchdog
+        # Timestamps used by subscription watchdog (kept separate intentionally):
+        #   _last_bar_received_at  — only updated when a real bar arrives
+        #   _last_resubscribe_at   — updated after each repair attempt (cooldown guard)
         self._last_bar_received_at: float = time.monotonic()
+        self._last_resubscribe_at: float = 0.0
 
         # Live tick accumulator for intrabar microstructure features
         self._tick_acc = TickAccumulator(bar_size_minutes=bar_size_minutes)
@@ -252,28 +255,42 @@ class RithmicClient:
     async def _time_bar_subscription_watchdog(self) -> None:
         """
         Runs forever inside the async event loop. If no on_time_bar callback fires
-        for >10 minutes during active futures hours (10:00-21:00 UTC, i.e. 6am-5pm ET),
-        Rithmic has silently dropped the subscription — re-subscribe without disconnecting.
+        for >10 minutes during active futures hours (08:00-21:00 UTC = 4am-5pm ET),
+        re-sends subscribe_to_time_bar_data() on the live connection without disconnecting.
+
+        Uses two separate timestamps:
+          _last_bar_received_at   — updated only when a real bar arrives (truthful)
+          _last_resubscribe_at    — updated after each repair attempt (cooldown guard)
         """
-        STALE_SECONDS = 10 * 60
-        CHECK_INTERVAL = 60
+        STALE_SECONDS     = 10 * 60   # declare stale after 10 min no bar
+        RESUBSCRIBE_COOLDOWN = 12 * 60  # minimum gap between repair attempts
+        SUBSCRIBE_TIMEOUT = 30          # max seconds to wait for Rithmic ack
+        CHECK_INTERVAL    = 60
         while True:
             await asyncio.sleep(CHECK_INTERVAL)
             try:
                 now_utc = datetime.now(tz=timezone.utc)
-                # Futures active: roughly 10:00-21:00 UTC (CME opens 14:30, MNQ nearly 24h)
-                in_active_hours = 10 <= now_utc.hour < 21
+                # 08:00-21:00 UTC covers 4 AM ET (before the ~5:10 AM drop)
+                # through 5 PM ET, excluding CME daily break (21:00-22:00 UTC)
+                in_active_hours = 8 <= now_utc.hour < 21
                 stale = (time.monotonic() - self._last_bar_received_at) > STALE_SECONDS
-                if in_active_hours and stale and self._contract and self._arith:
+                cooldown_ok = (time.monotonic() - self._last_resubscribe_at) > RESUBSCRIBE_COOLDOWN
+                if in_active_hours and stale and cooldown_ok and self._contract and self._arith:
                     logger.warning(
                         "Time-bar subscription watchdog: no bar for >%ds — re-subscribing",
                         STALE_SECONDS,
                     )
-                    await self._arith.subscribe_to_time_bar_data(
-                        self._contract, _EXCHANGE, TimeBarType.MINUTE_BAR, self._bar_size_minutes
+                    self._last_resubscribe_at = time.monotonic()
+                    await asyncio.wait_for(
+                        self._arith.subscribe_to_time_bar_data(
+                            self._contract, _EXCHANGE,
+                            TimeBarType.MINUTE_BAR, self._bar_size_minutes,
+                        ),
+                        timeout=SUBSCRIBE_TIMEOUT,
                     )
-                    self._last_bar_received_at = time.monotonic()
-                    logger.info("Time-bar re-subscription sent")
+                    logger.info("Time-bar re-subscription sent successfully")
+            except asyncio.TimeoutError:
+                logger.warning("Time-bar watchdog: re-subscribe timed out after %ds", SUBSCRIBE_TIMEOUT)
             except Exception as exc:
                 logger.warning("Time-bar watchdog error: %s", exc)
 
