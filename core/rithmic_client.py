@@ -385,16 +385,24 @@ class RithmicClient:
     async def _on_time_bar(self, data: dict) -> None:
         """Bar close event: finalize microstructure from accumulated ticks then ingest."""
         self._last_bar_received_at = time.monotonic()
-        end_dt = data.get("bar_end_datetime")
-        if end_dt is None:
-            marker = data.get("marker")
-            if marker is None:
+        # Prefer marker (Unix epoch seconds → unambiguous UTC).
+        # bar_end_datetime from async_rithmic is a naive local-time datetime on some
+        # systems; replace(tzinfo=utc) would mislabel CDT 10:05 as "UTC 10:05", shifting
+        # every bar 5 hours into the past.  marker has no such ambiguity.
+        marker = data.get("marker")
+        if marker is not None:
+            end_dt: datetime = datetime.fromtimestamp(int(marker), tz=timezone.utc)
+        else:
+            raw = data.get("bar_end_datetime")
+            if raw is None:
                 return
-            end_dt = datetime.fromtimestamp(int(marker), tz=timezone.utc)
-        elif isinstance(end_dt, datetime) and end_dt.tzinfo is None:
-            end_dt = end_dt.replace(tzinfo=timezone.utc)
+            if isinstance(raw, datetime):
+                # astimezone() treats naive datetimes as local time → correct UTC
+                end_dt = raw.astimezone(timezone.utc)
+            else:
+                return
 
-        bar_start = (pd.Timestamp(end_dt).tz_localize("UTC") if pd.Timestamp(end_dt).tzinfo is None else pd.Timestamp(end_dt).tz_convert("UTC")) - pd.Timedelta(minutes=self._bar_size_minutes)
+        bar_start = pd.Timestamp(end_dt).tz_convert("UTC") - pd.Timedelta(minutes=self._bar_size_minutes)
 
         # Compute microstructure features from ticks accumulated in this bar
         micro = self._tick_acc.finalize_bar(bar_start)
@@ -416,16 +424,20 @@ class RithmicClient:
                         Pass {} for historical OHLCV-only bars (missing features → NaN).
         """
         try:
-            end_dt = data.get("bar_end_datetime")
-            if end_dt is None:
-                marker = data.get("marker")
-                if marker is None:
+            # Prefer marker (Unix epoch → unambiguous UTC); see _on_time_bar for rationale.
+            marker = data.get("marker")
+            if marker is not None:
+                end_dt: datetime = datetime.fromtimestamp(int(marker), tz=timezone.utc)
+            else:
+                raw = data.get("bar_end_datetime")
+                if raw is None:
                     return
-                end_dt = datetime.fromtimestamp(int(marker), tz=timezone.utc)
-            elif isinstance(end_dt, datetime) and end_dt.tzinfo is None:
-                end_dt = end_dt.replace(tzinfo=timezone.utc)
+                if isinstance(raw, datetime):
+                    end_dt = raw.astimezone(timezone.utc)
+                else:
+                    return
 
-            bar_start = (pd.Timestamp(end_dt).tz_localize("UTC") if pd.Timestamp(end_dt).tzinfo is None else pd.Timestamp(end_dt).tz_convert("UTC")) - pd.Timedelta(minutes=self._bar_size_minutes)
+            bar_start = pd.Timestamp(end_dt).tz_convert("UTC") - pd.Timedelta(minutes=self._bar_size_minutes)
 
             ohlcv = {
                 "open":   float(data.get("open_price",  data.get("open",  0))),
