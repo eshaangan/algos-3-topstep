@@ -595,7 +595,7 @@ class RithmicClient:
                 transaction_type=tx_type,
                 order_type=OrderType.STOP_MARKET,
                 account_id=self._account_id,
-                price=stop_price,
+                trigger_price=stop_price,  # STOP_MARKET requires trigger_price, not price
             ),
             timeout=15,
         )
@@ -676,18 +676,33 @@ class RithmicClient:
             )
             result = []
             for p in (positions or []):
-                # Filter for our symbol; skip flat (qty == 0) positions
+                # Filter for our symbol; skip flat (qty == 0) positions.
+                # InstrumentPnLPositionUpdate proto fields (in priority order):
+                #   net_quantity          — signed net position (positive=long, negative=short)
+                #   buy_qty / sell_qty    — cumulative filled quantities
+                #   open_position_quantity — open contracts (long perspective)
+                # open_long_quantity / quantity do NOT exist in this proto and return None.
                 sym = getattr(p, "symbol", "") or ""
-                qty_str = getattr(p, "open_long_quantity", None) or getattr(p, "quantity", "0")
-                try:
-                    qty = abs(int(qty_str))
-                except (TypeError, ValueError):
-                    qty = 0
-                if qty > 0 and _SYMBOL in sym.upper():
+                if _SYMBOL not in sym.upper():
+                    continue
+                def _int(attr: str) -> int:
+                    v = getattr(p, attr, None)
+                    try:
+                        return int(v) if v is not None else 0
+                    except (TypeError, ValueError):
+                        return 0
+                net_qty = _int("net_quantity")
+                if net_qty == 0:
+                    # fallback: buy - sell
+                    net_qty = _int("buy_qty") - _int("sell_qty")
+                if net_qty == 0:
+                    net_qty = _int("open_position_quantity")
+                qty = abs(net_qty)
+                if qty > 0:
                     result.append({
                         "contract_id": sym,
                         "size": qty,
-                        "average_price": float(getattr(p, "open_position_pnl", 0) or 0),
+                        "average_price": float(getattr(p, "avg_open_fill_price", 0) or 0),
                     })
             return result
         except Exception as exc:

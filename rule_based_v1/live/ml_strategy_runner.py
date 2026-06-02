@@ -325,55 +325,103 @@ class MLStrategyRunner:
                 return sl, "stop_loss"
         return last_close, "bracket_fill"
 
+    _FILL_WAIT_TIMEOUT_S = 120   # give up waiting for fill confirmation after 2 min
+    _CLOSE_CONFIRM_POLLS = 3    # require N consecutive empty-position polls to declare closed
+
     def _check_fill(self) -> None:
         """
-        Two-phase fill management:
-        Phase 1 (fill_confirmed=False): poll for the position to appear; once seen,
-            place the protective SELL STOP_MARKET and mark fill_confirmed.
-        Phase 2 (fill_confirmed=True): require 3 consecutive empty position polls
-            before declaring the trade closed — avoids false fills from transient
-            query latency that previously caused phantom trade records.
+        Two-phase fill management.
+
+        Phase 1 (fill_confirmed=False):
+            Poll for the position to appear on the exchange.  Once seen, place a
+            protective SELL STOP_MARKET immediately.
+            - Timeout: if the position never appears after _FILL_WAIT_TIMEOUT_S seconds,
+              cancel the entry order and abandon the trade — prevents permanent lockout.
+            - Stop failure: if place_stop_order raises, attempt one retry; if that
+              also fails, close the position immediately rather than leave it naked.
+
+        Phase 2 (fill_confirmed=True):
+            Require _CLOSE_CONFIRM_POLLS consecutive calls where search_open_positions()
+            returns an empty (non-error) result before declaring the trade closed.
+            Exceptions from the position query do NOT count toward the empty-poll
+            counter — only a clean empty response does.
         """
         if self.active_trade is None:
             return
+        import time as _time
         try:
             trade = self.active_trade
-            has_position = bool(self.client.search_open_positions())
 
+            # ── Phase 1: wait for fill confirmation ──────────────────────────
             if not trade.get("fill_confirmed"):
-                if has_position:
-                    # Entry fill confirmed — place the protective stop now
-                    trade["fill_confirmed"] = True
-                    trade["consecutive_no_pos"] = 0
+                # Timeout guard: if entry fill never appears, abandon.
+                wait_start = trade.get("fill_wait_start", _time.monotonic())
+                trade["fill_wait_start"] = wait_start
+                if _time.monotonic() - wait_start > self._FILL_WAIT_TIMEOUT_S:
+                    logger.error(
+                        "Fill confirmation timeout after %ds — entry may have been rejected. "
+                        "Abandoning trade to unblock signal generation.",
+                        self._FILL_WAIT_TIMEOUT_S,
+                    )
+                    self.active_trade = None
+                    return
+
+                try:
+                    has_position = bool(self.client.search_open_positions())
+                except Exception as exc:
+                    logger.warning("search_open_positions error in phase 1: %s", exc)
+                    return  # retry next poll
+
+                if not has_position:
+                    logger.debug("Phase 1: waiting for position to appear after entry…")
+                    return
+
+                # Position confirmed — place protective stop
+                trade["fill_confirmed"] = True
+                trade["consecutive_no_pos"] = 0
+                close_side = "SELL" if trade["direction"] == 1 else "BUY"
+                for attempt in range(2):
                     try:
-                        close_side = "SELL" if trade["direction"] == 1 else "BUY"
                         stop_id = self.client.place_stop_order(
                             stop_price=trade["stop_loss"],
                             quantity=self.risk_manager.contracts,
                             side=close_side,
                         )
                         trade["stop_order_id"] = stop_id
-                        logger.info(f"Protective stop placed: {stop_id} @ {trade['stop_loss']:.2f}")
+                        logger.info("Protective stop placed: %s @ %.2f", stop_id, trade["stop_loss"])
+                        break
                     except Exception as exc:
-                        logger.error(f"Failed to place protective stop: {exc}")
+                        logger.error("place_stop_order attempt %d failed: %s", attempt + 1, exc)
+                        if attempt == 0:
+                            _time.sleep(3)
                 else:
-                    logger.debug("Waiting for position to appear after entry…")
+                    # Both attempts failed — close immediately rather than leave naked
+                    logger.error("Cannot place stop after 2 attempts — closing position to avoid naked exposure")
+                    self._close_position(trade, reason="stop_placement_failed")
                 return
 
-            # Phase 2: position confirmed — watch for close
-            if has_position:
+            # ── Phase 2: wait for position to disappear ───────────────────────
+            try:
+                has_position = bool(self.client.search_open_positions())
+                query_ok = True
+            except Exception as exc:
+                logger.warning("search_open_positions error in phase 2 (not counting as absent): %s", exc)
+                query_ok = False
+
+            if not query_ok or has_position:
+                # Position still open, or query failed — reset counter, keep waiting
                 trade["consecutive_no_pos"] = 0
                 return
 
             trade["consecutive_no_pos"] = trade.get("consecutive_no_pos", 0) + 1
-            if trade["consecutive_no_pos"] < 3:
+            if trade["consecutive_no_pos"] < self._CLOSE_CONFIRM_POLLS:
                 logger.debug(
-                    "Position absent (%d/3) — waiting to confirm close",
-                    trade["consecutive_no_pos"],
+                    "Phase 2: position absent (%d/%d) — confirming close",
+                    trade["consecutive_no_pos"], self._CLOSE_CONFIRM_POLLS,
                 )
                 return
 
-            # 3 consecutive empty polls → position is closed
+            # _CLOSE_CONFIRM_POLLS consecutive clean empty results → position is closed
             exit_price, reason = self._resolve_exit_price(
                 direction=trade["direction"],
                 entry_price=trade["entry_price"],
@@ -387,12 +435,12 @@ class MLStrategyRunner:
                 TradeRecord(0, 0, trade["direction"], trade["entry_price"], exit_price, pnl, reason)
             )
             logger.info(
-                f"[FILL] {reason}: PnL=${pnl:+.2f} "
-                f"(entry={trade['entry_price']:.2f}, exit={exit_price:.2f})"
+                "[FILL] %s: PnL=$%+.2f (entry=%.2f, exit=%.2f)",
+                reason, pnl, trade["entry_price"], exit_price,
             )
             self.active_trade = None
         except Exception as e:
-            logger.error(f"_check_fill error: {e}", exc_info=True)
+            logger.error("_check_fill error: %s", e, exc_info=True)
 
     def _cancel_stop_order(self, trade: dict) -> None:
         """Cancel the protective stop on the exchange if one was placed."""
@@ -405,36 +453,49 @@ class MLStrategyRunner:
                 logger.warning(f"Could not cancel stop {stop_id}: {e}")
 
     def _close_position(self, trade: dict, reason: str = "manual") -> None:
-        """Cancel stop, send a closing market order, record the fill."""
-        self._cancel_stop_order(trade)
-        direction = trade["direction"]
-        close_side = "SELL" if direction == 1 else "BUY"
+        """Cancel stop, send a closing market order, record the fill.
+
+        Guards against opening a wrong-direction position: verifies the position
+        is still open before sending the market close.  Always clears active_trade.
+        """
         try:
-            self.client.place_order(
-                symbol=self.symbol,
-                side=close_side,
-                quantity=self.risk_manager.contracts,
-                order_type="MARKET",
-                contract_id=self.contract_id,
+            if not self.client.search_open_positions():
+                logger.warning(
+                    "_close_position(%s): no open position found — skipping market close "
+                    "to avoid flip; PnL will be recorded by _check_fill phase-2.", reason
+                )
+                return
+            self._cancel_stop_order(trade)
+            direction = trade["direction"]
+            close_side = "SELL" if direction == 1 else "BUY"
+            try:
+                self.client.place_order(
+                    symbol=self.symbol,
+                    side=close_side,
+                    quantity=self.risk_manager.contracts,
+                    order_type="MARKET",
+                    contract_id=self.contract_id,
+                )
+            except Exception as e:
+                logger.error(f"Closing market order failed: {e}", exc_info=True)
+                return  # do NOT record PnL or clear trade if close failed
+            import time as _time
+            _time.sleep(2)
+            exit_price, _ = self._resolve_exit_price(
+                direction=direction,
+                entry_price=trade["entry_price"],
+                sl=trade["stop_loss"],
+                tp=trade["profit_target"],
+                entry_time=trade.get("entry_time"),
+                last_close=trade["last_bar_close"],
             )
-        except Exception as e:
-            logger.error(f"Closing market order failed: {e}", exc_info=True)
-        import time as _time
-        _time.sleep(2)
-        exit_price, _ = self._resolve_exit_price(
-            direction=direction,
-            entry_price=trade["entry_price"],
-            sl=trade["stop_loss"],
-            tp=trade["profit_target"],
-            entry_time=trade.get("entry_time"),
-            last_close=trade["last_bar_close"],
-        )
-        pnl = self._compute_pnl(trade["entry_price"], exit_price, direction)
-        self.risk_manager.record_trade(
-            TradeRecord(0, 0, direction, trade["entry_price"], exit_price, pnl, reason)
-        )
-        logger.info(f"[{reason.upper()}] PnL=${pnl:+.2f} (entry={trade['entry_price']:.2f}, exit={exit_price:.2f})")
-        self.active_trade = None
+            pnl = self._compute_pnl(trade["entry_price"], exit_price, direction)
+            self.risk_manager.record_trade(
+                TradeRecord(0, 0, direction, trade["entry_price"], exit_price, pnl, reason)
+            )
+            logger.info(f"[{reason.upper()}] PnL=${pnl:+.2f} (entry={trade['entry_price']:.2f}, exit={exit_price:.2f})")
+        finally:
+            self.active_trade = None
 
     def _apply_time_stop(self) -> None:
         trade = self.active_trade
@@ -477,15 +538,22 @@ class MLStrategyRunner:
             trade["last_bar_close"] = c
 
             if not self.dry_run:
+                # _check_fill MUST run before target/time-stop checks.
+                # It clears active_trade if the stop was already hit, preventing
+                # _close_position from firing on a flat account and opening a flip.
+                self._check_fill()
+                if self.active_trade is None:
+                    return  # stop already hit and recorded by _check_fill
+
                 if not trade.get("fill_confirmed"):
                     # Entry not yet confirmed — just wait
                     return
                 direction = trade["direction"]
-                sl_p, pt_p = trade["stop_loss"], trade["profit_target"]
+                pt_p = trade["profit_target"]
                 # Check if this bar's OHLC hit the profit target
                 target_hit = (direction == 1 and h >= pt_p) or (direction == -1 and l <= pt_p)
                 if target_hit:
-                    logger.info(f"Target hit on bar: pt={pt_p:.2f}, cancelling stop and closing")
+                    logger.info(f"Target hit on bar: pt={pt_p:.2f}, closing")
                     self._close_position(trade, reason="profit_target")
                     return
                 if trade["bars_in"] >= self.lookahead:
@@ -584,9 +652,10 @@ class MLStrategyRunner:
                 "bars_in": 0,
                 "last_bar_close": c,
                 "entry_time": bar_time,
-                "fill_confirmed": False,   # True once position appears in search_open_positions
-                "stop_order_id": None,     # set after fill confirmed + stop placed
-                "consecutive_no_pos": 0,  # consecutive polls with no position (for close detection)
+                "fill_confirmed": False,    # True once position appears in search_open_positions
+                "stop_order_id": None,      # set after fill confirmed + stop placed
+                "consecutive_no_pos": 0,   # consecutive clean-empty polls (for close detection)
+                "fill_wait_start": None,   # set on first _check_fill call for timeout tracking
             }
             self.trades_today += 1
         else:
@@ -619,6 +688,9 @@ class MLStrategyRunner:
             try:
                 now_date = datetime.now().date()
                 if self.current_date is not None and now_date != self.current_date:
+                    # Cancel any orphaned stop order before clearing state
+                    if self.active_trade and not self.dry_run:
+                        self._cancel_stop_order(self.active_trade)
                     self.risk_manager.reset_daily()
                     self.trades_today = 0
                     self.active_trade = None
