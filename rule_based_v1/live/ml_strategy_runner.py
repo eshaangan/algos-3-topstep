@@ -122,6 +122,12 @@ _CLOSE_CONFIRM_POLLS    = 3   # total polls (cancel fires on poll 1, record on p
 # Contract expiry warning: log alert this many days before front-month expiry
 _ROLLOVER_WARN_DAYS = 7
 
+# Feature-feed canary: warn after this many consecutive in-window bars are skipped
+# for NaN features, but only once features have been healthy at least once (so the
+# normal ~20-bar post-restart warmup does not trip it). A run this long after the
+# feed was working indicates the live tick subscription has likely dropped.
+_NAN_SKIP_ALERT_THRESHOLD = 3
+
 
 class MLStrategyRunner:
 
@@ -167,6 +173,11 @@ class MLStrategyRunner:
         self.last_bar_time = None
         self.trades_today  = 0
         self.current_date  = None
+
+        # Feature-feed health tracking (NaN-skip canary). _features_ever_ok flips
+        # True after the first successful prediction so warmup NaNs don't alarm.
+        self._consecutive_nan_skips = 0
+        self._features_ever_ok      = False
 
         # active_trade dict keys (all must be set together):
         #   direction       int           1=LONG, -1=SHORT
@@ -241,7 +252,7 @@ class MLStrategyRunner:
     # Required keys a restored trade dict MUST have to be usable
     _REQUIRED_STATE_KEYS = (
         "direction", "entry_price", "stop_loss", "profit_target",
-        "bars_in", "last_bar_close", "entry_time",
+        "bars_in", "last_bar_close", "last_bar_low", "last_bar_high", "entry_time",
     )
 
     def _save_state(self) -> None:
@@ -296,7 +307,7 @@ class MLStrategyRunner:
         try:
             raw["entry_time"] = pd.Timestamp(raw["entry_time"])
             for f in ("entry_price", "actual_entry", "stop_loss", "profit_target",
-                      "last_bar_close", "fill_poll_start"):
+                      "last_bar_close", "last_bar_low", "last_bar_high", "fill_poll_start"):
                 if raw.get(f) is not None:
                     raw[f] = float(raw[f])
             for f in ("direction", "bars_in", "consecutive_no_pos"):
@@ -732,10 +743,14 @@ class MLStrategyRunner:
 
     def _resolve_exit_price(self, direction: int, entry: float,
                              sl: float, tp: float, entry_time,
-                             last_close: float) -> tuple[float, str]:
+                             last_close: float,
+                             last_low: float | None = None,
+                             last_high: float | None = None) -> tuple[float, str]:
         """
         Determine the actual exit price and reason.
-        Tries fill history first; falls back to bar-close inference.
+        Tries fill history first; falls back to bar OHLC inference.
+        last_low/last_high are used in the fallback so intrabar stop/target
+        hits are detected even when the bar closes beyond the level.
         """
         if entry_time is not None:
             try:
@@ -764,17 +779,21 @@ class MLStrategyRunner:
             except Exception as exc:
                 logger.warning("Could not resolve exit from fill history: %s", exc)
 
-        # Fallback: infer from bar close
+        # Fallback: infer from bar OHLC (low/high catch intrabar hits that close beyond level).
+        # Stop is checked before target so that a bar spanning both levels resolves to the
+        # stop (conservative) — consistent with the both-hit policy in _process_bar.
+        lo = last_low  if last_low  is not None else last_close
+        hi = last_high if last_high is not None else last_close
         if direction == 1:
-            if last_close >= tp:
-                return tp, "profit_target"
-            if last_close <= sl:
+            if lo <= sl:
                 return sl, "stop_loss"
+            if hi >= tp:
+                return tp, "profit_target"
         else:
-            if last_close <= tp:
-                return tp, "profit_target"
-            if last_close >= sl:
+            if hi >= sl:
                 return sl, "stop_loss"
+            if lo <= tp:
+                return tp, "profit_target"
         return last_close, "market_close"
 
     # ─────────────────────────────────────────── trade lifecycle ─────────────
@@ -830,6 +849,8 @@ class MLStrategyRunner:
                 tp=trade["profit_target"],
                 entry_time=trade.get("entry_time"),
                 last_close=last_close,
+                last_low=trade.get("last_bar_low"),
+                last_high=trade.get("last_bar_high"),
             )
             logger.info("Position already closed (stop hit); recording as %s", actual_reason)
             self._record_and_clear(exit_price, actual_reason)
@@ -849,6 +870,8 @@ class MLStrategyRunner:
             tp=trade["profit_target"],
             entry_time=trade.get("entry_time"),
             last_close=last_close,
+            last_low=trade.get("last_bar_low"),
+            last_high=trade.get("last_bar_high"),
         )
         self._record_and_clear(exit_price, reason if reason != "auto" else actual_reason)
 
@@ -976,6 +999,8 @@ class MLStrategyRunner:
             tp=trade["profit_target"],
             entry_time=trade.get("entry_time"),
             last_close=trade["last_bar_close"],
+            last_low=trade.get("last_bar_low"),
+            last_high=trade.get("last_bar_high"),
         )
         logger.info("Phase 2: position gone for %d polls — recording close", _CLOSE_CONFIRM_POLLS)
         self._record_and_clear(exit_price, reason)
@@ -992,8 +1017,10 @@ class MLStrategyRunner:
 
         if self.active_trade is not None:
             trade = self.active_trade
-            trade["bars_in"]       += 1
-            trade["last_bar_close"] = c
+            trade["bars_in"]        += 1
+            trade["last_bar_close"]  = c
+            trade["last_bar_low"]    = l
+            trade["last_bar_high"]   = h
 
             if self.dry_run:
                 self._process_bar_dry_run(trade, h, l, c, slip)
@@ -1015,7 +1042,15 @@ class MLStrategyRunner:
             stop_hit   = (direction == 1 and l <= sl_p) or (direction == -1 and h >= sl_p)
             target_hit = (direction == 1 and h >= pt_p) or (direction == -1 and l <= pt_p)
 
-            if stop_hit and not target_hit:
+            # Order matters: when a single bar's range spans BOTH levels we cannot
+            # know intrabar which filled first, so assume the stop (conservative).
+            # This must be checked before the stop-only / target-only branches.
+            if stop_hit and target_hit:
+                logger.info("Both stop and target hit in same bar — exiting at stop (conservative)")
+                self._exit_trade(reason="stop_loss", last_close=c)
+                return
+
+            if stop_hit:
                 logger.info("Software stop triggered: bar low=%.2f, sl=%.2f", l, sl_p)
                 self._exit_trade(reason="stop_loss", last_close=c)
                 return
@@ -1023,12 +1058,6 @@ class MLStrategyRunner:
             if target_hit:
                 logger.info("Profit target hit: bar high=%.2f, pt=%.2f", h, pt_p)
                 self._exit_trade(reason="profit_target", last_close=c)
-                return
-
-            if stop_hit and target_hit:
-                # Both hit in same bar — use stop (conservative)
-                logger.info("Both stop and target hit in same bar — exiting at stop (conservative)")
-                self._exit_trade(reason="stop_loss", last_close=c)
                 return
 
             if trade["bars_in"] >= self.lookahead:
@@ -1055,8 +1084,22 @@ class MLStrategyRunner:
 
         prob, atr_val = self._predict_prob(bars_df)
         if prob is None:
-            logger.debug("Skip: incomplete features")
+            self._consecutive_nan_skips += 1
+            if (self._features_ever_ok
+                    and self._consecutive_nan_skips >= _NAN_SKIP_ALERT_THRESHOLD):
+                logger.warning(
+                    "FEATURE FEED ALERT: %d consecutive in-window bars skipped for NaN "
+                    "features after the feed was previously healthy — live tick "
+                    "subscription may have dropped. Check Rithmic market-data connection.",
+                    self._consecutive_nan_skips,
+                )
+            else:
+                logger.debug("Skip: incomplete features (%d consecutive)",
+                             self._consecutive_nan_skips)
             return
+        # Prediction succeeded → features are healthy; reset the canary.
+        self._consecutive_nan_skips = 0
+        self._features_ever_ok = True
         if atr_val is None:
             logger.debug("Skip: invalid ATR")
             return
@@ -1081,7 +1124,8 @@ class MLStrategyRunner:
             self.active_trade = {
                 "direction": direction, "entry_price": ep, "actual_entry": ep,
                 "stop_loss": sl_p, "profit_target": pt_p, "bars_in": 0,
-                "last_bar_close": c, "entry_time": bar_time,
+                "last_bar_close": c, "last_bar_low": l, "last_bar_high": h,
+                "entry_time": bar_time,
                 "order_id": None, "fill_confirmed": True,
                 "fill_poll_start": 0.0, "stop_order_id": None,
                 "consecutive_no_pos": 0,
@@ -1103,6 +1147,8 @@ class MLStrategyRunner:
             "profit_target": pt_p,
             "bars_in": 0,
             "last_bar_close": c,
+            "last_bar_low": l,
+            "last_bar_high": h,
             "entry_time": bar_time,
             "order_id": order_id,
             "fill_confirmed": False,
@@ -1181,6 +1227,8 @@ class MLStrategyRunner:
                             tp=self.active_trade["profit_target"],
                             entry_time=self.active_trade.get("entry_time"),
                             last_close=self.active_trade["last_bar_close"],
+                            last_low=self.active_trade.get("last_bar_low"),
+                            last_high=self.active_trade.get("last_bar_high"),
                         )
                         self._record_and_clear(exit_price, "day_rollover_close")
                     self.risk_manager.reset_daily()

@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PRE-REGISTERED VALIDATION RULE
+#
+# Fill this out and commit it BEFORE you look at the holdout. The harness hashes
+# the holdout / dsr_n_trials / gate / sim blocks; editing any of them after an
+# evaluation is recorded shows up in holdout_ledger.jsonl as a changed hash —
+# i.e. the harness will tell on you. That is the entire point: it makes the
+# decision honest by fixing it in advance.
+#
+# WORKFLOW FOR A NEW MODEL
+#   1. Decide the holdout window NOW (most recent ~6 months ideally). Never train,
+#      tune, or threshold-pick on it.
+#   2. Set dsr_n_trials to the HONEST number of configs you searched (grid size,
+#      thresholds tried, feature sets, etc.). Under-counting inflates the DSR.
+#   3. Do all development on data BEFORE holdout.start.
+#   4. Run validate_model.py --commit-holdout exactly once. Read the verdict.
+#      If NO-GO, the strategy is dead — do not re-tune against the holdout.
+# ─────────────────────────────────────────────────────────────────────────────
+
+strategy_id: ml_strategy_mnq_v3
+
+holdout:
+  # Frozen out-of-sample window. The deployed v3 model trained through 2026-02-28,
+  # so everything from March on is genuinely OOS for it. NOTE: this window was
+  # already inspected during the June 2026 review, so for the *current* model it
+  # is a demonstration, not a pristine holdout. For the NEXT model, set this
+  # before training.
+  start: "2026-03-01"
+  end:   "2026-06-01"
+
+# Number of configurations effectively searched, for the DSR selection-bias
+# penalty. ml_strategy_search.py swept hundreds of (pt, sl, lookahead, conf, mt)
+# combos and selected on OOS PnL; 50 is a deliberately conservative floor.
+dsr_n_trials: 50
+
+# ── Decision rule (conjunctive: ALL must pass for GO) ────────────────────────
+gate:
+  # Sample-size floor. The honest target once 3+ years of data exists is >=150
+  # trades spanning >=6 months. 60 is the achievable floor on the current
+  # 6-month dataset — raise it as data grows.
+  min_oos_trades: 60
+  min_months: 3
+  # Require the edge to hold across months, not in one lucky window. 0.67 = at
+  # least 2 of 3 months net positive.
+  min_positive_month_fraction: 0.67
+  require_net_profitable: true
+  # Deflated Sharpe: probability the edge is real after the selection-bias and
+  # non-normality penalties. 0.95 ≈ p < 0.05.
+  min_dsr: 0.95
+  # Capital-preservation bound: leave >= $300 of the $3k Lucid MLL (at the
+  # n_contracts below). Scale this with n_contracts.
+  max_drawdown_usd: 2700
+
+# ── Simulator + adapter parameters (must match how the model is actually run) ─
+sim:
+  # Execution (consumed by SimParams)
+  pt_atr: 2.0
+  sl_atr: 1.0
+  horizon_bars: 12
+  cooldown_bars: 3
+  max_trades_per_day: 6
+  point_value: 2.0
+  tick_size: 0.25
+  commission_per_side: 0.62
+  slippage_ticks: 1
+  n_contracts: 1
+  # Adapter (consumed by validate_model.py to turn probabilities into signals)
+  conf: 0.248
+  min_atr_pts: 5.0
+  long_only: true
