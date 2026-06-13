@@ -150,10 +150,22 @@ def main():
         run(bars0, dev_end="2026-06-18", freq_label=f"{args.freq} (SYNTHETIC no edge → gate should reject)")
         return
 
+    # Full depth often unavailable on the Lucid feed (NO_BOOK). Fall back to BBO
+    # top-of-book (queue imbalance / microprice / spread), which IS entitled.
+    n_levels = 5
+    src = "ORDER_BOOK (depth)"
+    if book.empty or float(book.get("bid_sz_0", pd.Series([0])).max() or 0) == 0:
+        bbo = load_l2_bbo(args.raw_dir)
+        if not bbo.empty and float(bbo["bid_sz_0"].max() or 0) > 0:
+            book, n_levels, src = bbo, 1, "BBO (top-of-book)"
+        else:
+            print("Neither full depth nor BBO has usable data yet — keep recording.")
+            return
+
     trades = load_l2_raw(args.raw_dir, "trade")
-    bars = build_bars(book, trades, freq=args.freq)
+    bars = build_bars(book, trades, freq=args.freq, n_levels=n_levels)
     dates = sorted({d.date() for d in bars.index})
-    print(f"Loaded {len(book):,} book snapshots → {len(bars):,} {args.freq} bars over {len(dates)} days")
+    print(f"Source: {src}. Loaded {len(book):,} snapshots → {len(bars):,} {args.freq} bars over {len(dates)} days")
     # 60/40 dev/holdout split by time
     if len(dates) >= 4:
         split = dates[int(len(dates) * 0.6)]

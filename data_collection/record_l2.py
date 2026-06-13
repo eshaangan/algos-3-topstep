@@ -59,9 +59,13 @@ class Recorder:
 
         self._book_buf: list[dict] = []
         self._trade_buf: list[dict] = []
+        self._bbo_buf: list[dict] = []
         self._last_flush = time.monotonic()
+        self._last_data = time.monotonic()   # staleness watchdog
+        self._stale_exit = False
         self._book_count = 0
         self._trade_count = 0
+        self._bbo_count = 0
         self._running = True
         self._client: RithmicClient | None = None
         self._contract: str | None = None
@@ -87,15 +91,34 @@ class Recorder:
                 row[f"ask_ord_{i}"] = ao[i] if i < len(ao) else 0
             self._book_buf.append(row)
             self._book_count += 1
+            self._last_data = time.monotonic()
         except Exception as exc:  # never let a bad message kill the recorder
             print(f"[book parse err] {exc}", flush=True)
 
     async def _on_tick(self, data: dict) -> None:
+        """Both LAST_TRADE and BBO arrive here; split by data_type."""
         try:
+            dt = data.get("data_type")
+            if dt == DataType.BBO:
+                self._bbo_buf.append({
+                    "recv_ns": time.time_ns(),
+                    "ssboe": int(data.get("ssboe") or 0),
+                    "usecs": int(data.get("usecs") or 0),
+                    "bid_px": float(data.get("bid_price") or "nan"),
+                    "bid_sz": int(data.get("bid_size") or 0),
+                    "bid_ord": int(data.get("bid_orders") or 0),
+                    "ask_px": float(data.get("ask_price") or "nan"),
+                    "ask_sz": int(data.get("ask_size") or 0),
+                    "ask_ord": int(data.get("ask_orders") or 0),
+                })
+                self._bbo_count += 1
+                self._last_data = time.monotonic()
+                return
+            # LAST_TRADE
             price = float(data.get("trade_price") or data.get("last_trade") or 0)
             size = int(data.get("trade_size") or data.get("trade_volume") or 0)
             if price <= 0 or size <= 0:
-                return  # BBO/quote ticks without a trade — skip in the trade file
+                return
             self._trade_buf.append({
                 "recv_ns": time.time_ns(),
                 "ssboe": int(data.get("ssboe") or 0),
@@ -105,6 +128,7 @@ class Recorder:
                 "aggressor": int(data.get("aggressor") or data.get("transaction_type") or 0),
             })
             self._trade_count += 1
+            self._last_data = time.monotonic()
         except Exception as exc:
             print(f"[tick parse err] {exc}", flush=True)
 
@@ -113,7 +137,8 @@ class Recorder:
     def _flush(self) -> None:
         date = datetime.now(timezone.utc).strftime("%Y%m%d")
         stamp = int(time.time() * 1000)
-        for buf, kind in ((self._book_buf, "book"), (self._trade_buf, "trade")):
+        for buf, kind in ((self._book_buf, "book"), (self._trade_buf, "trade"),
+                          (self._bbo_buf, "bbo")):
             if not buf:
                 continue
             df = pd.DataFrame(buf)
@@ -125,7 +150,8 @@ class Recorder:
             buf.clear()
         self._last_flush = time.monotonic()
         print(f"[{datetime.now(timezone.utc):%H:%M:%S}Z] flushed "
-              f"book={self._book_count} trade={self._trade_count} (cumulative)", flush=True)
+              f"book={self._book_count} bbo={self._bbo_count} trade={self._trade_count} (cumulative)",
+              flush=True)
 
     def _maybe_flush(self) -> None:
         if (time.monotonic() - self._last_flush) >= self.flush_secs or \
@@ -155,20 +181,30 @@ class Recorder:
         self._client.on_tick += self._on_tick
         await self._client.subscribe_to_market_data(
             self._contract, _EXCHANGE,
-            DataType.ORDER_BOOK.value | DataType.LAST_TRADE.value,
+            DataType.ORDER_BOOK.value | DataType.BBO.value | DataType.LAST_TRADE.value,
         )
-        print("Subscribed to ORDER_BOOK + LAST_TRADE. Recording…", flush=True)
+        print("Subscribed to ORDER_BOOK + BBO + LAST_TRADE. Recording…", flush=True)
 
+        stale_secs = 600.0   # exit (→ watchdog restart) if no data this long; survives CME break
+        self._last_data = time.monotonic()
         while self._running:
             await asyncio.sleep(1.0)
             self._maybe_flush()
+            if (time.monotonic() - self._last_data) > stale_secs:
+                print(f"[STALE] no market data for {stale_secs:.0f}s — exiting for watchdog restart",
+                      flush=True)
+                self._stale_exit = True
+                break
 
         self._flush()  # final flush on shutdown
         try:
             await self._client.disconnect()
         except Exception:
             pass
-        print("Recorder stopped cleanly.", flush=True)
+        print("Recorder stopped.", flush=True)
+        if self._stale_exit:
+            import sys as _sys
+            _sys.exit(1)   # non-zero → .l2wd watchdog restarts a fresh connection
 
     def stop(self, *_):
         print("Shutdown signal received…", flush=True)

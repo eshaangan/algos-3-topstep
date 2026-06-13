@@ -41,6 +41,24 @@ def load_l2_raw(raw_dir: str | Path, kind: str, date: str | None = None) -> pd.D
     return df
 
 
+_BBO_RENAME = {"bid_px": "bid_px_0", "bid_sz": "bid_sz_0", "bid_ord": "bid_ord_0",
+               "ask_px": "ask_px_0", "ask_sz": "ask_sz_0", "ask_ord": "ask_ord_0"}
+
+
+def load_l2_bbo(raw_dir: str | Path, date: str | None = None) -> pd.DataFrame:
+    """Load BBO (top-of-book) files and rename to the level-0 book schema, so the
+    same snapshot_features/build_bars (with n_levels=1) work on them.
+
+    Used when the feed provides no full depth (NO_BOOK) but BBO is entitled — which
+    is the case on the Lucid/Rithmic feed. Gives top-of-book queue imbalance,
+    microprice, spread: the core L1 microstructure signals.
+    """
+    df = load_l2_raw(raw_dir, "bbo", date)
+    if df.empty:
+        return df
+    return df.rename(columns=_BBO_RENAME)
+
+
 def snapshot_features(book: pd.DataFrame, n_levels: int = 5) -> pd.DataFrame:
     """Per-snapshot order-book features. Expects bid_px/sz/ord_0..9 + ask_* columns."""
     if book.empty:
