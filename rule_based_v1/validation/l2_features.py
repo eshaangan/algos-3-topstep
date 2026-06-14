@@ -45,18 +45,38 @@ _BBO_RENAME = {"bid_px": "bid_px_0", "bid_sz": "bid_sz_0", "bid_ord": "bid_ord_0
                "ask_px": "ask_px_0", "ask_sz": "ask_sz_0", "ask_ord": "ask_ord_0"}
 
 
-def load_l2_bbo(raw_dir: str | Path, date: str | None = None) -> pd.DataFrame:
-    """Load BBO (top-of-book) files and rename to the level-0 book schema, so the
-    same snapshot_features/build_bars (with n_levels=1) work on them.
+def reconstruct_bbo_book(df: pd.DataFrame) -> pd.DataFrame:
+    """Rebuild the two-sided top of book from one-sided BBO updates.
 
-    Used when the feed provides no full depth (NO_BOOK) but BBO is entitled — which
-    is the case on the Lucid/Rithmic feed. Gives top-of-book queue imbalance,
-    microprice, spread: the core L1 microstructure signals.
+    Rithmic sends BBO incrementally — each message carries only the bid OR the ask
+    (absence marked by NaN price). To get a usable quote at every row we forward-fill
+    each side independently, then drop rows before both sides have appeared.
+    """
+    if df.empty:
+        return df
+    if "recv_ns" in df.columns:
+        df = df.sort_values("recv_ns")
+    df = df.copy()
+    for side in ("bid", "ask"):
+        absent = df[f"{side}_px_0"].isna()
+        for col in (f"{side}_px_0", f"{side}_sz_0", f"{side}_ord_0"):
+            df.loc[absent, col] = np.nan
+            df[col] = df[col].ffill()
+    return df.dropna(subset=["bid_px_0", "ask_px_0"]).reset_index(drop=True)
+
+
+def load_l2_bbo(raw_dir: str | Path, date: str | None = None) -> pd.DataFrame:
+    """Load BBO (top-of-book) files, rename to the level-0 book schema, and
+    reconstruct the two-sided quote so snapshot_features/build_bars (n_levels=1)
+    yield correct top-of-book queue imbalance, microprice, and spread.
+
+    Used when the feed provides no full depth (NO_BOOK) but BBO is entitled — the
+    case on the Lucid/Rithmic feed.
     """
     df = load_l2_raw(raw_dir, "bbo", date)
     if df.empty:
         return df
-    return df.rename(columns=_BBO_RENAME)
+    return reconstruct_bbo_book(df.rename(columns=_BBO_RENAME))
 
 
 def snapshot_features(book: pd.DataFrame, n_levels: int = 5) -> pd.DataFrame:

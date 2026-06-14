@@ -7,8 +7,32 @@ import pandas as pd
 import pytest
 
 from rule_based_v1.validation.l2_features import (
-    snapshot_features, build_bars, trade_flow, synthesize_l2, _AGG_BUY, _AGG_SELL,
+    snapshot_features, build_bars, trade_flow, synthesize_l2, reconstruct_bbo_book,
+    _AGG_BUY, _AGG_SELL,
 )
+
+
+def test_reconstruct_bbo_one_sided_updates():
+    # one-sided BBO stream (bid then ask then bid...) → two-sided after reconstruction
+    df = pd.DataFrame({
+        "recv_ns": [1, 2, 3, 4],
+        "ts": pd.to_datetime([1, 2, 3, 4], unit="ns", utc=True),
+        "bid_px_0": [100.0, float("nan"), 100.25, float("nan")],
+        "bid_sz_0": [5, 0, 7, 0],
+        "bid_ord_0": [2, 0, 3, 0],
+        "ask_px_0": [float("nan"), 100.50, float("nan"), 100.75],
+        "ask_sz_0": [0, 3, 0, 4],
+        "ask_ord_0": [0, 1, 0, 2],
+    })
+    r = reconstruct_bbo_book(df)
+    # first row has no ask yet → dropped; remaining rows carry both sides
+    assert r["bid_px_0"].notna().all() and r["ask_px_0"].notna().all()
+    last = r.iloc[-1]
+    assert last["bid_px_0"] == 100.25 and last["bid_sz_0"] == 7   # ffilled from row 3
+    assert last["ask_px_0"] == 100.75 and last["ask_sz_0"] == 4
+    # imbalance computable & sane on reconstructed two-sided book
+    f = snapshot_features(r, n_levels=1).iloc[-1]
+    assert -1 <= f["l1_imb"] <= 1 and f["spread"] > 0
 
 
 def _one_book_row(bid_sz0, ask_sz0, bid_px0=20000.00, ask_px0=20000.25, n_levels=10):
