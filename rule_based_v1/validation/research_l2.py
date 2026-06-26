@@ -28,7 +28,7 @@ from rule_based_v1.validation.harness import (  # noqa: E402
     SimParams, simulate, aggregate_stats, monthly_breakdown, deflated_sharpe_ratio,
 )
 from rule_based_v1.validation.l2_features import (  # noqa: E402
-    load_l2_raw, build_bars, synthesize_l2,
+    load_l2_raw, load_l2_bbo, build_bars, synthesize_l2,
 )
 
 L2_RAW = ROOT / "data" / "l2_raw"
@@ -137,30 +137,27 @@ def main():
     ap.add_argument("--raw-dir", default=str(L2_RAW))
     args = ap.parse_args()
 
-    book = pd.DataFrame() if args.synthetic else load_l2_raw(args.raw_dir, "book")
-    if book.empty:
-        if not args.synthetic:
-            print(f"No recorded L2 in {args.raw_dir} yet — running PIPELINE SELF-TEST on synthetic data.")
-            print("Pull real data with data_collection/pull_l2.sh once a few days have accumulated.\n")
-        # planted-edge synthetic: the gate SHOULD light up when an edge truly exists
-        bars = _synth_multi(20, strength=0.30, seed0=100, freq=args.freq)
-        run(bars, dev_end="2026-06-18", freq_label=f"{args.freq} (SYNTHETIC planted edge → gate should pass)")
-        # control: no edge → gate should NOT fire
-        bars0 = _synth_multi(20, strength=0.0, seed0=500, freq=args.freq)
-        run(bars0, dev_end="2026-06-18", freq_label=f"{args.freq} (SYNTHETIC no edge → gate should reject)")
-        return
-
-    # Full depth often unavailable on the Lucid feed (NO_BOOK). Fall back to BBO
-    # top-of-book (queue imbalance / microprice / spread), which IS entitled.
+    # Try real data first: full depth, else BBO top-of-book (the Lucid feed gives
+    # NO_BOOK for depth but BBO is entitled). Only fall back to the synthetic
+    # self-test if BOTH are absent.
     n_levels = 5
     src = "ORDER_BOOK (depth)"
-    if book.empty or float(book.get("bid_sz_0", pd.Series([0])).max() or 0) == 0:
+    book = pd.DataFrame() if args.synthetic else load_l2_raw(args.raw_dir, "book")
+    has_depth = (not book.empty) and float(book.get("bid_sz_0", pd.Series([0])).max() or 0) > 0
+    if not has_depth and not args.synthetic:
         bbo = load_l2_bbo(args.raw_dir)
         if not bbo.empty and float(bbo["bid_sz_0"].max() or 0) > 0:
             book, n_levels, src = bbo, 1, "BBO (top-of-book)"
-        else:
-            print("Neither full depth nor BBO has usable data yet — keep recording.")
-            return
+
+    if args.synthetic or book.empty or (n_levels == 5 and not has_depth):
+        if not args.synthetic:
+            print(f"No usable recorded L2 in {args.raw_dir} yet — running PIPELINE SELF-TEST on synthetic.")
+            print("Pull real data with data_collection/pull_l2.sh once a few days have accumulated.\n")
+        bars = _synth_multi(20, strength=0.30, seed0=100, freq=args.freq)
+        run(bars, dev_end="2026-06-18", freq_label=f"{args.freq} (SYNTHETIC planted edge → gate should pass)")
+        bars0 = _synth_multi(20, strength=0.0, seed0=500, freq=args.freq)
+        run(bars0, dev_end="2026-06-18", freq_label=f"{args.freq} (SYNTHETIC no edge → gate should reject)")
+        return
 
     trades = load_l2_raw(args.raw_dir, "trade")
     bars = build_bars(book, trades, freq=args.freq, n_levels=n_levels)
