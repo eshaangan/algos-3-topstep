@@ -242,7 +242,7 @@ def main() -> None:
         save_state(state_p, st)
         if args.once:
             break
-        time.sleep(60)
+        time.sleep(15)
 
 
 if __name__ == "__main__":

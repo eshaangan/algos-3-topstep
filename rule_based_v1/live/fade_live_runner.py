@@ -41,7 +41,7 @@ DAILY_LOSS_STOP = -100.0      # realized $ -> stop trading for the day
 LAST_ENTRY_ET = (14, 44)      # no new entries after this
 FLATTEN_ET = (14, 59)         # hard flatten
 SYMBOL, EXCHANGE = "MNQ", "CME"
-POLL_SECS = 20
+POLL_SECS = 10
 
 
 def log(msg: str) -> None:
@@ -139,14 +139,45 @@ class LiveFade:
                 break
 
     async def _on_exch_note(self, note) -> None:
-        rec = {"ev": "exchange_note", "type": str(getattr(note, "notify_type", "?")),
+        from async_rithmic import ExchangeOrderNotificationType as NT
+        ntype = getattr(note, "notify_type", None)
+        rec = {"ev": "exchange_note", "type": str(ntype),
                "sym": getattr(note, "symbol", "?"),
-               "qty": getattr(note, "fill_size", None) or getattr(note, "quantity", None),
-               "px": getattr(note, "fill_price", None) or getattr(note, "price", None),
+               "side": getattr(note, "transaction_type", None),
+               "fill_px": getattr(note, "fill_price", None),
+               "fill_sz": getattr(note, "fill_size", None),
                "order_id": getattr(note, "user_tag", "") or getattr(note, "basket_id", "")}
         jlog(self.events_p, rec)
-        log(f"EXCH {rec['type']} {rec['sym']} qty={rec['qty']} px={rec['px']}")
-        # realized-PnL accounting on fills of EXITS is reconciled in _reconcile()
+        log(f"EXCH {rec['type']} {rec['sym']} side={rec['side']} px={rec['fill_px']}")
+
+        # Bind FILLs to trade state so a bracket exit re-arms the runner promptly
+        # (without this we'd wait out the full horizon on a position the exchange
+        # already closed). BUY=1/SELL=2; our entry dir: +1 -> BUY, -1 -> SELL.
+        if ntype != NT.FILL or rec["sym"] != self.contract or not self.st["open_trade"]:
+            return
+        ot = self.st["open_trade"]
+        fill_dir = 1 if rec["side"] == 1 else -1
+        px = rec["fill_px"]
+        if px is None:
+            return
+        if fill_dir == ot["dir"] and ot.get("entry_fill_px") is None:
+            ot["entry_fill_px"] = float(px)          # real entry -> true slippage
+            slip = ot["dir"] * (float(px) - ot["ref_px"])
+            jlog(self.events_p, {"ev": "entry_fill", "oid": ot["oid"], "px": px,
+                                 "slip_pts_vs_ref": round(slip, 2)})
+            log(f"ENTRY FILLED @ {px} (slip vs ref {slip:+.2f} pts)")
+        elif fill_dir == -ot["dir"]:                  # bracket exit fill
+            entry = ot.get("entry_fill_px") or ot["ref_px"]
+            pnl = ot["dir"] * (float(px) - entry) * 2.0 * QTY - 2 * 0.62 * QTY
+            self.st["realized_pnl"] += pnl            # PNL plant overwrites when it pushes
+            self.st["open_trade"] = None
+            self.st["cooldown_until"] = str(
+                pd.Timestamp.now(tz="UTC").floor("1min")
+                + pd.Timedelta(minutes=1 + COOLDOWN_BARS))
+            jlog(self.events_p, {"ev": "trade_closed_by_bracket", "oid": ot["oid"],
+                                 "exit_px": px, "pnl": round(pnl, 2)})
+            log(f"BRACKET EXIT @ {px} pnl=${pnl:+.2f} (day ${self.st['realized_pnl']:+.2f})")
+            self._save()
 
     async def _on_rith_note(self, note) -> None:
         jlog(self.events_p, {"ev": "rithmic_note",
@@ -177,7 +208,8 @@ class LiveFade:
                 f"MKT ref~{ref_px:.2f} bracket(stop {stop_ticks}t / tgt {target_ticks}t)")
         jlog(self.events_p, rec)
         self.st["open_trade"] = {"oid": oid, "dir": direction, "entry_bar": None,
-                                 "ref_px": ref_px, "atr": atr, "bars_held": 0}
+                                 "ref_px": ref_px, "atr": atr, "bars_held": 0,
+                                 "entry_fill_px": None}
 
     async def flatten(self, reason: str) -> None:
         jlog(self.events_p, {"ev": "flatten", "reason": reason, "live": self.live})
