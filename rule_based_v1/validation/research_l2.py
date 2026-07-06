@@ -28,7 +28,7 @@ from rule_based_v1.validation.harness import (  # noqa: E402
     SimParams, simulate, aggregate_stats, monthly_breakdown, deflated_sharpe_ratio,
 )
 from rule_based_v1.validation.l2_features import (  # noqa: E402
-    load_l2_raw, load_l2_bbo, build_bars, synthesize_l2,
+    load_l2_raw, load_l2_bbo, build_bars, build_bars_by_day, synthesize_l2, _days_in,
 )
 
 L2_RAW = ROOT / "data" / "l2_raw"
@@ -65,10 +65,30 @@ def sig_depth_reversion(bars: pd.DataFrame, z: float) -> pd.Series:
     return -sig_depth_continuation(bars, z)
 
 
+def sig_imb_fade_midday(bars: pd.DataFrame, z: float) -> pd.Series:
+    """Fade l1 imbalance, midday only (12:00-14:59 ET) — where the dev-slice IC
+    scan (explore_l2_angles.py) showed the reversion effect concentrates."""
+    d = sig_depth_reversion(bars, z)
+    et_hour = bars.index.tz_convert("America/New_York").hour
+    d[~pd.Series(et_hour, index=bars.index).between(12, 14)] = 0
+    return d
+
+
+def sig_imb_fade_tight(bars: pd.DataFrame, z: float) -> pd.Series:
+    """Fade l1 imbalance only when the spread is tight (bottom-quartile, rolling)
+    — tight spread ⇒ mid is well-defined and the fade IC was strongest there."""
+    d = sig_depth_reversion(bars, z)
+    q25 = bars["spread"].rolling(390, min_periods=100).quantile(0.25)
+    d[bars["spread"] > q25] = 0
+    return d
+
+
 SIGNALS = {
     "depth_continuation": (sig_depth_continuation, [1.0, 1.5, 2.0]),
     "micro_tilt": (sig_micro_tilt, [1.0, 1.5, 2.0]),
     "depth_reversion": (sig_depth_reversion, [1.5, 2.0]),
+    "imb_fade_midday": (sig_imb_fade_midday, [1.0, 1.5]),
+    "imb_fade_tight": (sig_imb_fade_tight, [1.0, 1.5]),
 }
 
 
@@ -139,17 +159,17 @@ def main():
 
     # Try real data first: full depth, else BBO top-of-book (the Lucid feed gives
     # NO_BOOK for depth but BBO is entitled). Only fall back to the synthetic
-    # self-test if BOTH are absent.
-    n_levels = 5
-    src = "ORDER_BOOK (depth)"
-    book = pd.DataFrame() if args.synthetic else load_l2_raw(args.raw_dir, "book")
-    has_depth = (not book.empty) and float(book.get("bid_sz_0", pd.Series([0])).max() or 0) > 0
-    if not has_depth and not args.synthetic:
-        bbo = load_l2_bbo(args.raw_dir)
-        if not bbo.empty and float(bbo["bid_sz_0"].max() or 0) > 0:
-            book, n_levels, src = bbo, 1, "BBO (top-of-book)"
+    # self-test if BOTH are absent. Bars are built per-day (build_bars_by_day) so we
+    # never hold the full multi-week snapshot stream in memory.
+    depth_days = [] if args.synthetic else _days_in(args.raw_dir, "book")
+    bbo_days = [] if args.synthetic else _days_in(args.raw_dir, "bbo")
+    has_depth = False
+    if depth_days:  # peek one book file; Lucid returns NO_BOOK so sizes are 0
+        peek = load_l2_raw(args.raw_dir, "book", date=depth_days[-1])
+        has_depth = (not peek.empty) and float(peek.get("bid_sz_0", pd.Series([0])).max() or 0) > 0
 
-    if args.synthetic or book.empty or (n_levels == 5 and not has_depth):
+    use_real = (not args.synthetic) and (has_depth or bool(bbo_days))
+    if not use_real:
         if not args.synthetic:
             print(f"No usable recorded L2 in {args.raw_dir} yet — running PIPELINE SELF-TEST on synthetic.")
             print("Pull real data with data_collection/pull_l2.sh once a few days have accumulated.\n")
@@ -159,10 +179,10 @@ def main():
         run(bars0, dev_end="2026-06-18", freq_label=f"{args.freq} (SYNTHETIC no edge → gate should reject)")
         return
 
-    trades = load_l2_raw(args.raw_dir, "trade")
-    bars = build_bars(book, trades, freq=args.freq, n_levels=n_levels)
+    n_levels, src = (5, "ORDER_BOOK (depth)") if has_depth else (1, "BBO (top-of-book)")
+    bars = build_bars_by_day(args.raw_dir, freq=args.freq, n_levels=n_levels, use_bbo=not has_depth)
     dates = sorted({d.date() for d in bars.index})
-    print(f"Source: {src}. Loaded {len(book):,} snapshots → {len(bars):,} {args.freq} bars over {len(dates)} days")
+    print(f"Source: {src}. Built {len(bars):,} {args.freq} bars over {len(dates)} days")
     # 60/40 dev/holdout split by time
     if len(dates) >= 4:
         split = dates[int(len(dates) * 0.6)]

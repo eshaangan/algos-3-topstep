@@ -79,6 +79,46 @@ def load_l2_bbo(raw_dir: str | Path, date: str | None = None) -> pd.DataFrame:
     return reconstruct_bbo_book(df.rename(columns=_BBO_RENAME))
 
 
+def _days_in(raw_dir: str | Path, kind: str) -> list[str]:
+    """Distinct YYYYMMDD day stamps present in the recorder filenames for `kind`."""
+    days = set()
+    for f in Path(raw_dir).glob(f"{kind}_*.parquet"):
+        parts = f.stem.split("_")
+        for p in parts:
+            if len(p) == 8 and p.isdigit() and "20260101" <= p <= "20261231":
+                days.add(p)
+    return sorted(days)
+
+
+def build_bars_by_day(raw_dir: str | Path, freq: str = "1min", n_levels: int = 1,
+                      use_bbo: bool = True) -> pd.DataFrame:
+    """Memory-safe bar builder: process ONE day at a time and keep only the bars.
+
+    Loading every BBO snapshot across weeks into one frame OOMs (~180M rows). Bars
+    are ~10^4 rows, so we build per day and concat those. ATR is computed once on the
+    concatenated bar series so it is continuous across the whole sample.
+    """
+    loader = load_l2_bbo if use_bbo else (lambda d, date=None: load_l2_raw(d, "book", date))
+    frames = []
+    for day in _days_in(raw_dir, "bbo" if use_bbo else "book"):
+        book = loader(raw_dir, date=day)
+        if book.empty:
+            continue
+        trades = load_l2_raw(raw_dir, "trade", date=day)
+        b = build_bars(book, trades, freq=freq, n_levels=n_levels, atr_period=14)
+        del book, trades
+        if not b.empty:
+            b = b.drop(columns=["atr"], errors="ignore")  # recompute globally below
+            frames.append(b)
+    if not frames:
+        return pd.DataFrame()
+    bars = pd.concat(frames).sort_index()
+    h, l, c = bars["high"], bars["low"], bars["close"]
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    bars["atr"] = tr.ewm(span=14, min_periods=14).mean()
+    return bars
+
+
 def snapshot_features(book: pd.DataFrame, n_levels: int = 5) -> pd.DataFrame:
     """Per-snapshot order-book features. Expects bid_px/sz/ord_0..9 + ask_* columns."""
     if book.empty:
