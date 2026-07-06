@@ -173,7 +173,11 @@ class Recorder:
             reconnection_settings=ReconnectionSettings(max_retries=None, backoff_type="exponential",
                                                        interval=2, max_delay=30),
         )
-        await self._client.connect()
+        # TICKER_PLANT only: the recorder needs nothing else, and holding an
+        # ORDER_PLANT login here would collide with fade_live_runner's session
+        # (Rithmic allows one login per plant per user; two would ping-pong).
+        from async_rithmic import SysInfraType
+        await self._client.connect(plants=[SysInfraType.TICKER_PLANT])
         self._contract = await self._client.get_front_month_contract(self.symbol, _EXCHANGE)
         print(f"Connected. Recording {self._contract} @ {_EXCHANGE} → {self.out_dir}", flush=True)
 
