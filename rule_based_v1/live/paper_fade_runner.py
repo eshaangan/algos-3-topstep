@@ -97,6 +97,112 @@ def build_bars(bbo: pd.DataFrame) -> pd.DataFrame:
     return bars
 
 
+class IncrementalBars:
+    """Memory- and IO-safe bar builder: reads each recorder chunk ONCE, carries the
+    one-sided ffill state across chunks, and keeps only completed 1-min bars.
+
+    Why: reloading the whole day every poll went quadratic once the recorder moved
+    to 10s flushes (~16k chunks/day) and froze the runner mid-session on 2026-07-07.
+    Chunks arrive in recv_ns order (single recorder stream), so a minute is final
+    as soon as a later-minute snapshot appears.
+    """
+
+    def __init__(self, raw_dir: str):
+        self.raw_dir = raw_dir
+        self._reset("")
+
+    def _reset(self, day: str) -> None:
+        self.day = day
+        self.seen: set = set()
+        self.last: dict = {c: None for c in
+                           ("bid_px", "bid_sz", "ask_px", "ask_sz")}
+        self._buf: list = []          # snapshot frames of the still-forming minute
+        self.bars = pd.DataFrame()    # completed bars (no atr/z; added on read)
+        self.last_quote: dict = {}
+
+    def _ingest(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.sort_values("recv_ns")
+        for side in ("bid", "ask"):
+            absent = df[f"{side}_px"].isna()
+            for col in (f"{side}_px", f"{side}_sz"):
+                df.loc[absent, col] = np.nan
+                df[col] = df[col].ffill()
+                if self.last[col] is not None:
+                    df[col] = df[col].fillna(self.last[col])
+                v = df[col].iloc[-1] if len(df) else np.nan
+                if pd.notna(v):
+                    self.last[col] = float(v)
+        df = df.dropna(subset=["bid_px", "ask_px"])
+        if df.empty:
+            return pd.DataFrame()
+        out = pd.DataFrame({"ts": pd.to_datetime(df["recv_ns"], unit="ns", utc=True)})
+        out["mid"] = (df["bid_px"].values + df["ask_px"].values) / 2
+        out["spread"] = df["ask_px"].values - df["bid_px"].values
+        den = (df["bid_sz"].values + df["ask_sz"].values).astype(float)
+        den[den == 0] = np.nan
+        out["l1_imb"] = (df["bid_sz"].values - df["ask_sz"].values) / den
+        return out
+
+    def update(self, day: str) -> pd.DataFrame:
+        """Consume new chunks for `day`; return COMPLETED bars with atr+z."""
+        if day != self.day:
+            self._reset(day)
+        files = sorted(glob.glob(os.path.join(self.raw_dir, f"bbo_MNQ_{day}_*.parquet")))
+        for f in files:
+            if f in self.seen:
+                continue
+            try:
+                raw = pd.read_parquet(f)
+            except Exception:
+                continue              # torn write — retry next cycle (stays unseen)
+            self.seen.add(f)
+            snap = self._ingest(raw)
+            if not snap.empty:
+                self._buf.append(snap)
+        if self.last.get("bid_px") is not None and self.last.get("ask_px") is not None:
+            self.last_quote = {"bid_px": self.last["bid_px"], "ask_px": self.last["ask_px"]}
+        if self._buf:
+            snaps = pd.concat(self._buf, ignore_index=True)
+            cutoff = snaps["ts"].max().floor("1min")   # current minute still forming
+            done = snaps[snaps["ts"] < cutoff]
+            self._buf = [snaps[snaps["ts"] >= cutoff]]
+            if not done.empty:
+                g = done.set_index("ts").resample("1min")
+                nb = pd.DataFrame({
+                    "open": g["mid"].first(), "high": g["mid"].max(),
+                    "low": g["mid"].min(), "close": g["mid"].last(),
+                    "l1_imb": g["l1_imb"].mean(), "spread": g["spread"].mean(),
+                    "n_snap": g["mid"].count(),
+                }).dropna(subset=["close"])
+                self.bars = pd.concat([self.bars, nb])
+                self.bars = self.bars[~self.bars.index.duplicated(keep="last")].sort_index()
+        if self.bars.empty:
+            return self.bars
+        bars = self.bars.copy()       # atr/z recomputed causally over ~1440 rows: cheap
+        h, l, c = bars["high"], bars["low"], bars["close"]
+        tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        bars["atr"] = tr.ewm(span=14, min_periods=14).mean()
+        zi = bars["l1_imb"]
+        bars["z"] = (zi - zi.rolling(Z_WIN, min_periods=Z_MINP).mean()) / \
+                    zi.rolling(Z_WIN, min_periods=Z_MINP).std()
+        return bars
+
+
+def start_watchdog(get_beat, limit_secs: int = 180) -> None:
+    """Hard-exit (rc=3) if the main loop stops beating — a supervisor loop restarts
+    us. Converts silent hangs (like 2026-07-07's) into visible restarts."""
+    import threading
+
+    def _watch():
+        while True:
+            time.sleep(30)
+            if time.time() - get_beat() > limit_secs:
+                print(f"WATCHDOG: loop stalled >{limit_secs}s — hard exit", flush=True)
+                os._exit(3)
+
+    threading.Thread(target=_watch, daemon=True).start()
+
+
 def signal_at(bar) -> int:
     """Frozen fade rule on a CLOSED bar; 0 outside the midday ET window."""
     ts_et = bar.name.tz_convert(ET)
@@ -175,10 +281,15 @@ def main() -> None:
     state_p = os.path.join(args.out_dir, "paper_fade_state.json")
     trades_p = os.path.join(args.out_dir, "paper_fade_trades.jsonl")
     st = load_state(state_p)
+    inc = IncrementalBars(args.raw_dir)
+    beat = [time.time()]
+    if not args.once:
+        # limit must exceed the longest legitimate sleep (600s off-session)
+        start_watchdog(lambda: beat[0], limit_secs=900)
     log(f"paper fade runner up — raw={args.raw_dir} out={args.out_dir}")
 
     while True:
-        now_et = datetime.now(timezone.utc).astimezone().astimezone()
+        beat[0] = time.time()
         now_et = pd.Timestamp.now(tz=ET)
         day = f"{now_et:%Y%m%d}"
         if st["day"] != day:                          # new session reset
@@ -192,14 +303,12 @@ def main() -> None:
                 continue
 
         try:
-            bbo = load_today_bbo(args.raw_dir, day)
-            bars = build_bars(bbo) if not bbo.empty else pd.DataFrame()
+            closed = inc.update(day)                  # completed bars only
         except Exception as e:
             log(f"data error: {e}")
-            bars = pd.DataFrame()
+            closed = pd.DataFrame()
 
-        if len(bars) >= 2:
-            closed = bars.iloc[:-1]                   # last bar may be forming
+        if len(closed) >= 1:
 
             # 1) manage open paper trade
             if st["open_trade"]:
@@ -222,7 +331,7 @@ def main() -> None:
                 d = signal_at(sig_bar)
                 if d != 0:
                     # entry = next bar open ~ current mid; log real quotes too
-                    last_q = bbo.iloc[-1]
+                    last_q = inc.last_quote or {"bid_px": float("nan"), "ask_px": float("nan")}
                     entry = float(sig_bar["close"])
                     st["open_trade"] = {
                         "entry_bar": key, "dir": int(d),

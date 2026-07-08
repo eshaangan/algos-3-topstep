@@ -23,6 +23,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -31,7 +32,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paper_fade_runner import (  # noqa: E402  (frozen signal — single source of truth)
-    load_today_bbo, build_bars, signal_at,
+    IncrementalBars, start_watchdog, signal_at,
     PT_ATR, SL_ATR, HORIZON_BARS, COOLDOWN_BARS, MAX_TRADES_DAY, TICK, ET,
 )
 
@@ -242,10 +243,17 @@ class LiveFade:
     # ── main loop ──────────────────────────────────────────────────────────
     async def run(self) -> None:
         await self.connect()
+        inc = IncrementalBars(self.raw_dir)
+        beat = [time.time()]
+        start_watchdog(lambda: beat[0], limit_secs=900)  # > longest sleep (300s)
         while True:
+            beat[0] = time.time()
             now_et = pd.Timestamp.now(tz=ET)
             day = f"{now_et:%Y%m%d}"
             if self.st["day"] != day:
+                if self.st["open_trade"]:
+                    # never silently forget a position across a day boundary
+                    await self.flatten("day_rollover_safety")
                 self.st.update(day=day, trades_today=0, realized_pnl=0.0,
                                processed=[], disabled=False, cooldown_until=None,
                                open_trade=None)
@@ -269,14 +277,12 @@ class LiveFade:
                 self.st["disabled"] = True
 
             try:
-                bbo = load_today_bbo(self.raw_dir, day)
-                bars = build_bars(bbo) if not bbo.empty else pd.DataFrame()
+                closed = inc.update(day)              # completed bars only
             except Exception as e:
                 log(f"data error: {e}")
-                bars = pd.DataFrame()
+                closed = pd.DataFrame()
 
-            if len(bars) >= 2:
-                closed = bars.iloc[:-1]
+            if len(closed) >= 1:
                 key = str(closed.index[-1])
 
                 # manage open trade: count held bars -> time exit
