@@ -177,16 +177,23 @@ class LiveFade:
             jlog(self.events_p, {"ev": "entry_fill", "oid": ot["oid"], "px": px,
                                  "slip_pts_vs_ref": round(slip, 2)})
             log(f"ENTRY FILLED @ {px} (slip vs ref {slip:+.2f} pts)")
-            await self._place_protection(ot)          # protection goes out NOW
+            # NEVER await plant requests inside this callback: it runs in the
+            # plant's listener task, so awaiting a request response here
+            # deadlocks the whole order pipe (2026-07-08: every request timed
+            # out, flatten included, position sat naked until process restart).
+            asyncio.create_task(self._place_protection(ot))
         elif fill_dir == -ot["dir"]:                  # stop or target leg filled
             which = "stop" if str(rec["order_id"]).endswith("-stp") else \
                     "target" if str(rec["order_id"]).endswith("-tgt") else "exit"
             self._book_close(ot, float(px), which)
             self.st["open_trade"] = None
-            try:                                      # cancel the sibling leg
-                await self.client.plants["order"].cancel_all_orders(account_id=self.account_id)
-            except Exception as e:
-                log(f"sibling cancel error: {e}")
+            asyncio.create_task(self._cancel_sibling())
+
+    async def _cancel_sibling(self) -> None:
+        try:
+            await self.client.plants["order"].cancel_all_orders(account_id=self.account_id)
+        except Exception as e:
+            log(f"sibling cancel error: {e}")
 
     def _book_close(self, trade: dict, exit_px: float, reason: str) -> None:
         entry = trade.get("entry_fill_px") or trade["ref_px"]
