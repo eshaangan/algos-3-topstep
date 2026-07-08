@@ -59,8 +59,11 @@ class LiveFade:
         self.raw_dir, self.out_dir, self.live = raw_dir, out_dir, live
         os.makedirs(out_dir, exist_ok=True)
         self.events_p = os.path.join(out_dir, "live_events.jsonl")
+        self.trades_p = os.path.join(out_dir, "live_trades.jsonl")
         self.state_p = os.path.join(out_dir, "live_state.json")
         self.kill_p = os.path.join(out_dir, "KILL")
+        self._closing: dict | None = None   # trade being flattened, awaiting exit fill
+        self._last_rms = 0.0
         self.client = None
         self.account_id = None
         self.contract = None
@@ -151,15 +154,22 @@ class LiveFade:
         jlog(self.events_p, rec)
         log(f"EXCH {rec['type']} {rec['sym']} side={rec['side']} px={rec['fill_px']}")
 
-        # Bind FILLs to trade state so a bracket exit re-arms the runner promptly
-        # (without this we'd wait out the full horizon on a position the exchange
-        # already closed). BUY=1/SELL=2; our entry dir: +1 -> BUY, -1 -> SELL.
-        if ntype != NT.FILL or rec["sym"] != self.contract or not self.st["open_trade"]:
+        # Bind FILLs to trade state. BUY=1/SELL=2; entry dir: +1 -> BUY, -1 -> SELL.
+        if ntype != NT.FILL or rec["sym"] != self.contract:
             return
-        ot = self.st["open_trade"]
-        fill_dir = 1 if rec["side"] == 1 else -1
         px = rec["fill_px"]
         if px is None:
+            return
+        fill_dir = 1 if rec["side"] == 1 else -1
+
+        # exit fill for a trade we are actively flattening (time exit / kill / eod)
+        if self._closing is not None and fill_dir == -self._closing["dir"]:
+            self._book_close(self._closing, float(px), self._closing.get("close_reason", "flatten"))
+            self._closing = None
+            return
+
+        ot = self.st["open_trade"]
+        if not ot:
             return
         if fill_dir == ot["dir"] and ot.get("entry_fill_px") is None:
             ot["entry_fill_px"] = float(px)          # real entry -> true slippage
@@ -167,18 +177,30 @@ class LiveFade:
             jlog(self.events_p, {"ev": "entry_fill", "oid": ot["oid"], "px": px,
                                  "slip_pts_vs_ref": round(slip, 2)})
             log(f"ENTRY FILLED @ {px} (slip vs ref {slip:+.2f} pts)")
-        elif fill_dir == -ot["dir"]:                  # bracket exit fill
-            entry = ot.get("entry_fill_px") or ot["ref_px"]
-            pnl = ot["dir"] * (float(px) - entry) * 2.0 * QTY - 2 * 0.62 * QTY
-            self.st["realized_pnl"] += pnl            # PNL plant overwrites when it pushes
+            await self._place_protection(ot)          # protection goes out NOW
+        elif fill_dir == -ot["dir"]:                  # stop or target leg filled
+            which = "stop" if str(rec["order_id"]).endswith("-stp") else \
+                    "target" if str(rec["order_id"]).endswith("-tgt") else "exit"
+            self._book_close(ot, float(px), which)
             self.st["open_trade"] = None
-            self.st["cooldown_until"] = str(
-                pd.Timestamp.now(tz="UTC").floor("1min")
-                + pd.Timedelta(minutes=1 + COOLDOWN_BARS))
-            jlog(self.events_p, {"ev": "trade_closed_by_bracket", "oid": ot["oid"],
-                                 "exit_px": px, "pnl": round(pnl, 2)})
-            log(f"BRACKET EXIT @ {px} pnl=${pnl:+.2f} (day ${self.st['realized_pnl']:+.2f})")
-            self._save()
+            try:                                      # cancel the sibling leg
+                await self.client.plants["order"].cancel_all_orders(account_id=self.account_id)
+            except Exception as e:
+                log(f"sibling cancel error: {e}")
+
+    def _book_close(self, trade: dict, exit_px: float, reason: str) -> None:
+        entry = trade.get("entry_fill_px") or trade["ref_px"]
+        pnl = trade["dir"] * (exit_px - entry) * 2.0 * QTY - 2 * 0.62 * QTY
+        self.st["realized_pnl"] += pnl
+        self.st["cooldown_until"] = str(pd.Timestamp.now(tz="UTC").floor("1min")
+                                        + pd.Timedelta(minutes=1 + COOLDOWN_BARS))
+        rec = {"oid": trade["oid"], "dir": trade["dir"], "entry_px": entry,
+               "exit_px": exit_px, "reason": reason, "pnl": round(pnl, 2),
+               "day_pnl": round(self.st["realized_pnl"], 2)}
+        jlog(self.trades_p, rec)
+        jlog(self.events_p, {"ev": "trade_closed", **rec})
+        log(f"CLOSED ({reason}) @ {exit_px} pnl=${pnl:+.2f} day=${self.st['realized_pnl']:+.2f}")
+        self._save()
 
     async def _on_rith_note(self, note) -> None:
         jlog(self.events_p, {"ev": "rithmic_note",
@@ -186,34 +208,93 @@ class LiveFade:
                              "status": getattr(note, "status", "")})
 
     # ── order actions (every path honors dry-run) ──────────────────────────
+    @staticmethod
+    def _tick_round(px: float) -> float:
+        return round(px / TICK) * TICK
+
     async def enter(self, direction: int, atr: float, ref_px: float, z: float) -> None:
+        """Market entry ONLY. Protective stop+target are placed as EXPLICIT separate
+        orders on the entry fill (see _place_protection) and then VERIFIED resting —
+        the native bracket template was silently ignored on Lucid (2026-07-08:
+        trade ran 53pts past its stop level with nothing at the exchange)."""
         from async_rithmic import OrderType, TransactionType
-        stop_ticks = max(2, int(round(SL_ATR * atr / TICK)))
-        target_ticks = max(2, int(round(PT_ATR * atr / TICK)))
         oid = f"fade-{uuid.uuid4().hex[:8]}"
         side = TransactionType.BUY if direction > 0 else TransactionType.SELL
         rec = {"ev": "entry_order", "oid": oid, "dir": direction, "qty": QTY,
-               "ref_px": ref_px, "z": z, "stop_ticks": stop_ticks,
-               "target_ticks": target_ticks, "live": self.live}
+               "ref_px": ref_px, "z": z, "atr": atr, "live": self.live}
         if self.live:
             await self.client.plants["order"].submit_order(
                 order_id=oid, symbol=self.contract, exchange=EXCHANGE, qty=QTY,
                 transaction_type=side, order_type=OrderType.MARKET,
-                account_id=self.account_id,
-                stop_ticks=stop_ticks, target_ticks=target_ticks,
-                stop_market_on_reject=True)
-            log(f"LIVE ENTRY {'LONG' if direction > 0 else 'SHORT'} {QTY} {self.contract} "
-                f"MKT + bracket(stop {stop_ticks}t / tgt {target_ticks}t) oid={oid}")
+                account_id=self.account_id)
+            log(f"LIVE ENTRY {'LONG' if direction > 0 else 'SHORT'} {QTY} {self.contract} MKT oid={oid}")
         else:
             log(f"DRY would ENTER {'LONG' if direction > 0 else 'SHORT'} {QTY} {self.contract} "
-                f"MKT ref~{ref_px:.2f} bracket(stop {stop_ticks}t / tgt {target_ticks}t)")
+                f"MKT ref~{ref_px:.2f}")
         jlog(self.events_p, rec)
         self.st["open_trade"] = {"oid": oid, "dir": direction, "entry_bar": None,
                                  "ref_px": ref_px, "atr": atr, "bars_held": 0,
-                                 "entry_fill_px": None}
+                                 "entry_fill_px": None, "stop_px": None, "tgt_px": None,
+                                 "protection_verified": False, "verify_after": None}
+
+    async def _place_protection(self, ot: dict) -> None:
+        """Explicit STOP_MARKET + LIMIT exits, opposite side, right after entry fill.
+        We manage the OCO ourselves: any leg fill -> cancel_all (this account trades
+        nothing else). Placement failure -> immediate flatten + disable."""
+        from async_rithmic import OrderType, TransactionType
+        d, entry = ot["dir"], ot["entry_fill_px"]
+        exit_side = TransactionType.SELL if d > 0 else TransactionType.BUY
+        ot["stop_px"] = self._tick_round(entry - d * SL_ATR * ot["atr"])
+        ot["tgt_px"] = self._tick_round(entry + d * PT_ATR * ot["atr"])
+        op = self.client.plants["order"]
+        try:
+            await op.submit_order(order_id=f"{ot['oid']}-stp", symbol=self.contract,
+                                  exchange=EXCHANGE, qty=QTY, transaction_type=exit_side,
+                                  order_type=OrderType.STOP_MARKET,
+                                  trigger_price=ot["stop_px"], account_id=self.account_id)
+            await op.submit_order(order_id=f"{ot['oid']}-tgt", symbol=self.contract,
+                                  exchange=EXCHANGE, qty=QTY, transaction_type=exit_side,
+                                  order_type=OrderType.LIMIT,
+                                  price=ot["tgt_px"], account_id=self.account_id)
+            ot["verify_after"] = time.time() + 3
+            log(f"PROTECTION placed: stop {ot['stop_px']} / target {ot['tgt_px']} — verifying")
+            jlog(self.events_p, {"ev": "protection_placed", "oid": ot["oid"],
+                                 "stop_px": ot["stop_px"], "tgt_px": ot["tgt_px"]})
+        except Exception as e:
+            log(f"CRITICAL: protection placement failed ({e}) — flattening")
+            jlog(self.events_p, {"ev": "protection_failed", "err": str(e)})
+            await self.flatten("protection_placement_failed")
+            self.st["disabled"] = True
+
+    async def _verify_protection(self, ot: dict) -> None:
+        """Confirm both protective orders are actually WORKING at the exchange.
+        Not resting -> we are naked -> flatten + disable. No more silent trust."""
+        try:
+            orders = await self.client.plants["order"].list_orders(account_id=self.account_id)
+        except Exception as e:
+            log(f"verify: list_orders failed ({e}); retrying next cycle")
+            ot["verify_after"] = time.time() + 5
+            return
+        tags = {getattr(o, "user_tag", "") for o in orders}
+        have = {f"{ot['oid']}-stp" in tags, f"{ot['oid']}-tgt" in tags}
+        jlog(self.events_p, {"ev": "protection_verify", "tags_seen": sorted(t for t in tags if t),
+                             "ok": have == {True}})
+        if have == {True}:
+            ot["protection_verified"] = True
+            ot["verify_after"] = None
+            log("PROTECTION verified resting at exchange ✓")
+        else:
+            log("CRITICAL: protection NOT resting — flattening + disabling for the day")
+            await self.flatten("protection_not_resting")
+            self.st["disabled"] = True
 
     async def flatten(self, reason: str) -> None:
         jlog(self.events_p, {"ev": "flatten", "reason": reason, "live": self.live})
+        if self.st["open_trade"]:
+            # keep the trade for the fill handler — clearing it before the exit
+            # fill arrives is exactly the race that blinded the daily stop on
+            # 2026-07-08 (realized_pnl stayed 0 across two closed trades)
+            self._closing = {**self.st["open_trade"], "close_reason": reason}
         if self.live:
             op = self.client.plants["order"]
             try:
@@ -231,9 +312,11 @@ class LiveFade:
         self.st["open_trade"] = None
 
     async def _reconcile(self) -> None:
-        """Refresh realized PnL from the PNL plant (authoritative, survives restarts)."""
-        if not self.live:
+        """Periodic RMS snapshot for the audit log (throttled — it was spamming
+        the events file every poll cycle)."""
+        if not self.live or time.time() - self._last_rms < 300:
             return
+        self._last_rms = time.time()
         try:
             rms = await self.client.plants["order"].get_account_rms()
             jlog(self.events_p, {"ev": "rms", "raw": str(rms)[:400]})
@@ -243,6 +326,11 @@ class LiveFade:
     # ── main loop ──────────────────────────────────────────────────────────
     async def run(self) -> None:
         await self.connect()
+        if self.st["open_trade"] and self.live:
+            # restarted mid-trade (crash/watchdog): flatten rather than trust
+            # reconstructed state — conservative by design
+            log("startup with open trade in state — flattening")
+            await self.flatten("startup_recovery")
         inc = IncrementalBars(self.raw_dir)
         beat = [time.time()]
         start_watchdog(lambda: beat[0], limit_secs=900)  # > longest sleep (300s)
@@ -284,6 +372,12 @@ class LiveFade:
 
             if len(closed) >= 1:
                 key = str(closed.index[-1])
+
+                # verify protection is resting once placed (self.live only)
+                ot0 = self.st["open_trade"]
+                if (self.live and ot0 and not ot0.get("protection_verified")
+                        and ot0.get("verify_after") and time.time() >= ot0["verify_after"]):
+                    await self._verify_protection(ot0)
 
                 # manage open trade: count held bars -> time exit
                 if self.st["open_trade"]:
