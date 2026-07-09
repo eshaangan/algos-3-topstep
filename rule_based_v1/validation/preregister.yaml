@@ -117,3 +117,7 @@ range_ignite_v1:
     on_pass: shadow-paper 2 weeks vs live quotes, then live 1-micro shakedown
     on_fail: permanent kill, no re-tuning
   trials_context: "44 cells cumulative in the 5-30min zone (8 families run + 36 surface)"
+  # RESULT 2026-07-09 (single shot fired early — holdout was historical, waiting
+  # to Jul 25 added nothing): 44tr WR=34% PnL=-$3,003 DD=-$3,824 posMonths=0%
+  # DSR 0.005. NO-GO -> PERMANENT KILL. Dev robustness (DSR 0.34, 75% surface,
+  # both eras/directions positive) did not survive contact with sealed data.
