@@ -68,3 +68,25 @@ sim:
   conf: 0.248
   min_atr_pts: 5.0
   long_only: true
+
+# ── pre-registered 2026-07-08 (frozen BEFORE any holdout contact) ────────────
+ask_cancel_pull_v1:
+  hypothesis: >
+    Ask-side liquidity withdrawal (cancels, not consumption) precedes short-term
+    price declines. Asymmetric/short-only; bid side explicitly NOT claimed.
+  event_spec:
+    side: ask
+    min_prev_sz: 5
+    drop_frac: 0.40           # size falls to <=40% of prior within <=2s, px unchanged
+    cancel_frac_min: 0.70     # (drop - aggressive buy vol in window) / drop
+    session: "13:30-20:00 UTC (RTH)"
+    de_overlap_secs: 30
+  evaluation:
+    data: holdout days >= 2026-06-27, UNTOUCHED as of registration
+    test_date: 2026-07-25     # single shot, alongside the imb_fade_midday re-test
+    metric: drift-adjusted mean forward mid move at 60s/120s
+    go_criteria: "f60 <= -0.8pt AND t(f60) <= -2.0 AND days_negative@60s >= 65%"
+    on_pass: simulate as short-only strategy under latency cost model (never fixed)
+    on_fail: permanent kill; no threshold re-tuning
+  dev_evidence: "f60=-1.10p t=-1.7 n=998, days<0=78% (12 dev days, drift-adjusted)"
+  trials_context: "~60 cells examined across 5s-grid + tick-level + drift passes"
