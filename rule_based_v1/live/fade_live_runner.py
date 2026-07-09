@@ -42,7 +42,7 @@ DAILY_LOSS_STOP = -100.0      # realized $ -> stop trading for the day
 LAST_ENTRY_ET = (14, 44)      # no new entries after this
 FLATTEN_ET = (14, 59)         # hard flatten
 SYMBOL, EXCHANGE = "MNQ", "CME"
-POLL_SECS = 10
+POLL_SECS = 2   # stream csv makes each poll ~free; 2s keeps decision lag ~bar-close+2s
 
 
 def log(msg: str) -> None:

@@ -69,6 +69,25 @@ class Recorder:
         self._running = True
         self._client: RithmicClient | None = None
         self._contract: str | None = None
+        # low-latency BBO stream: one CSV line per tick, day-rotated, line-buffered.
+        # Consumers (fade runners) tail this instead of waiting for parquet flushes,
+        # cutting data latency from ~10-20s to sub-second. Parquet stays canonical.
+        self._stream_f = None
+        self._stream_day: str | None = None
+
+    def _stream_write(self, recv_ns: int, bpx: float, bsz: int, apx: float, asz: int) -> None:
+        day = time.strftime("%Y%m%d", time.gmtime())
+        if day != self._stream_day:
+            if self._stream_f:
+                self._stream_f.close()
+            self._stream_f = open(self.out_dir / f"stream_{self.symbol}_{day}.csv",
+                                  "a", buffering=1)
+            self._stream_day = day
+            cutoff = time.strftime("%Y%m%d", time.gmtime(time.time() - 3 * 86400))
+            for old in self.out_dir.glob(f"stream_{self.symbol}_*.csv"):
+                if old.stem.split("_")[-1] < cutoff:   # streams duplicate parquet; 3-day retention
+                    old.unlink(missing_ok=True)
+        self._stream_f.write(f"{recv_ns},{bpx},{bsz},{apx},{asz}\n")
 
     # ── callbacks ────────────────────────────────────────────────────────────
 
@@ -100,17 +119,26 @@ class Recorder:
         try:
             dt = data.get("data_type")
             if dt == DataType.BBO:
+                recv_ns = time.time_ns()
+                bpx = float(data.get("bid_price") or "nan")
+                bsz = int(data.get("bid_size") or 0)
+                apx = float(data.get("ask_price") or "nan")
+                asz = int(data.get("ask_size") or 0)
                 self._bbo_buf.append({
-                    "recv_ns": time.time_ns(),
+                    "recv_ns": recv_ns,
                     "ssboe": int(data.get("ssboe") or 0),
                     "usecs": int(data.get("usecs") or 0),
-                    "bid_px": float(data.get("bid_price") or "nan"),
-                    "bid_sz": int(data.get("bid_size") or 0),
+                    "bid_px": bpx,
+                    "bid_sz": bsz,
                     "bid_ord": int(data.get("bid_orders") or 0),
-                    "ask_px": float(data.get("ask_price") or "nan"),
-                    "ask_sz": int(data.get("ask_size") or 0),
+                    "ask_px": apx,
+                    "ask_sz": asz,
                     "ask_ord": int(data.get("ask_orders") or 0),
                 })
+                try:
+                    self._stream_write(recv_ns, bpx, bsz, apx, asz)
+                except Exception as exc:
+                    print(f"[stream err] {exc}", flush=True)
                 self._bbo_count += 1
                 self._last_data = time.monotonic()
                 return

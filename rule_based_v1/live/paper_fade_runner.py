@@ -119,9 +119,15 @@ class IncrementalBars:
         self._buf: list = []          # snapshot frames of the still-forming minute
         self.bars = pd.DataFrame()    # completed bars (no atr/z; added on read)
         self.last_quote: dict = {}
+        self._max_ns = 0              # recv_ns high-water mark (chunk/stream dedup)
+        self._stream_pos = 0          # byte offset into today's stream csv
+        self._stream_tail = ""        # partial trailing line from last read
+        self._stream_live = False     # stream delivered rows -> stop reading chunks
 
     def _ingest(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.sort_values("recv_ns")
+        if len(df):
+            self._max_ns = max(self._max_ns, int(df["recv_ns"].iloc[-1]))
         for side in ("bid", "ask"):
             absent = df[f"{side}_px"].isna()
             for col in (f"{side}_px", f"{side}_sz"):
@@ -143,22 +149,64 @@ class IncrementalBars:
         out["l1_imb"] = (df["bid_sz"].values - df["ask_sz"].values) / den
         return out
 
-    def update(self, day: str) -> pd.DataFrame:
-        """Consume new chunks for `day`; return COMPLETED bars with atr+z."""
-        if day != self.day:
-            self._reset(day)
-        files = sorted(glob.glob(os.path.join(self.raw_dir, f"bbo_MNQ_{day}_*.parquet")))
-        for f in files:
-            if f in self.seen:
+    def _read_stream(self, day: str) -> pd.DataFrame:
+        """Tail today's tick stream csv from the recorder (sub-second latency).
+        Tracks a byte offset; keeps any partial trailing line for the next call."""
+        path = os.path.join(self.raw_dir, f"stream_MNQ_{day}.csv")
+        if not os.path.exists(path):
+            return pd.DataFrame()
+        with open(path, "r") as f:
+            f.seek(self._stream_pos)
+            chunk = f.read()
+            self._stream_pos = f.tell()
+        if not chunk:
+            return pd.DataFrame()
+        text = self._stream_tail + chunk
+        if text.endswith("\n"):
+            self._stream_tail = ""
+        else:
+            text, _, self._stream_tail = text.rpartition("\n")
+            text += "\n"
+        rows = []
+        for line in text.splitlines():
+            p = line.split(",")
+            if len(p) != 5:
                 continue
             try:
-                raw = pd.read_parquet(f)
-            except Exception:
-                continue              # torn write — retry next cycle (stays unseen)
-            self.seen.add(f)
-            snap = self._ingest(raw)
-            if not snap.empty:
-                self._buf.append(snap)
+                rows.append((int(p[0]), float(p[1]), int(p[2]), float(p[3]), int(p[4])))
+            except ValueError:
+                continue
+        if not rows:
+            return pd.DataFrame()
+        return pd.DataFrame(rows, columns=["recv_ns", "bid_px", "bid_sz", "ask_px", "ask_sz"])
+
+    def update(self, day: str) -> pd.DataFrame:
+        """Consume new ticks for `day` (stream csv preferred, parquet chunks as
+        bootstrap/fallback); return COMPLETED bars with atr+z."""
+        if day != self.day:
+            self._reset(day)
+        if not self._stream_live:     # chunks: history bootstrap / no-stream fallback
+            files = sorted(glob.glob(os.path.join(self.raw_dir, f"bbo_MNQ_{day}_*.parquet")))
+            for f in files:
+                if f in self.seen:
+                    continue
+                try:
+                    raw = pd.read_parquet(f)
+                except Exception:
+                    continue          # torn write — retry next cycle (stays unseen)
+                self.seen.add(f)
+                raw = raw[raw["recv_ns"] > self._max_ns]
+                snap = self._ingest(raw) if len(raw) else pd.DataFrame()
+                if not snap.empty:
+                    self._buf.append(snap)
+        stream = self._read_stream(day)
+        if not stream.empty:
+            stream = stream[stream["recv_ns"] > self._max_ns]
+            if len(stream):
+                self._stream_live = True   # stream is flowing: chunks no longer needed
+                snap = self._ingest(stream)
+                if not snap.empty:
+                    self._buf.append(snap)
         if self.last.get("bid_px") is not None and self.last.get("ask_px") is not None:
             self.last_quote = {"bid_px": self.last["bid_px"], "ask_px": self.last["ask_px"]}
         if self._buf:
