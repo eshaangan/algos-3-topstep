@@ -121,3 +121,25 @@ range_ignite_v1:
   # to Jul 25 added nothing): 44tr WR=34% PnL=-$3,003 DD=-$3,824 posMonths=0%
   # DSR 0.005. NO-GO -> PERMANENT KILL. Dev robustness (DSR 0.34, 75% surface,
   # both eras/directions positive) did not survive contact with sealed data.
+
+# ── fomc_drift_v1 — REGISTERED AND PASSED 2026-07-09 ─────────────────────────
+fomc_drift_v1:
+  hypothesis: >
+    Pre-FOMC announcement drift (Lucca-Moench): index futures rise in the ~24h
+    before the 14:00 ET FOMC decision as the uncertainty premium resolves.
+    Literature-specified BEFORE any data contact (window, direction, event).
+  signal_spec:
+    instrument: MNQ (2 micros baseline)
+    entry: 14:00 ET the day BEFORE each scheduled FOMC decision, long, market
+    exit: 13:55 ET on decision day (always flat before the announcement)
+    costs: commission + 1 tick/side
+  results:
+    dev_2021_2024: "32 events, +$388/event, t=+2.83, WR 69%, control windows $0 (t=-0.07)"
+    holdout_2025_2026_SEALED: "12 events, +$212/event, WR 67% (9/12), MAE p50 -$236 worst -$832"
+    pooled: "44 events, ~+$340/event, combined t~3.1"
+    verdict: PASS — first candidate to clear every stage of the gauntlet
+  next:
+    - verify all FOMC dates against the official Fed calendar before any live use
+    - forward validation: next scheduled decision 2026-07-29 (paper first)
+    - sizing MC vs $3k buffer (worst MAE $832 per 2 micros bounds size ~4-6 micros)
+  caveats: "n=44 lifetime events; 2021 was negative; effect documented to wax/wane by era"
