@@ -143,3 +143,10 @@ fomc_drift_v1:
     - forward validation: next scheduled decision 2026-07-29 (paper first)
     - sizing MC vs $3k buffer (worst MAE $832 per 2 micros bounds size ~4-6 micros)
   caveats: "n=44 lifetime events; 2021 was negative; effect documented to wax/wane by era"
+  # ── event-clock siblings, tested 2026-07-09 (one spec each, no grids) ──────
+  # CPI pre-release drift: DEV 2021-24 +$141/ev t=2.36 WR71% (inflation-crisis
+  #   era) but HOLDOUT 2025-26 -$74/ev WR47% -> KILL (regime-bound: premium
+  #   followed CPI only while it was the dominant macro uncertainty).
+  # NFP pre-release drift: dead both eras (-$71 dev, -$180 holdout).
+  # Mechanism refinement: the drift attaches to POLICY DECISIONS (structural),
+  # not to data releases per se. Keep fomc_drift_v1 pure; do not basket.
