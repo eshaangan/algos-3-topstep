@@ -90,3 +90,30 @@ ask_cancel_pull_v1:
     on_fail: permanent kill; no threshold re-tuning
   dev_evidence: "f60=-1.10p t=-1.7 n=998, days<0=78% (12 dev days, drift-adjusted)"
   trials_context: "~60 cells examined across 5s-grid + tick-level + drift passes"
+
+# ── pre-registered 2026-07-09 (dev-selected, holdout untouched) ──────────────
+range_ignite_v1:
+  hypothesis: >
+    5-min range-expansion bars closing near their extreme continue over the next
+    ~20 minutes on MNQ (momentum ignition at the 5-30min horizon). Supported by
+    the inverse evidence: fading the same moves (vwap_fade) lost catastrophically.
+  signal_spec:
+    bar: 5min from 1s Rithmic bars (tz: bar_end_datetime is naive Chicago)
+    entry: bar range >= 1.8 * ATR(14) AND close in top/bottom 25% of bar range
+    direction: with the bar (top -> long, bottom -> short)
+    session: entries 09:45-15:30 ET
+    exits: PT 1.5xATR / SL 1.0xATR / horizon 4 bars; cooldown 2; max 6/day
+    costs: harness latency model, decision_lag=3s, 2 contracts MNQ
+  dev_evidence: >
+    215 days (Jun 2025-Mar 2026): 126tr, WR 50%, +$3,588, DD -$1,152,
+    DSR(44 trials)=0.340. Robustness: both eras positive, both directions
+    positive, 75% of 36 neighborhood cells positive (median +$856), surface
+    strengthens toward looser thresholds (no knife-edge). Caveat: monthly
+    consistency only 50%; Jan-Feb 2026 contributes heavily.
+  evaluation:
+    data: holdout >= 2026-04-01, UNTOUCHED as of registration
+    test_date: 2026-07-25   # single shot with ask_cancel_pull_v1 + fade re-test
+    go_criteria: "holdout total_pnl > 0 AND DSR >= 0.40 AND positive months >= 50%"
+    on_pass: shadow-paper 2 weeks vs live quotes, then live 1-micro shakedown
+    on_fail: permanent kill, no re-tuning
+  trials_context: "44 cells cumulative in the 5-30min zone (8 families run + 36 surface)"
