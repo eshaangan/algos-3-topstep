@@ -216,3 +216,60 @@ def test_ledger_records_and_detects_reuse_and_rule_change(tmp_path):
     prereg.gate["min_dsr"] = 0.5                        # rule edited after the fact
     warns2 = ledger.warnings_for(prereg)
     assert any("CHANGED" in w for w in warns2)
+
+
+# ───────────────────────────────── latency cost model (2026-07-08 calibration) ──
+
+def test_latency_model_entry_pays_halfspread_plus_drift():
+    ts = _ts(3)
+    bars = _bars([(ts[0], 100, 100, 100, 100),
+                  (ts[1], 100, 200, 99, 150),
+                  (ts[2], 150, 151, 149, 150)])
+    sig = _signals(bars.index, [1, 0, 0], [10.0, 10.0, 10.0])
+    p = SimParams(pt_atr=2.0, sl_atr=1.0, horizon_bars=12, cooldown_bars=0,
+                  cost_model="latency", decision_lag_secs=3.0,
+                  drift_frac_atr_per_sec=0.0175, half_spread_ticks=1.0,
+                  tick_size=0.25)
+    tr = simulate(bars, sig, p)
+    # entry = close + half_spread + lag*frac*atr = 100 + 0.25 + 3*0.0175*10 = 100.775
+    assert abs(tr.iloc[0]["entry_price"] - 100.775) < 1e-9
+
+
+def test_latency_model_target_exit_has_no_slippage():
+    ts = _ts(3)
+    bars = _bars([(ts[0], 100, 100, 100, 100),
+                  (ts[1], 100, 200, 99, 150),
+                  (ts[2], 150, 151, 149, 150)])
+    sig = _signals(bars.index, [1, 0, 0], [10.0, 10.0, 10.0])
+    p = SimParams(pt_atr=2.0, sl_atr=1.0, horizon_bars=12, cooldown_bars=0,
+                  cost_model="latency", tick_size=0.25)
+    tr = simulate(bars, sig, p)
+    assert tr.iloc[0]["exit_reason"] == "profit_target"
+    # resting limit: exit exactly at target, no crossing cost
+    assert abs(tr.iloc[0]["exit_price"] - (tr.iloc[0]["entry_price"] + 20.0)) < 1e-9
+
+
+def test_latency_model_costs_more_than_fixed():
+    # same trade, latency model must be strictly more expensive than legacy 1-tick
+    ts = _ts(4)
+    bars = _bars([(t, 100, 100.5, 99.5, 100) for t in ts])
+    sig = _signals(bars.index, [1, 0, 0, 0], [10.0] * 4)
+    kw = dict(pt_atr=2.0, sl_atr=1.0, horizon_bars=2, cooldown_bars=0)
+    t_fix = simulate(bars, sig, SimParams(cost_model="fixed", slippage_ticks=1, **kw))
+    t_lat = simulate(bars, sig, SimParams(cost_model="latency", **kw))
+    assert t_lat.iloc[0]["pnl"] < t_fix.iloc[0]["pnl"]
+
+
+def test_fixed_model_unchanged_legacy_behavior():
+    ts = _ts(3)
+    bars = _bars([(ts[0], 100, 100, 100, 100),
+                  (ts[1], 100, 121, 99, 110),
+                  (ts[2], 110, 111, 109, 110)])
+    sig = _signals(bars.index, [1, 0, 0], [10.0, 10.0, 10.0])
+    p = SimParams(pt_atr=2.0, sl_atr=1.0, horizon_bars=12, cooldown_bars=0,
+                  cost_model="fixed", slippage_ticks=1, tick_size=0.25,
+                  commission_per_side=0.62, point_value=2.0, n_contracts=1)
+    tr = simulate(bars, sig, p)
+    # legacy arithmetic: entry 100.25, target 120.25, exit 120.25-0.25=120.0
+    assert abs(tr.iloc[0]["entry_price"] - 100.25) < 1e-9
+    assert abs(tr.iloc[0]["exit_price"] - 120.0) < 1e-9

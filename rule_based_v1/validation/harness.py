@@ -121,7 +121,21 @@ def deflated_sharpe_ratio(
 
 @dataclass
 class SimParams:
-    """Execution parameters for the auditable trade simulator."""
+    """Execution parameters for the auditable trade simulator.
+
+    Cost models (``cost_model``):
+      - ``"latency"`` (DEFAULT): calibrated from live MNQ fills on 2026-07-08.
+        Slippage decomposes into (a) half-spread paid by any marketable order and
+        (b) adverse drift while the decision pipeline runs, which measured
+        ~0.35 pt/s against a ~20 pt 1-min ATR => ``drift_frac_atr_per_sec`` of
+        the signal bar's ATR per second of ``decision_lag_secs``. Entries and
+        time exits pay (a)+(b); stop exits (exchange-side stop-market) pay (a);
+        profit targets (resting limits) pay nothing. Calibration is against
+        1-MIN bar ATR — recalibrate the fraction if simulating other bar sizes.
+      - ``"fixed"``: legacy flat ``slippage_ticks`` per side on every fill.
+        Kept for comparison; it flattered imb_fade_midday by ~$1,100 on a
+        9-day holdout, so never use it for a deployment decision.
+    """
     pt_atr: float = 2.0
     sl_atr: float = 1.0
     horizon_bars: int = 12
@@ -130,8 +144,12 @@ class SimParams:
     point_value: float = 2.0
     tick_size: float = 0.25
     commission_per_side: float = 0.62
-    slippage_ticks: int = 1
+    slippage_ticks: int = 1                    # "fixed" model only
     n_contracts: int = 1
+    cost_model: str = "latency"                # "latency" | "fixed"
+    decision_lag_secs: float = 3.0             # stream pipeline: ~2s poll + submit
+    drift_frac_atr_per_sec: float = 0.0175     # measured 2026-07-08 (1-min bars)
+    half_spread_ticks: float = 1.0             # book-crossing cost per marketable order
 
 
 def simulate(bars: pd.DataFrame, signals: pd.DataFrame, p: SimParams) -> pd.DataFrame:
@@ -161,9 +179,17 @@ def simulate(bars: pd.DataFrame, signals: pd.DataFrame, p: SimParams) -> pd.Data
     direction = signals["direction"].reindex(idx).fillna(0).to_numpy(int)
     atr = signals["atr"].reindex(idx).to_numpy(float)
 
-    slip = p.slippage_ticks * p.tick_size
     comm = 2.0 * p.commission_per_side * p.n_contracts
     scale = p.point_value * p.n_contracts
+    if p.cost_model == "fixed":
+        fixed = p.slippage_ticks * p.tick_size
+        half_spread = fixed
+        lag_drift = lambda a: 0.0                     # noqa: E731
+        entry_slip = lambda a: fixed                  # noqa: E731
+    else:  # "latency" — see SimParams docstring for calibration provenance
+        half_spread = p.half_spread_ticks * p.tick_size
+        lag_drift = lambda a: p.decision_lag_secs * p.drift_frac_atr_per_sec * a  # noqa: E731
+        entry_slip = lambda a: half_spread + lag_drift(a)                         # noqa: E731
 
     trades: list[dict] = []
     pos: Optional[dict] = None
@@ -187,14 +213,13 @@ def simulate(bars: pd.DataFrame, signals: pd.DataFrame, p: SimParams) -> pd.Data
 
             exit_px = None
             reason = None
-            if stop_hit and targ_hit:
-                exit_px, reason = sl_p - slip * d, "stop_loss"   # conservative
-            elif stop_hit:
-                exit_px, reason = sl_p - slip * d, "stop_loss"
-            elif targ_hit:
-                exit_px, reason = pt_p - slip * d, "profit_target"
-            elif pos["bars_held"] >= p.horizon_bars:
-                exit_px, reason = cl - slip * d, "time_stop"
+            if stop_hit:                              # both-hit -> stop (conservative)
+                exit_px, reason = sl_p - half_spread * d, "stop_loss"
+            elif targ_hit:                            # resting limit: no crossing cost
+                pt_slip = half_spread if p.cost_model == "fixed" else 0.0
+                exit_px, reason = pt_p - pt_slip * d, "profit_target"
+            elif pos["bars_held"] >= p.horizon_bars:  # market out after pipeline lag
+                exit_px, reason = cl - (half_spread + lag_drift(pos["atr"])) * d, "time_stop"
 
             if reason is not None:
                 pnl = (exit_px - pos["entry"]) * d * scale - comm
@@ -223,7 +248,7 @@ def simulate(bars: pd.DataFrame, signals: pd.DataFrame, p: SimParams) -> pd.Data
         if d == 0 or not np.isfinite(a) or a <= 0:
             continue
 
-        entry = c[i] + slip * d
+        entry = c[i] + entry_slip(a) * d
         pos = {
             "direction": d,
             "entry": entry,
@@ -231,6 +256,7 @@ def simulate(bars: pd.DataFrame, signals: pd.DataFrame, p: SimParams) -> pd.Data
             "target": entry + p.pt_atr * a * d,
             "bars_held": 0,
             "entry_time": idx[i],
+            "atr": a,
         }
         trades_today += 1
 
