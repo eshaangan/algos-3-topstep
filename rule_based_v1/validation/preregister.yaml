@@ -150,3 +150,25 @@ fomc_drift_v1:
   # NFP pre-release drift: dead both eras (-$71 dev, -$180 holdout).
   # Mechanism refinement: the drift attaches to POLICY DECISIONS (structural),
   # not to data releases per se. Keep fomc_drift_v1 pure; do not basket.
+
+# ── monday_rth_v1 — REGISTERED 2026-07-10 ────────────────────────────────────
+monday_rth_v1:
+  hypothesis: >
+    Equity weekend-risk premium: long index futures over Monday RTH
+    (9:30->16:00 ET) earns a positive premium as weekend uncertainty resolves.
+    Modern (reversed) Monday effect; equity-specific.
+  evidence:
+    mnq_2020_2026: "n=336, +$117/Mon per 2 micros, t=+3.37, 7/7 years positive, eras +$65/+$162"
+    mes_2019_2025: "n=309, +$42/Mon, t=+2.25, 6/7 years, both eras positive (correlated sample)"
+    placebo_panel: "MGC -$1 (t=-0.06), MCL +$4 (t=0.21), M6E -$9 (t=-2.13) -> equity-specific, not pipeline artifact"
+    dsr: "0.943 at 12 counted DOW-family trials — highest of project"
+    path_risk: "MAE p50 -$270 / p95 -$1,307 / worst -$2,962 per 2 micros"
+  caveats: >
+    Found via full-sample look (control row of weekend-effect test) — no sealed
+    holdout existed; mitigants: 7/7 year consistency, era halves, placebo panel.
+    FORWARD MONDAYS ARE THE HOLDOUT.
+  deployment:
+    phase1: "paper + optional 1-micro live shakedown from Monday 2026-07-13"
+    go_scale: "after 8 forward Mondays: mean > 0 and >= 5/8 positive -> size per MC (4-6 micros, portfolio with fomc_drift_v1)"
+    kill: "8 forward Mondays mean < 0 -> suspend; 16 negative -> permanent kill"
+  trials_context: "12 DOW cells (2 instruments x 5 days + 2 weekend-effect configs)"
