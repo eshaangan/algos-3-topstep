@@ -195,3 +195,17 @@ weekend_hold_v1:
     go_scale: "after 8 forward weekends: mean > 0 and >= 5/8 positive -> 2-3 micros live"
     kill: "8 forward weekends mean < 0 -> suspend; 16 -> permanent kill"
   trials_context: "16 cells cumulative (12 DOW + Sun-leg + BLW windows + this)"
+
+# ── euro_open_v1 — WATCHLIST-REGISTERED 2026-07-11 (t=1.84, below GO bar) ────
+euro_open_v1:
+  hypothesis: >
+    Overnight drift (Boyarchenko et al., NY Fed): equity premium concentrates in
+    the European open window via dealer inventory unwind, strongest after
+    down/high-range days. Long MNQ 2:00->5:00 ET when prior RTH day was down
+    AND prior range > 20d median.
+  evidence:
+    mnq_2020_2026: "n=437, +$26/night per 2 micros, t=+1.84, 71% posYrs, eras +$12/+$38"
+    gradient: "uncond +$6 (t=1.0) -> down +$12 (86% posYrs) -> down+range +$26; prior-UP control exactly $0"
+    leadlag_battery_same_session: "cross-asset 15min lead-lag killed (18 cells all <=0)"
+  status: "BELOW GO (t<2). No tuning permitted. Forward nights accrue via paper runner; promote if combined t>=2.5."
+  trials_context: "~24 cells cumulative this push"
