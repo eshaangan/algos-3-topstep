@@ -172,3 +172,26 @@ monday_rth_v1:
     go_scale: "after 8 forward Mondays: mean > 0 and >= 5/8 positive -> size per MC (4-6 micros, portfolio with fomc_drift_v1)"
     kill: "8 forward Mondays mean < 0 -> suspend; 16 negative -> permanent kill"
   trials_context: "12 DOW cells (2 instruments x 5 days + 2 weekend-effect configs)"
+
+# ── weekend_hold_v1 — REGISTERED 2026-07-10 (supersedes monday_rth_v1 as primary) ──
+weekend_hold_v1:
+  hypothesis: >
+    Equity weekend-risk premium, full expression: long MNQ Sunday 18:00 ET ->
+    Monday 16:00 ET (one ~22h hold, Lucid-legal, flat before the maintenance
+    window). Paid for carrying weekend gap risk; both legs (Sun night t=3.16,
+    Mon RTH t=3.37) independently positive.
+  evidence:
+    mnq_2020_2026: "n=220, +$265/wk per 2 micros, sd $815, t=+4.82, 6/7 years (2022 only miss)"
+    placebo_panel: "gold +$29 (t=0.71), crude -$64 (t=-1.50), euro +$5 (t=0.25) -> equity-specific"
+    dsr: "0.997 at 16 counted trials"
+    path_risk: "MAE p50 -$341 / p95 -$1,473 / worst -$4,183 per 2 micros (COVID-era Sunday)"
+    eval_mc: "2 micros: 63.1% pass / median 17wk; 3: 48%/10wk; 4: 42%/8wk (path-aware, trailing $3k)"
+  caveats: >
+    Full-sample discovery (extension of monday_rth control finding) — forward
+    weekends are the holdout. Tail risk is the mechanism: a -$2,100/micro weekend
+    exists in sample; never size so one such weekend busts the account.
+  deployment:
+    phase1: "paper from Sunday 2026-07-12 18:00 ET; optional 1-micro live shakedown"
+    go_scale: "after 8 forward weekends: mean > 0 and >= 5/8 positive -> 2-3 micros live"
+    kill: "8 forward weekends mean < 0 -> suspend; 16 -> permanent kill"
+  trials_context: "16 cells cumulative (12 DOW + Sun-leg + BLW windows + this)"
