@@ -36,8 +36,7 @@ DEV_END, VAL_END = "2024-01-01", "2025-07-01"
 def load_1m(dirpath: str) -> pd.DataFrame:
     frames = [pd.read_parquet(f) for f in sorted(glob.glob(f"{dirpath}/m_*.parquet"))]
     b = pd.concat(frames).drop_duplicates("ts").sort_values("ts")
-    ts = pd.to_datetime(b["ts"]).dt.tz_localize("America/Chicago",
-                                                ambiguous="NaT", nonexistent="NaT")
+    ts = pd.to_datetime(b["ts"]).dt.tz_localize("Etc/GMT+5")   # stamps are naive FIXED UTC-5 (audit round 2)
     return (b.assign(et=ts.dt.tz_convert("America/New_York"))
              .dropna(subset=["et"]).set_index("et").sort_index())
 

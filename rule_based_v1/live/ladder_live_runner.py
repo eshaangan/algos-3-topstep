@@ -99,6 +99,14 @@ class Daemon:
         self.pos_qty = None           # live position per PNL plant
         self.client.on_exchange_order_notification += self._note
         self.client.on_instrument_pnl_update += self._pnl_note
+        self.client.on_account_pnl_update += self._acct_note
+        try:
+            await self.client.subscribe_to_pnl_updates(account_id=self.acct)
+        except TypeError:
+            try: await self.client.subscribe_to_pnl_updates()
+            except Exception as e: log(f"pnl subscribe err {e}")
+        except Exception as e:
+            log(f"pnl subscribe err {e}")
         log(f"connected acct={self.acct} {self.contract} mode={'LIVE' if self.live else 'DRY'}")
         push(f"ladder daemon up ({'LIVE' if self.live else 'DRY'})")
 
@@ -125,8 +133,14 @@ class Daemon:
             log(f"ENTRY FILL {filled}/{ot['qty']} @ {px}")
             if filled >= ot["qty"]: push(f"{ot['kind']} entry filled @ {px}")
         elif side == 2:
-            qty = ot["qty"]
-            pnl = (float(px) - (ot.get("fill") or ot["ref"]))*PV*qty - 2*COMM*qty
+            if not (ot.get("closing") or tag.endswith("-stp")):
+                log(f"UNKNOWN SELL fill tag={tag!r} — NOT attributing"); push("CRITICAL unknown SELL fill — check account")
+                self.jlog(ev="unknown_sell_fill", tag=tag, px=px); return
+            sold = ot.get("sold_qty", 0) + (qty or ot.get("filled_qty", ot["qty"]))
+            ot["sold_qty"] = sold; self.save()
+            if sold < ot.get("filled_qty", ot["qty"]): return   # partial exit; wait for rest
+            fqty = ot.get("filled_qty", ot["qty"])
+            pnl = (float(px) - (ot.get("fill") or ot["ref"]))*PV*fqty - 2*COMM*fqty
             self.st["banked"] = float(self.st["banked"]) + pnl
             self.jlog(ev="closed", kind=ot["kind"], exit_px=px, pnl=round(pnl, 2),
                       banked=round(self.st["banked"], 2))
@@ -143,9 +157,38 @@ class Daemon:
                 self.pos_qty = int(q)
         except Exception: pass
 
+    async def _acct_note(self, n):
+        for f in ("account_balance", "cash_on_hand", "net_liquidating_value", "current_balance"):
+            v = getattr(n, f, None)
+            if v:
+                try: self.acct_balance = float(v); return
+                except (TypeError, ValueError): pass
+
     async def _cancel_all(self):
         try: await self.client.plants["order"].cancel_all_orders(account_id=self.acct)
         except Exception as e: log(f"cancel err {e}")
+
+    async def _broker_cushion(self):
+        try:
+            rms = await self.client.plants["order"].get_account_rms()
+            txt = str(rms)
+            import re
+            floor_m = re.search(r"min_account_balance:\s*([0-9.]+)", txt)
+            bal = None
+            for pat in (r"(?<!min_)account_balance:\s*([0-9.]+)", r"cash_on_hand:\s*([0-9.]+)",
+                        r"current_balance:\s*([0-9.]+)"):
+                m = re.search(pat, txt)
+                if m: bal = float(m.group(1)); break
+            if bal is None and getattr(self, "acct_balance", None):
+                bal = float(self.acct_balance)
+            if floor_m and bal:
+                c = bal - float(floor_m.group(1))
+                self.jlog(ev="broker_cushion", cushion=c)
+                return c
+            self.jlog(ev="broker_cushion_fields_missing", raw=txt[:300])
+            return None
+        except Exception as e:
+            log(f"rms err {e}"); return None
 
     async def _working_orders(self):
         try:
@@ -156,9 +199,20 @@ class Daemon:
 
     async def enter(self, kind, key):
         from async_rithmic import OrderType, TransactionType
+        if self.st.get("halted"):
+            log(f"{kind}: HALTED — no entries until manual clear"); return
         qty = ladder_size(kind, self.st["banked"])
-        worst = 2100 if kind == "WK" else 420              # historical worst MAE $/micro
-        cushion = 3000 + max(0, float(self.st["banked"]) - 3000)   # floor-lock model
+        worst = 2100 if kind == "WK" else 1000
+        if self.live:
+            rms_cushion = await self._broker_cushion()
+            if rms_cushion is None:
+                log(f"{kind}: broker cushion UNAVAILABLE — entry blocked (fail-safe)")
+                self.jlog(ev="cushion_unavailable_block", kind=kind); return
+            cushion_b = rms_cushion
+        else:
+            cushion_b = None              # historical worst MAE $/micro
+        cushion = cushion_b if (self.live and cushion_b is not None) else \
+                  3000 + max(0, float(self.st["banked"]) - 3000)
         if self.live and qty * worst > 0.75 * cushion:
             log(f"{kind}: cushion gate blocked entry (need {qty*worst} vs {0.75*cushion:.0f})")
             self.jlog(ev="cushion_block", kind=kind, qty=qty)
@@ -193,7 +247,7 @@ class Daemon:
             try:
                 await self.client.plants["order"].submit_order(
                     order_id=f"{ot['oid']}-stp", symbol=self.contract, exchange=EXCHANGE,
-                    qty=ot["qty"], transaction_type=TransactionType.SELL,
+                    qty=ot.get("filled_qty", ot["qty"]), transaction_type=TransactionType.SELL,
                     order_type=OrderType.STOP_MARKET, trigger_price=stop_px,
                     account_id=self.acct)
                 ot["verify_after"] = time.time() + 4
@@ -219,6 +273,7 @@ class Daemon:
     async def flatten(self, why):
         self.jlog(ev="flatten", why=why, live=self.live)
         ot = self.st.get("open")
+        if ot: ot["closing"] = True; self.save()
         if self.live:
             confirmed = False
             for attempt in range(4):                       # verification sweep
@@ -236,9 +291,11 @@ class Daemon:
                     if confirmed: break
                 log(f"flatten sweep {attempt+1}: orders_clear={orders_clear} pos={self.pos_qty}")
             if not confirmed:
-                log("CRITICAL: flatten UNCONFIRMED — manual check required")
-                push("CRITICAL: flatten unconfirmed — CHECK ACCOUNT NOW")
-                self.jlog(ev="flatten_unconfirmed")
+                log("CRITICAL: flatten UNCONFIRMED — HALTING (state preserved)")
+                push("CRITICAL: flatten unconfirmed — CHECK ACCOUNT NOW (daemon halted)")
+                self.jlog(ev="flatten_unconfirmed_halt")
+                self.st["halted"] = True; self.save()
+                return
             log(f"FLATTEN ({why}) confirmed={confirmed}")
         else:
             if ot:
