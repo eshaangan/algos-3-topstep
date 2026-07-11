@@ -9,8 +9,9 @@ SSH_HOST="${SSH_HOST:-jg@100.81.204.115}"
 IMAGE_NAME="${IMAGE_NAME:-local-cache:1}"
 CONTAINER_NAME="${CONTAINER_NAME:-svc-cache-1}"
 
-# Hidden ephemeral layout on remote (dot-prefixed tmp + generic process title).
-REMOTE_TMP_TEMPLATE="/tmp/.svc-XXXXXX"
+# Hidden persistent layout on remote (dot-prefixed home dir + generic process title).
+# NOTE: intentionally NOT /tmp — macOS periodic daily purges /tmp after ~3 days.
+REMOTE_TMP_TEMPLATE='${HOME}/.svc-XXXXXX'
 REMOTE_WORK_DIR=".w"
 REMOTE_LOG=".out"
 REMOTE_PID=".pid"
@@ -89,7 +90,7 @@ resolve_deploy_mode() {
   if remote_has_docker; then
     echo "docker"
   else
-    echo "Docker not found on ${SSH_HOST}; using native SSH deploy (ephemeral /tmp, cleaned on stop)."
+    echo "Docker not found on ${SSH_HOST}; using native SSH deploy (persistent ~/home dir)."
     echo "native"
   fi
 }
@@ -143,14 +144,16 @@ deploy_native() {
   stop_native_remote 2>/dev/null || true
   ssh_remote "bash -c 'rm -rf /tmp/ml-strategy-* 2>/dev/null || true'"
 
-  REMOTE_DIR="$(ssh_remote "mktemp -d ${REMOTE_TMP_TEMPLATE}")"
+  # Single-quoted so ${HOME} expands on the *remote* shell, not locally.
+  REMOTE_DIR="$(ssh_remote 'mktemp -d "${HOME}/.svc-XXXXXX"')"
 
   tar czf - \
     -C "${REPO_ROOT}" \
     core \
+    data_collection \
     rule_based_v1/live \
     rule_based_v1/diagnostics/ml_strategy_search.py \
-    rule_based_v1/models/ml_strategy_mnq_v7.pkl \
+    rule_based_v1/models/ml_strategy_mnq_v3.pkl \
     rule_based_v1/configs/risk_lucid_100k.yaml \
     rule_based_v1/engine \
     ml_intraday_v3/live_trading \
@@ -174,7 +177,7 @@ wd = os.path.join(remote_dir, '.wd')
 script = (
     '#!/bin/bash\n'
     'cd \"' + remote_dir + '\"\n'
-    'until .venv/bin/python -u .w/rule_based_v1/live/.run.py --model-path .w/rule_based_v1/models/ml_strategy_mnq_v7.pkl ' + runner_cmd + '; do\n'
+    'until .venv/bin/python -u .w/rule_based_v1/live/.run.py --model-path .w/rule_based_v1/models/ml_strategy_mnq_v3.pkl ' + runner_cmd + '; do\n'
     '  echo \"[watchdog \$(date -u)] crash - restarting in 30s\"\n'
     '  sleep 30\n'
     'done\n'
@@ -249,7 +252,7 @@ preflight_remote_docker() {
 }
 
 ensure_model() {
-  local model_path="${REPO_ROOT}/rule_based_v1/models/ml_strategy_mnq_v7.pkl"
+  local model_path="${REPO_ROOT}/rule_based_v1/models/ml_strategy_mnq_v3.pkl"
   if [[ ! -f "${model_path}" ]]; then
     echo "Model bundle missing: ${model_path}" >&2
     exit 1

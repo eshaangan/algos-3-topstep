@@ -1,7 +1,13 @@
-"""ML Strategy live runner — LightGBM 5-min MNQ signals via TopstepX.
+"""ML Strategy live runner — LightGBM 5-min MNQ signals via Rithmic.
 
-Loads ml_strategy_mnq_v1.pkl (Jan 2026 train) and replicates ml_strategy_search
-backtest signal/exit logic on live 5-min RTH bars.
+Architecture (post-incident rewrite, 2026-06-02):
+  - Startup: verifies account is flat; halts if not.
+  - Entry: plain MARKET order; fill confirmed via fill-history query.
+  - Stop: separate STOP_MARKET placed after fill; software OHLC stop runs in
+    parallel as the primary fallback (exchange stop is belt-and-suspenders).
+  - Exit detection: OHLC bar check (primary) + position poll (secondary).
+  - State: every active_trade = None is preceded by record_trade. No exceptions.
+  - PnL accounting: all 7 ghost-trade paths from the incident audit are closed.
 
 Usage:
     python rule_based_v1/live/ml_strategy_runner.py --dry-run
@@ -11,14 +17,16 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import pickle
 import signal
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 try:
     import setproctitle
@@ -34,11 +42,10 @@ ROOT = RBV1.parent
 sys.path.insert(0, str(RBV1))
 sys.path.insert(0, str(ROOT))
 
-from core.projectx_client import BracketInstruction
+from core.projectx_client import BracketInstruction  # noqa: F401 (kept for API compat)
 from diagnostics.ml_strategy_search import FEATURE_COLS
 from engine.risk_manager import RiskManager, TradeRecord
 
-# v7 feature builder (requires microstructure columns from tick accumulator)
 try:
     from ml_intraday_v3.scripts.ml_scalper_v7 import build_features as _build_features_v7
     _V7_FEATURES_AVAILABLE = True
@@ -46,7 +53,6 @@ except ImportError:
     _build_features_v7 = None
     _V7_FEATURES_AVAILABLE = False
 
-# Microstructure columns needed by v7 build_features — filled with NaN if missing (e.g. OHLCV backfill bars)
 _MICRO_COLS = [
     "ofi_early", "ofi_late", "trade_rate", "avg_size", "max_run",
     "kyles_lambda", "roll_spread", "lg_ofi_imb", "ofi_imb",
@@ -56,7 +62,6 @@ _MICRO_COLS = [
 
 
 def build_features(bars_df: pd.DataFrame) -> pd.DataFrame:
-    """Route to v7 feature builder if available, else old OHLCV-only builder."""
     from diagnostics.ml_strategy_search import build_features as _build_features_v1
     if not _V7_FEATURES_AVAILABLE:
         return _build_features_v1(bars_df)
@@ -68,23 +73,23 @@ def build_features(bars_df: pd.DataFrame) -> pd.DataFrame:
         df["vwap"] = (df["open"] + df["high"] + df["low"] + df["close"]) / 4
     return _build_features_v7(df)
 
+
 logger = logging.getLogger(__name__)
 
 
 class CalibratedPipeline:
-    """Chains a LightGBM model with a Platt calibrator. Required for pickle deserialization of v7 bundle."""
+    """Pickle-compatible wrapper for LightGBM + Platt calibrator."""
 
     def __init__(self, lgbm_model, calibrator):
-        self.lgbm_model = lgbm_model
+        self.lgbm = lgbm_model
         self.calibrator = calibrator
 
     def predict_proba(self, X):
         import numpy as np
-        raw_prob = self.lgbm_model.predict_proba(X)[:, 1].reshape(-1, 1)
+        raw_prob = self.lgbm.predict_proba(X)[:, 1].reshape(-1, 1)
         return self.calibrator.predict_proba(raw_prob)
 
     def predict(self, X):
-        import numpy as np
         proba = self.predict_proba(X)
         return (proba[:, 1] >= 0.5).astype(int)
 
@@ -93,13 +98,38 @@ MODEL_PATH = RBV1 / "models" / "ml_strategy_mnq_v1.pkl"
 DEFAULT_RISK_CFG = RBV1 / "configs" / os.getenv("RISK_CONFIG", "risk_lucid_100k.yaml")
 
 POINT_VALUE = 2.0
-TICK_SIZE = 0.25
-SLIPPAGE_T = 1
-COMMISSION = 0.62
+TICK_SIZE   = 0.25
+SLIPPAGE_T  = 1          # ticks of assumed slippage on entry/exit
+COMMISSION  = 0.62       # per side per contract
+
+# Maximum safe contracts — override from risk yaml if present
+_MAX_SAFE_CONTRACTS = 6   # Lucid 100k hard cap on MNQ micros
+_TZ_ET = ZoneInfo("America/New_York")
+
+# State persistence: survives bash-watchdog restarts (30s) and keeps position tracked
+_STATE_FILE = Path(os.path.expanduser("~/.ml_trader_state.json"))
+
+# Phase-1 fill confirmation
+_FILL_CONFIRM_TIMEOUT_S = 90
+_FILL_POLL_INTERVAL_S   = 5
+
+# Phase-2 close detection
+# Orders are cancelled on the FIRST absent poll to prevent the limit order from
+# filling on a flat account. We require 2 more clean polls after that to confirm.
+_CANCEL_ON_FIRST_ABSENT = True
+_CLOSE_CONFIRM_POLLS    = 3   # total polls (cancel fires on poll 1, record on poll 3)
+
+# Contract expiry warning: log alert this many days before front-month expiry
+_ROLLOVER_WARN_DAYS = 7
+
+# Feature-feed canary: warn after this many consecutive in-window bars are skipped
+# for NaN features, but only once features have been healthy at least once (so the
+# normal ~20-bar post-restart warmup does not trip it). A run this long after the
+# feed was working indicates the live tick subscription has likely dropped.
+_NAN_SKIP_ALERT_THRESHOLD = 3
 
 
 class MLStrategyRunner:
-    """Live runner for validated ML strategy (PT/SL/lookahead exits)."""
 
     def __init__(
         self,
@@ -115,44 +145,87 @@ class MLStrategyRunner:
         self.account_id = account_id or os.getenv("LUCID_ACCOUNT_ID") or os.getenv("TOPSTEPX_ACCOUNT_ID")
         self.model_path = Path(model_path or MODEL_PATH)
         self.risk_cfg_path = Path(risk_cfg_path or DEFAULT_RISK_CFG)
-        self.n_contracts = n_contracts or int(os.getenv("ML_N_CONTRACTS", "6"))
 
         self._load_model()
         self._load_risk_config()
+
+        # Contract count: env var > argument > default of 1 (NOT 6).
+        env_n = os.getenv("ML_N_CONTRACTS")
+        if n_contracts is not None:
+            self.n_contracts = int(n_contracts)
+        elif env_n is not None:
+            self.n_contracts = int(env_n)
+        else:
+            self.n_contracts = 1
+            logger.warning("ML_N_CONTRACTS not set — defaulting to 1 (safe). Pass --n-contracts or set env var to change.")
+
+        if self.n_contracts > _MAX_SAFE_CONTRACTS:
+            raise ValueError(
+                f"n_contracts={self.n_contracts} exceeds _MAX_SAFE_CONTRACTS={_MAX_SAFE_CONTRACTS}. "
+                "Edit _MAX_SAFE_CONTRACTS in runner if you intend to trade more."
+            )
+
         self._build_risk_manager()
 
         self.data_fetcher = None
-        self.client = None
-        self.running = False
+        self.client       = None
+        self.running      = False
         self.last_bar_time = None
+        self.trades_today  = 0
+        self.current_date  = None
 
-        self.trades_today = 0
-        self.current_date = None
+        # Feature-feed health tracking (NaN-skip canary). _features_ever_ok flips
+        # True after the first successful prediction so warmup NaNs don't alarm.
+        self._consecutive_nan_skips = 0
+        self._features_ever_ok      = False
+
+        # active_trade dict keys (all must be set together):
+        #   direction       int           1=LONG, -1=SHORT
+        #   entry_price     float         theoretical entry (c ± slippage)
+        #   actual_entry    float|None    actual fill price once confirmed
+        #   stop_loss       float         stop price
+        #   profit_target   float         target price
+        #   bars_in         int           bars elapsed since entry
+        #   last_bar_close  float         close of last processed bar
+        #   entry_time      pd.Timestamp  bar time of signal
+        #   order_id        str           Rithmic basket_id of entry order
+        #   fill_confirmed  bool          True once fill history confirms entry
+        #   fill_poll_start float         monotonic time when fill polling began
+        #   stop_order_id   str|None      Rithmic basket_id of stop order
+        #   consecutive_no_pos int        for phase-2 close confirmation
         self.active_trade: dict | None = None
 
         cfg = self.strategy_cfg
-        self.pt_atr = float(cfg["pt"])
-        self.sl_atr = float(cfg["sl"])
+        self.pt_atr   = float(cfg["pt"])
+        self.sl_atr   = float(cfg["sl"])
         self.lookahead = int(cfg["lookahead"])
         self.conf_threshold = float(cfg["conf"])
-        self.max_trades_per_day = int(cfg["max_trades"])
+        # min_atr_pts: skip entries in low-vol chop (v3 default 5.0). 0.0 = disabled.
+        self.min_atr_pts = float(cfg.get("min_atr_pts", 0.0))
+        # max_trades_per_day: use the model's validated value, but never exceed the
+        # risk yaml cap (which is the combine-safety bound).
+        model_max = int(cfg["max_trades"])
+        yaml_max  = int(self.risk_cfg.get("session", {}).get("max_trades_per_day", model_max))
+        self.max_trades_per_day = min(model_max, yaml_max)
+        logger.info(
+            "Strategy params: pt=%.2f sl=%.2f lookahead=%d conf=%.4f min_atr=%.2f max_trades=%d",
+            self.pt_atr, self.sl_atr, self.lookahead, self.conf_threshold,
+            self.min_atr_pts, self.max_trades_per_day,
+        )
+
+    # ─────────────────────────────────────────── initialisation ──────────────
 
     def _load_model(self) -> None:
         if not self.model_path.exists():
-            raise FileNotFoundError(
-                f"Model bundle not found: {self.model_path}\n"
-                "Run: python rule_based_v1/diagnostics/ml_strategy_search.py --export"
-            )
+            raise FileNotFoundError(f"Model bundle not found: {self.model_path}")
         with open(self.model_path, "rb") as f:
             bundle = pickle.load(f)
-        self.model = bundle["model"]
+        self.model       = bundle["model"]
         self.feature_cols = bundle.get("feature_cols", FEATURE_COLS)
         self.strategy_cfg = bundle["config"]
-        self.train_end = bundle.get("train_end", "unknown")
-        logger.info(
-            f"Loaded model from {self.model_path} "
-            f"(train_end={self.train_end}, config={self.strategy_cfg})"
-        )
+        self.train_end    = bundle.get("train_end", "unknown")
+        logger.info("Loaded model from %s (train_end=%s, config=%s)",
+                    self.model_path, self.train_end, self.strategy_cfg)
 
     def _load_risk_config(self) -> None:
         with open(self.risk_cfg_path) as f:
@@ -174,6 +247,90 @@ class MLStrategyRunner:
             drawdown_buffer=cfg["drawdown"]["buffer_from_max"],
         )
 
+    # ─────────────────────────────────────── state persistence ───────────────
+
+    # Required keys a restored trade dict MUST have to be usable
+    _REQUIRED_STATE_KEYS = (
+        "direction", "entry_price", "stop_loss", "profit_target",
+        "bars_in", "last_bar_close", "last_bar_low", "last_bar_high", "entry_time",
+    )
+
+    def _save_state(self) -> None:
+        """
+        Persist active_trade to disk atomically so a crash mid-write cannot corrupt
+        the file (write to .tmp then os.replace, which is atomic on POSIX).
+        Stamps the trading date so stale (prior-day) state is rejected on restore.
+        """
+        if self.active_trade is None:
+            _STATE_FILE.unlink(missing_ok=True)
+            return
+        try:
+            state = {"_saved_date": datetime.now(tz=_TZ_ET).strftime("%Y-%m-%d")}
+            for k, v in self.active_trade.items():
+                if isinstance(v, pd.Timestamp):
+                    state[k] = str(v)
+                elif v is None or isinstance(v, (int, float, bool, str)):
+                    state[k] = v
+                else:
+                    state[k] = str(v)
+            tmp = _STATE_FILE.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(state))
+            os.replace(tmp, _STATE_FILE)   # atomic
+        except Exception as e:
+            logger.warning("Failed to save state: %s", e)
+
+    def _load_state(self) -> dict | None:
+        if not _STATE_FILE.exists():
+            return None
+        try:
+            raw = json.loads(_STATE_FILE.read_text())
+        except Exception as e:
+            logger.warning("State file unreadable/corrupt (%s) — discarding.", e)
+            _STATE_FILE.unlink(missing_ok=True)
+            return None
+
+        # Reject stale state from a prior trading day
+        saved_date = raw.get("_saved_date")
+        today = datetime.now(tz=_TZ_ET).strftime("%Y-%m-%d")
+        if saved_date and saved_date != today:
+            logger.warning("State file is from %s (today=%s) — stale, discarding.", saved_date, today)
+            _STATE_FILE.unlink(missing_ok=True)
+            return None
+
+        # Require all critical keys before trusting the dict
+        missing = [k for k in self._REQUIRED_STATE_KEYS if k not in raw or raw[k] is None]
+        if missing:
+            logger.warning("State file missing required keys %s — discarding.", missing)
+            _STATE_FILE.unlink(missing_ok=True)
+            return None
+
+        try:
+            raw["entry_time"] = pd.Timestamp(raw["entry_time"])
+            for f in ("entry_price", "actual_entry", "stop_loss", "profit_target",
+                      "last_bar_close", "last_bar_low", "last_bar_high", "fill_poll_start"):
+                if raw.get(f) is not None:
+                    raw[f] = float(raw[f])
+            for f in ("direction", "bars_in", "consecutive_no_pos"):
+                if raw.get(f) is not None:
+                    raw[f] = int(raw[f])
+            raw["fill_confirmed"] = bool(raw.get("fill_confirmed", False))
+            return raw
+        except Exception as e:
+            logger.warning("State file type coercion failed (%s) — discarding.", e)
+            _STATE_FILE.unlink(missing_ok=True)
+            return None
+
+    def _cancel_all_contract_orders(self) -> None:
+        """Cancel every open order on the account/contract. Used during recovery to
+        clear orphaned stop/limit orders left by a crash before re-placing fresh ones."""
+        try:
+            for o in self.client.search_open_orders():
+                oid = getattr(o, "order_id", None) or getattr(o, "basket_id", None)
+                if oid:
+                    self._cancel_order(str(oid), "orphaned")
+        except Exception as e:
+            logger.warning("Could not enumerate/cancel open orders during recovery: %s", e)
+
     def _init_data_fetcher(self) -> bool:
         broker = os.getenv("TRADING_BROKER", "rithmic").lower()
         if broker == "rithmic":
@@ -189,11 +346,11 @@ class MLStrategyRunner:
                 lookback_bars=500,
             )
             self.data_fetcher = client
-            self.client = client
-            logger.info(f"Rithmic data fetcher initialized for {self.symbol}")
+            self.client       = client
+            logger.info("Rithmic client ready for %s", self.symbol)
             return True
         except Exception as e:
-            logger.error(f"Failed to init Rithmic client: {e}", exc_info=True)
+            logger.error("Failed to init Rithmic client: %s", e, exc_info=True)
             return False
 
     def _init_topstep(self) -> bool:
@@ -201,7 +358,6 @@ class MLStrategyRunner:
             ml_v3_path = ROOT / "ml_intraday_v3"
             sys.path.insert(0, str(ml_v3_path))
             from live_trading.topstepx_rest_data_fetcher import TopstepXRestDataFetcher
-
             self.data_fetcher = TopstepXRestDataFetcher(
                 contract_id=self.contract_id,
                 bar_size_minutes=5,
@@ -210,94 +366,391 @@ class MLStrategyRunner:
             )
             self.data_fetcher.initialize_buffer()
             self.client = self.data_fetcher.client
-            logger.info(f"TopstepX data fetcher initialized for {self.symbol} ({self.contract_id})")
+            logger.info("TopstepX client ready for %s", self.symbol)
             return True
         except Exception as e:
-            logger.error(f"Failed to init TopstepX data fetcher: {e}", exc_info=True)
+            logger.error("Failed to init TopstepX: %s", e, exc_info=True)
             return False
+
+    # ─────────────────────────────────────────── safety checks ───────────────
+
+    def _startup_position_check(self) -> bool:
+        """
+        Startup safety sequence:
+        1. Rollover warning — alert if contract expires within _ROLLOVER_WARN_DAYS
+        2. Real balance query — set dynamic daily loss limit from actual equity
+        3. State recovery — restore active_trade from disk if a crash happened mid-trade
+        4. Flatness check — refuse new entries if unexpected position exists
+
+        Returns True if safe to proceed, False to block all new entries.
+        """
+        if self.dry_run:
+            _STATE_FILE.unlink(missing_ok=True)
+            return True
+
+        # ── 1. Rollover warning ───────────────────────────────────────────
+        try:
+            contract = getattr(self.client, "_contract", "") or ""
+            # Parse expiry month from contract code (e.g. MNQM6 → June)
+            month_codes = {"F":1,"G":2,"H":3,"J":4,"K":5,"M":6,
+                           "N":7,"Q":8,"U":9,"V":10,"X":11,"Z":12}
+            if len(contract) >= 5:
+                mc = contract[-2]  # e.g. 'M' from MNQM6
+                yr = int("202" + contract[-1])
+                mo = month_codes.get(mc.upper())
+                if mo:
+                    from datetime import date
+                    # Third Friday of expiry month ≈ rollover date
+                    import calendar
+                    c = calendar.monthcalendar(yr, mo)
+                    fridays = [w[4] for w in c if w[4] > 0]
+                    expiry = date(yr, mo, fridays[2])
+                    days_to_expiry = (expiry - date.today()).days
+                    if days_to_expiry <= _ROLLOVER_WARN_DAYS:
+                        logger.warning(
+                            "CONTRACT EXPIRY IN %d DAYS: %s expires ~%s. "
+                            "Restart runner after rollover to pick up next front month.",
+                            days_to_expiry, contract, expiry
+                        )
+        except Exception:
+            pass  # rollover check is advisory only
+
+        # ── 2. Real balance → dynamic daily loss limit ────────────────────
+        logger.info("Startup safety check: querying account balance…")
+        try:
+            acct = self.client.get_account_state()
+            initial  = self.risk_cfg.get("account", {}).get("initial_balance", 100000.0)
+            mll      = self.risk_cfg.get("account", {}).get("mll_limit", 3000.0)
+            min_mll  = self.risk_cfg.get("drawdown", {}).get("min_remaining_mll", 500.0)
+            equity   = acct.equity if acct else 0.0
+
+            # Lucid sim accounts often return equity=0 — treat as unreliable query
+            if equity <= 0.0:
+                logger.warning(
+                    "Account balance query returned $%.2f — API unreliable on sim. "
+                    "Using configured daily loss limit unchanged.", equity,
+                )
+            else:
+                # Conservative: assume peak is max of initial and current equity
+                approx_drawdown = max(0.0, initial - equity)
+                remaining_mll   = mll - approx_drawdown
+                logger.info(
+                    "Account equity: $%.2f | Approx MLL used: $%.2f | Remaining: $%.2f",
+                    equity, approx_drawdown, remaining_mll,
+                )
+                if remaining_mll < min_mll:
+                    logger.critical(
+                        "MLL nearly exhausted ($%.2f remaining, min=$%.2f). "
+                        "Blocking all new trades to protect combine account.",
+                        remaining_mll, min_mll,
+                    )
+                    self.trades_today = self.max_trades_per_day
+                    return False
+
+                # Set dynamic daily loss limit: 40% of remaining MLL, capped at configured max
+                configured_max = abs(self.risk_cfg["daily_limits"]["max_daily_loss"])
+                dynamic_limit  = min(configured_max, remaining_mll * 0.40)
+                self.risk_manager.max_daily_loss = -dynamic_limit
+                logger.info("Daily loss limit set dynamically to $%.2f", dynamic_limit)
+        except Exception as exc:
+            logger.warning(
+                "Balance query failed (%s) — using configured daily loss limit $%.2f",
+                exc, abs(self.risk_manager.max_daily_loss),
+            )
+
+        # ── 3. State recovery from disk ───────────────────────────────────
+        saved = self._load_state()
+        if saved is not None:
+            logger.warning("Found saved trade state — previous session may have crashed mid-trade.")
+            try:
+                positions = self.client.search_open_positions()
+            except Exception as exc:
+                positions = None
+                logger.critical("Position query failed during recovery (%s) — blocking trades for safety.", exc)
+                self.trades_today = self.max_trades_per_day
+                return False
+
+            if not positions:
+                logger.warning("Saved state but account is flat — trade closed while down. Discarding state.")
+                _STATE_FILE.unlink(missing_ok=True)
+                # fall through to normal flatness check below
+            else:
+                # Validate the open position matches the saved trade before adopting it
+                pos = positions[0]
+                pos_size = int(pos.get("size", 0))
+                if pos_size != self.n_contracts:
+                    logger.critical(
+                        "Recovery: open position size %d != expected %d. "
+                        "Cannot safely adopt — flattening and blocking. Resolve manually.",
+                        pos_size, self.n_contracts,
+                    )
+                    self._cancel_all_contract_orders()
+                    self._send_market_close(saved["direction"])
+                    _STATE_FILE.unlink(missing_ok=True)
+                    self.trades_today = self.max_trades_per_day
+                    return False
+
+                logger.warning("Recovering trade: %s", {k: saved.get(k) for k in
+                               ("direction", "entry_price", "stop_loss", "profit_target", "entry_time")})
+
+                # Clear any orphaned stop/limit left on the exchange from before the crash
+                self._cancel_all_contract_orders()
+
+                # Re-confirm the actual fill price from history (fallback to saved)
+                actual = self._confirm_fill_via_history(saved["entry_time"])
+                if actual is not None:
+                    saved["actual_entry"] = actual
+                    diff = actual - saved["entry_price"]
+                    if abs(diff) > TICK_SIZE:
+                        saved["stop_loss"]     = saved["stop_loss"] + diff
+                        saved["profit_target"] = saved["profit_target"] + diff
+                        logger.info("Recovery: adjusted sl/pt by %.2f to actual fill %.2f", diff, actual)
+                else:
+                    saved["actual_entry"] = saved.get("actual_entry") or saved["entry_price"]
+
+                # Recompute bars_in from wall clock so the time-stop honours real elapsed time
+                elapsed_min = (datetime.now(tz=timezone.utc) - saved["entry_time"].tz_convert("UTC")).total_seconds() / 60.0
+                saved["bars_in"] = max(int(saved.get("bars_in", 0)), int(elapsed_min // 5))
+                logger.info("Recovery: bars_in set to %d (%.0f min elapsed, lookahead=%d)",
+                            saved["bars_in"], elapsed_min, self.lookahead)
+
+                saved["fill_confirmed"]     = True
+                saved["consecutive_no_pos"] = 0
+                saved["stop_order_id"]      = None
+                saved["limit_order_id"]     = None
+                self.active_trade = saved
+                self.trades_today += 1
+
+                # Re-place protective orders NOW (do not wait for a poll)
+                stop_id = self._place_stop_order(saved["stop_loss"], saved["direction"])
+                saved["stop_order_id"] = stop_id
+                limit_side = "SELL" if saved["direction"] == 1 else "BUY"
+                try:
+                    saved["limit_order_id"] = self.client.place_limit_order(
+                        limit_price=saved["profit_target"], quantity=self.n_contracts, side=limit_side)
+                    logger.info("Recovery: re-placed stop=%s limit=%s", stop_id, saved["limit_order_id"])
+                except Exception as exc:
+                    logger.warning("Recovery: limit re-placement failed (%s); software target active.", exc)
+                self._save_state()
+                logger.warning("Trade recovered and re-protected. Resuming management.")
+                return True
+
+        # ── 4. Flatness check ─────────────────────────────────────────────
+        logger.info("Startup safety check: querying open positions…")
+        try:
+            positions = self.client.search_open_positions()
+        except Exception as exc:
+            logger.critical(
+                "Position query failed (%s). Treating as UNSAFE — blocking new trades.", exc
+            )
+            self.trades_today = self.max_trades_per_day
+            return False
+
+        if not positions:
+            logger.info("Account is flat. Safe to start trading.")
+            return True
+
+        logger.critical(
+            "STARTUP ABORT: %d unexpected open position(s): %s. "
+            "Close manually and restart.",
+            len(positions), positions,
+        )
+        self.trades_today = self.max_trades_per_day
+        return False
+
+    # ─────────────────────────────────────────── utilities ───────────────────
 
     @staticmethod
     def _in_trading_window(ts: pd.Timestamp) -> bool:
-        """Match backtest time gate: 9:45–15:00 ET."""
-        ts_et = ts.tz_convert("US/Eastern") if ts.tz else ts.tz_localize("US/Eastern")
-        h_et, m_et = ts_et.hour, ts_et.minute
-        return (h_et > 9 or (h_et == 9 and m_et >= 45)) and h_et < 15
+        """
+        Session gate for the v3 model, BOUNDED to the hours where the edge was
+        actually validated on dense data.
+
+        The backtest filter was `h_et >= 11 and h_et != 13` (ml_scalper_v3.py),
+        but that worked only because the TRAINING parquet was RTH-dense: hours
+        UTC 14-20 had ~1100 bars each, while overnight hours had only ~140 sparse
+        bars and produced ZERO OOS trades. v3's validated trades fired only at
+        UTC {16,17,19,20} = h_et {11,12,14,15}.
+
+        Live Rithmic delivers a full 24h Globex feed, so an unbounded `h_et >= 11`
+        would trade UTC {22,23,0,1,2,3,4} (h_et 17-23) — overnight hours that are
+        dense live but were never validated. We add an explicit upper bound so live
+        trades ONLY the validated afternoon-RTH window:
+            11 <= h_et <= 15 and h_et != 13 and weekday != Thursday
+        where h_et = (UTC_hour - 5) % 24 (the same EST-anchored convention the
+        model's hour features were trained with — do NOT change to real ET).
+
+        This bound removes zero validated trades (the overnight hours had none),
+        so the backtested metrics are unchanged.
+        """
+        ts_utc = ts.tz_convert("UTC") if ts.tz else ts.tz_localize("UTC")
+        h_et = (ts_utc.hour - 5) % 24
+        if h_et < 11 or h_et > 15 or h_et == 13:
+            return False
+        if ts_utc.weekday() == 3:   # Thursday excluded (OOS WR=25%, no edge)
+            return False
+        return True
 
     def _predict_prob(self, bars_df: pd.DataFrame) -> tuple[float | None, float | None]:
         feat = build_features(bars_df)
-        row = feat[self.feature_cols].iloc[-1]
+        row  = feat[self.feature_cols].iloc[-1]
         if row.isna().any():
             return None, None
-        prob = float(self.model.predict_proba(row.values.reshape(1, -1))[0, 1])
+        prob    = float(self.model.predict_proba(row.values.reshape(1, -1))[0, 1])
         atr_val = float(feat["atr"].iloc[-1])
         if pd.isna(atr_val) or atr_val <= 0:
             return prob, None
         return prob, atr_val
 
     def _signal_direction(self, prob: float) -> int | None:
-        if prob >= self.conf_threshold:
-            return 1
-        return None
+        return 1 if prob >= self.conf_threshold else None
 
-    def _place_order(
-        self,
-        direction_str: str,
-        entry_price: float,
-        stop_loss: float,
-        profit_target: float,
-    ) -> bool:
+    def _compute_pnl(self, entry: float, exit_price: float, direction: int) -> float:
+        point_value = self.risk_cfg["position"]["point_value"]
+        commission  = self.risk_cfg["position"].get("commission_per_side", COMMISSION)
+        gross = (exit_price - entry) * direction * self.n_contracts * point_value
+        return gross - 2 * commission * self.n_contracts
+
+    # ─────────────────────────────────────────── order placement ─────────────
+
+    def _place_entry_order(self, direction_str: str, entry_price: float,
+                           stop_loss: float, profit_target: float) -> str | None:
+        """
+        Submit a plain MARKET entry. Returns order_id on success, None on failure.
+        Does NOT set active_trade — caller is responsible.
+        """
+        side = "BUY" if direction_str == "LONG" else "SELL"
         try:
-            tick_size = self.risk_cfg["position"]["tick_size"]
-            n_contracts = self.risk_manager.contracts
-
-            stop_ticks_raw = int(round((stop_loss - entry_price) / tick_size))
-            target_ticks_raw = int(round((profit_target - entry_price) / tick_size))
-
-            if direction_str == "LONG":
-                stop_ticks = -max(1, abs(stop_ticks_raw))
-                target_ticks = max(1, abs(target_ticks_raw))
-                side = "BUY"
-            else:
-                stop_ticks = max(1, abs(stop_ticks_raw))
-                target_ticks = -max(1, abs(target_ticks_raw))
-                side = "SELL"
-
-            bracket_stop = BracketInstruction(ticks=stop_ticks, order_type=4)
-            bracket_target = BracketInstruction(ticks=target_ticks, order_type=1)
-
-            logger.info(
-                f"Placing {side} {n_contracts}x {self.symbol} @ market | "
-                f"stop={stop_loss:.2f}, target={profit_target:.2f}"
-            )
+            logger.info("Placing %s %dx %s @ market | sl=%.2f pt=%.2f",
+                        side, self.n_contracts, self.symbol, stop_loss, profit_target)
             order = self.client.place_order(
                 symbol=self.symbol,
                 side=side,
-                quantity=n_contracts,
+                quantity=self.n_contracts,
                 order_type="MARKET",
                 contract_id=self.contract_id,
-                stop_loss_bracket=bracket_stop,
-                take_profit_bracket=bracket_target,
             )
-            logger.info(f"Order accepted: id={order.order_id}")
-            return True
+            logger.info("Entry order accepted: id=%s", order.order_id)
+            return order.order_id
         except Exception as e:
-            logger.error(f"Order placement failed: {e}", exc_info=True)
+            logger.error("Entry order failed: %s", e, exc_info=True)
+            return None
+
+    def _place_stop_order(self, stop_price: float, direction: int) -> str | None:
+        """
+        Submit a STOP_MARKET protective order.
+        Returns order_id on success, None on failure.
+        Logs a warning if the returned id looks like a local fallback UUID (not a real basket_id).
+        """
+        close_side = "SELL" if direction == 1 else "BUY"
+        for attempt in range(3):
+            try:
+                stop_id = self.client.place_stop_order(
+                    stop_price=stop_price,
+                    quantity=self.n_contracts,
+                    side=close_side,
+                )
+                # Warn if we got back a local UUID (Rithmic didn't assign a basket_id)
+                if len(stop_id) == 36 and stop_id.count("-") == 4:
+                    logger.warning(
+                        "Stop order basket_id looks like a local UUID (%s) — "
+                        "Rithmic may not have accepted the stop order. "
+                        "Software stop will serve as primary protection.", stop_id
+                    )
+                else:
+                    logger.info("Stop order placed: %s @ %.2f", stop_id, stop_price)
+                return stop_id
+            except Exception as exc:
+                logger.error("place_stop_order attempt %d/3 failed: %s", attempt + 1, exc)
+                if attempt < 2:
+                    time.sleep(3)
+        logger.error(
+            "All stop placement attempts failed. "
+            "SOFTWARE STOP IS NOW SOLE PROTECTION — monitor closely."
+        )
+        return None
+
+    def _cancel_order(self, order_id: str | None, label: str = "order") -> None:
+        if not order_id:
+            return
+        try:
+            self.client.cancel_order(order_id)
+            logger.info("%s cancelled: %s", label, order_id)
+        except Exception as e:
+            logger.warning("Could not cancel %s %s: %s", label, order_id, e)
+
+    def _cancel_stop_order(self, stop_id: str | None) -> None:
+        self._cancel_order(stop_id, "stop")
+
+    def _send_market_close(self, direction: int) -> bool:
+        """Send a MARKET order to close the position. Returns True on acceptance."""
+        close_side = "SELL" if direction == 1 else "BUY"
+        for attempt in range(3):
+            try:
+                self.client.place_order(
+                    symbol=self.symbol,
+                    side=close_side,
+                    quantity=self.n_contracts,
+                    order_type="MARKET",
+                    contract_id=self.contract_id,
+                )
+                logger.info("Market close sent (%s %dx)", close_side, self.n_contracts)
+                return True
+            except Exception as e:
+                logger.error("Market close attempt %d/3 failed: %s", attempt + 1, e)
+                if attempt < 2:
+                    time.sleep(2)
+        logger.critical("ALL MARKET CLOSE ATTEMPTS FAILED. Position may still be open.")
+        return False
+
+    # ─────────────────────────────────────────── fill confirmation ────────────
+
+    def _confirm_fill_via_history(self, order_time) -> float | None:
+        """
+        Query fill history for an entry order placed at order_time.
+        Returns actual fill price if found, None otherwise.
+        """
+        try:
+            from datetime import timezone as _tz
+            dt = order_time.to_pydatetime() if hasattr(order_time, "to_pydatetime") else order_time
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=_tz.utc)
+            orders = self.client.search_orders(start_timestamp=dt)
+            direction = self.active_trade["direction"] if self.active_trade else 1
+            entry_side = 0 if direction == 1 else 1   # 0=BUY fills LONG, 1=SELL fills SHORT
+            filled = [
+                o for o in orders
+                if o.filled_price is not None
+                and o.filled_volume > 0
+                and o.side == entry_side
+            ]
+            if filled:
+                filled.sort(key=lambda o: o.update_timestamp, reverse=True)
+                return filled[0].filled_price
+        except Exception as exc:
+            logger.debug("Fill history query failed: %s", exc)
+        return None
+
+    def _confirm_fill_via_position(self) -> bool:
+        """Secondary fill check via position query."""
+        try:
+            return bool(self.client.search_open_positions())
+        except Exception as exc:
+            logger.debug("Position query failed: %s", exc)
             return False
 
-    def _resolve_exit_price(
-        self,
-        direction: int,
-        entry_price: float,
-        sl: float,
-        tp: float,
-        entry_time,
-        last_close: float,
-    ) -> tuple[float, str]:
-        """Return (exit_price, reason) using actual broker fill when available.
+    # ─────────────────────────────────────────── exit price resolution ────────
 
-        Queries search_orders() for the filled closing order placed after
-        entry_time. Falls back to bar-close inference if the query fails or
-        returns nothing (e.g. mid-bar fill not yet registered).
+    def _resolve_exit_price(self, direction: int, entry: float,
+                             sl: float, tp: float, entry_time,
+                             last_close: float,
+                             last_low: float | None = None,
+                             last_high: float | None = None) -> tuple[float, str]:
+        """
+        Determine the actual exit price and reason.
+        Tries fill history first; falls back to bar OHLC inference.
+        last_low/last_high are used in the fallback so intrabar stop/target
+        hits are detected even when the bar closes beyond the level.
         """
         if entry_time is not None:
             try:
@@ -307,8 +760,7 @@ class MLStrategyRunner:
                     dt = dt.replace(tzinfo=_tz.utc)
                 orders = self.client.search_orders(start_timestamp=dt)
                 tick = self.risk_cfg["position"]["tick_size"]
-                # Closing orders are opposite side: SELL closes LONG (side=1), BUY closes SHORT (side=0)
-                close_side = 1 if direction == 1 else 0
+                close_side = 1 if direction == 1 else 0   # 1=SELL closes LONG
                 filled = [
                     o for o in orders
                     if o.filled_price is not None
@@ -318,329 +770,544 @@ class MLStrategyRunner:
                 if filled:
                     filled.sort(key=lambda o: o.update_timestamp, reverse=True)
                     actual = filled[0].filled_price
-                    tol = 2 * tick
+                    tol = 4 * tick   # wider tolerance for stop-market slippage
                     if abs(actual - tp) <= tol:
                         return actual, "profit_target"
                     if abs(actual - sl) <= tol:
                         return actual, "stop_loss"
-                    return actual, "bracket_fill"
+                    return actual, "market_close"
             except Exception as exc:
-                logger.warning(f"Could not resolve actual exit from broker: {exc}")
+                logger.warning("Could not resolve exit from fill history: %s", exc)
 
-        # Fallback: infer from last bar close
+        # Fallback: infer from bar OHLC (low/high catch intrabar hits that close beyond level).
+        # Stop is checked before target so that a bar spanning both levels resolves to the
+        # stop (conservative) — consistent with the both-hit policy in _process_bar.
+        lo = last_low  if last_low  is not None else last_close
+        hi = last_high if last_high is not None else last_close
         if direction == 1:
-            if last_close >= tp:
-                return tp, "profit_target"
-            if last_close <= sl:
+            if lo <= sl:
                 return sl, "stop_loss"
+            if hi >= tp:
+                return tp, "profit_target"
         else:
-            if last_close <= tp:
-                return tp, "profit_target"
-            if last_close >= sl:
+            if hi >= sl:
                 return sl, "stop_loss"
-        return last_close, "bracket_fill"
+            if lo <= tp:
+                return tp, "profit_target"
+        return last_close, "market_close"
 
-    def _check_fill(self) -> None:
-        if self.active_trade is None:
-            return
-        try:
-            if self.client.search_open_positions():
-                return
+    # ─────────────────────────────────────────── trade lifecycle ─────────────
 
-            trade = self.active_trade
-            exit_price, reason = self._resolve_exit_price(
-                direction=trade["direction"],
-                entry_price=trade["entry_price"],
-                sl=trade["stop_loss"],
-                tp=trade["profit_target"],
-                entry_time=trade.get("entry_time"),
-                last_close=trade["last_bar_close"],
-            )
-            pnl = self._compute_pnl(trade["entry_price"], exit_price, trade["direction"])
-            self.risk_manager.record_trade(
-                TradeRecord(0, 0, trade["direction"], trade["entry_price"], exit_price, pnl, reason)
-            )
-            logger.info(
-                f"[FILL] {reason}: PnL=${pnl:+.2f} "
-                f"(entry={trade['entry_price']:.2f}, exit={exit_price:.2f})"
-            )
-            self.active_trade = None
-        except Exception as e:
-            logger.error(f"_check_fill error: {e}", exc_info=True)
-
-    def _apply_time_stop(self) -> None:
+    def _record_and_clear(self, exit_price: float, reason: str) -> None:
+        """
+        Record the trade PnL in the risk manager and clear active_trade.
+        This is the ONLY place active_trade is set to None during a trade.
+        All exit paths must go through here.
+        """
         trade = self.active_trade
-        direction_label = "LONG" if trade["direction"] == 1 else "SHORT"
-        logger.info(f"Time stop: {self.lookahead} bars ({direction_label})")
+        if trade is None:
+            return
+        entry = trade.get("actual_entry") or trade["entry_price"]
+        direction = trade["direction"]
+        pnl = self._compute_pnl(entry, exit_price, direction)
+        self.risk_manager.record_trade(
+            TradeRecord(0, 0, direction, entry, exit_price, pnl, reason)
+        )
+        logger.info("[%s] PnL=$%+.2f (entry=%.2f, exit=%.2f)",
+                    reason.upper(), pnl, entry, exit_price)
+        self.active_trade = None
+        self._save_state()
 
-        if self.dry_run:
-            logger.info("[DRY RUN] Time stop would flatten position")
-            entry_price = trade["entry_price"]
-            direction = trade["direction"]
-            last_close = trade["last_bar_close"]
-            pnl = self._compute_pnl(entry_price, last_close, direction)
-            self.risk_manager.record_trade(
-                TradeRecord(0, 0, direction, entry_price, last_close, pnl, "time_stop")
-            )
-            self.active_trade = None
+    def _exit_trade(self, reason: str, last_close: float) -> None:
+        """
+        Cancel stop, send market close, then record.
+        If market close fails, does NOT clear active_trade — position stays monitored.
+        """
+        trade = self.active_trade
+        if trade is None:
             return
 
+        # Cancel both protective orders first (best-effort)
+        self._cancel_order(trade.get("stop_order_id"),  "stop")
+        self._cancel_order(trade.get("limit_order_id"), "limit")
+        trade["stop_order_id"]  = None
+        trade["limit_order_id"] = None
+
+        # Verify position still exists before sending close
         try:
-            if not self.client.search_open_positions():
-                logger.info("Time stop: position already closed")
-                self.active_trade = None
-                return
+            has_pos = bool(self.client.search_open_positions())
+        except Exception:
+            has_pos = True   # assume open if query fails
 
-            for order in self.client.search_open_orders():
-                try:
-                    self.client.cancel_order(str(order.order_id))
-                except Exception as e:
-                    logger.warning(f"Time stop cancel failed id={order.order_id}: {e}")
-
-            direction = trade["direction"]
-            close_side = "SELL" if direction == 1 else "BUY"
-            self.client.place_order(
-                symbol=self.symbol,
-                side=close_side,
-                quantity=self.risk_manager.contracts,
-                order_type="MARKET",
-                contract_id=self.contract_id,
-            )
-            import time as _time
-            _time.sleep(2)  # brief wait for market order fill to register
-            entry_price = trade["entry_price"]
-            exit_price, _ = self._resolve_exit_price(
-                direction=direction,
-                entry_price=entry_price,
+        if not has_pos:
+            # Position already gone (stop hit before we got here)
+            # Determine exit price from fill history
+            exit_price, actual_reason = self._resolve_exit_price(
+                direction=trade["direction"],
+                entry=trade.get("actual_entry") or trade["entry_price"],
                 sl=trade["stop_loss"],
                 tp=trade["profit_target"],
                 entry_time=trade.get("entry_time"),
-                last_close=trade["last_bar_close"],
+                last_close=last_close,
+                last_low=trade.get("last_bar_low"),
+                last_high=trade.get("last_bar_high"),
             )
-            pnl = self._compute_pnl(entry_price, exit_price, direction)
-            self.risk_manager.record_trade(
-                TradeRecord(0, 0, direction, entry_price, exit_price, pnl, "time_stop")
+            logger.info("Position already closed (stop hit); recording as %s", actual_reason)
+            self._record_and_clear(exit_price, actual_reason)
+            return
+
+        close_ok = self._send_market_close(trade["direction"])
+        if not close_ok:
+            # Close failed — keep active_trade so we keep monitoring
+            logger.critical("Market close failed. Keeping trade active for retry next bar.")
+            return
+
+        time.sleep(2)  # brief wait for fill to register
+        exit_price, actual_reason = self._resolve_exit_price(
+            direction=trade["direction"],
+            entry=trade.get("actual_entry") or trade["entry_price"],
+            sl=trade["stop_loss"],
+            tp=trade["profit_target"],
+            entry_time=trade.get("entry_time"),
+            last_close=last_close,
+            last_low=trade.get("last_bar_low"),
+            last_high=trade.get("last_bar_high"),
+        )
+        self._record_and_clear(exit_price, reason if reason != "auto" else actual_reason)
+
+    # ─────────────────────────────────────────── phase 1: fill confirmation ──
+
+    def _run_fill_confirmation(self) -> None:
+        """
+        Phase 1: poll fill history (and position as secondary) until fill is confirmed
+        or timeout expires.  Called from the main loop every ~10s after entry.
+
+        On fill confirmation:
+          - Sets trade["fill_confirmed"] = True
+          - Updates trade["actual_entry"] with real fill price
+          - Places protective stop (best-effort; logs warning if it fails)
+        On timeout:
+          - Abandons trade (sets active_trade = None WITHOUT recording PnL, since
+            the order may not have filled).  Logs CRITICAL.
+        """
+        trade = self.active_trade
+        if trade is None or trade.get("fill_confirmed"):
+            return
+
+        elapsed = time.monotonic() - trade["fill_poll_start"]
+        if elapsed > _FILL_CONFIRM_TIMEOUT_S:
+            logger.critical(
+                "Fill confirmation timeout (%ds). Entry order %s may not have filled. "
+                "Abandoning trade. Check broker manually.",
+                _FILL_CONFIRM_TIMEOUT_S, trade.get("order_id"),
             )
-            logger.info(f"[TIME STOP] PnL=${pnl:+.2f} (entry={entry_price:.2f}, exit={exit_price:.2f})")
-        except Exception as e:
-            logger.error(f"Time stop flatten failed: {e}", exc_info=True)
-        finally:
+            # Do NOT record PnL — we don't know if there's a position
             self.active_trade = None
+            return
 
-    def _compute_pnl(self, entry_price: float, exit_price: float, direction: int) -> float:
-        contracts = self.risk_manager.contracts
-        point_value = self.risk_cfg["position"]["point_value"]
-        commission = self.risk_cfg["position"].get("commission_per_side", COMMISSION)
-        gross = (exit_price - entry_price) * direction * contracts * point_value
-        return gross - 2 * commission * contracts
+        # Try fill history first (gives actual fill price)
+        actual_fill = self._confirm_fill_via_history(trade["entry_time"])
+        if actual_fill is None:
+            # Try position query as secondary
+            if not self._confirm_fill_via_position():
+                logger.debug("Phase 1: fill not yet confirmed (%.0fs elapsed)…", elapsed)
+                return
+            # Position exists but no fill history yet; use theoretical entry
+            actual_fill = trade["entry_price"]
+            logger.debug("Phase 1: fill confirmed via position (no fill history yet)")
+        else:
+            logger.info("Phase 1: fill confirmed via history @ %.2f", actual_fill)
 
-    def _process_bar(self, bar_time: pd.Timestamp, latest_bar: pd.Series, bars_df: pd.DataFrame) -> None:
+        # Fill confirmed — update entry price and set stop
+        trade["actual_entry"]   = actual_fill
+        trade["fill_confirmed"] = True
+        trade["consecutive_no_pos"] = 0
+
+        # Adjust stop/target to actual fill if materially different
+        diff = actual_fill - trade["entry_price"]
+        if abs(diff) > TICK_SIZE:
+            trade["stop_loss"]     += diff
+            trade["profit_target"] += diff
+            logger.info("Adjusted sl/pt by %.2f to match actual fill", diff)
+
+        # Place exchange stop (primary protection)
+        stop_id = self._place_stop_order(trade["stop_loss"], trade["direction"])
+        trade["stop_order_id"] = stop_id
+        if stop_id is None:
+            logger.warning("No exchange stop placed. Software stop is sole protection.")
+        self._save_state()  # persist after stop placed
+
+        # Place exchange limit for profit target — gives exchange-quality fill
+        # rather than waiting for bar close and exiting at market.
+        # Tracked separately; whichever fills first, we cancel the other.
+        limit_side = "SELL" if trade["direction"] == 1 else "BUY"
+        try:
+            limit_id = self.client.place_limit_order(
+                limit_price=trade["profit_target"],
+                quantity=self.n_contracts,
+                side=limit_side,
+            )
+            trade["limit_order_id"] = limit_id
+            logger.info("Profit-target limit placed: %s @ %.2f", limit_id, trade["profit_target"])
+        except Exception as exc:
+            logger.warning("Could not place profit-target limit: %s — software target check active", exc)
+            trade["limit_order_id"] = None
+        self._save_state()  # persist after both protective orders placed
+
+    # ─────────────────────────────────────────── phase 2: close detection ────
+
+    def _check_position_closed(self) -> None:
+        """
+        Phase 2: called from main loop every poll interval while fill_confirmed.
+        Requires _CLOSE_CONFIRM_POLLS consecutive clean-empty results before
+        declaring the position closed.
+        Exceptions do NOT count toward the counter (query errors ≠ closed position).
+        """
+        trade = self.active_trade
+        if trade is None or not trade.get("fill_confirmed"):
+            return
+
+        try:
+            has_position = bool(self.client.search_open_positions())
+            query_ok = True
+        except Exception as exc:
+            logger.debug("Position query error (not counting as absent): %s", exc)
+            query_ok = False
+
+        if not query_ok or has_position:
+            trade["consecutive_no_pos"] = 0
+            return
+
+        trade["consecutive_no_pos"] = trade.get("consecutive_no_pos", 0) + 1
+        logger.debug("Phase 2: position absent (%d/%d)", trade["consecutive_no_pos"], _CLOSE_CONFIRM_POLLS)
+
+        # Cancel both orders on the FIRST absent poll — prevents the limit from
+        # filling on a flat account if price bounces back to target after stop hit.
+        if trade["consecutive_no_pos"] == 1:
+            self._cancel_order(trade.get("stop_order_id"),  "stop")
+            self._cancel_order(trade.get("limit_order_id"), "limit")
+            trade["stop_order_id"]  = None
+            trade["limit_order_id"] = None
+
+        if trade["consecutive_no_pos"] < _CLOSE_CONFIRM_POLLS:
+            return
+
+        exit_price, reason = self._resolve_exit_price(
+            direction=trade["direction"],
+            entry=trade.get("actual_entry") or trade["entry_price"],
+            sl=trade["stop_loss"],
+            tp=trade["profit_target"],
+            entry_time=trade.get("entry_time"),
+            last_close=trade["last_bar_close"],
+            last_low=trade.get("last_bar_low"),
+            last_high=trade.get("last_bar_high"),
+        )
+        logger.info("Phase 2: position gone for %d polls — recording close", _CLOSE_CONFIRM_POLLS)
+        self._record_and_clear(exit_price, reason)
+
+    # ─────────────────────────────────────────── bar processing ──────────────
+
+    def _process_bar(self, bar_time: pd.Timestamp, latest_bar: pd.Series,
+                     bars_df: pd.DataFrame) -> None:
         self.risk_manager.tick_bar()
         slip = SLIPPAGE_T * TICK_SIZE
-        h, l, c = float(latest_bar["high"]), float(latest_bar["low"]), float(latest_bar["close"])
+        h = float(latest_bar["high"])
+        l = float(latest_bar["low"])
+        c = float(latest_bar["close"])
 
         if self.active_trade is not None:
             trade = self.active_trade
-            trade["bars_in"] += 1
-            trade["last_bar_close"] = c
+            trade["bars_in"]        += 1
+            trade["last_bar_close"]  = c
+            trade["last_bar_low"]    = l
+            trade["last_bar_high"]   = h
 
-            if not self.dry_run:
-                if trade["bars_in"] >= self.lookahead:
-                    self._apply_time_stop()
+            if self.dry_run:
+                self._process_bar_dry_run(trade, h, l, c, slip)
+                return
+
+            # ── Live mode ──────────────────────────────────────────────────
+
+            if not trade.get("fill_confirmed"):
+                # Still waiting for fill confirmation — just keep polling
                 return
 
             direction = trade["direction"]
-            sl_p, pt_p = trade["stop_loss"], trade["profit_target"]
-            bars_in = trade["bars_in"]
-            exited = False
-            exit_p, reason = c, ""
+            sl_p = trade["stop_loss"]
+            pt_p = trade["profit_target"]
 
-            if direction == 1:
-                if l <= sl_p:
-                    exit_p, reason, exited = sl_p - slip, "stop_loss", True
-                elif h >= pt_p:
-                    exit_p, reason, exited = pt_p - slip, "profit_target", True
-                elif bars_in >= self.lookahead:
-                    exit_p, reason, exited = c - slip, "time_stop", True
-            else:
-                if h >= sl_p:
-                    exit_p, reason, exited = sl_p + slip, "stop_loss", True
-                elif l <= pt_p:
-                    exit_p, reason, exited = pt_p + slip, "profit_target", True
-                elif bars_in >= self.lookahead:
-                    exit_p, reason, exited = c + slip, "time_stop", True
+            # ① Software stop-loss check (primary protection; mirrors dry-run logic).
+            #    This catches cases where the exchange stop was never placed or failed
+            #    to trigger (common on sim accounts).
+            stop_hit   = (direction == 1 and l <= sl_p) or (direction == -1 and h >= sl_p)
+            target_hit = (direction == 1 and h >= pt_p) or (direction == -1 and l <= pt_p)
 
-            if exited:
-                pnl = self._compute_pnl(trade["entry_price"], exit_p, direction)
-                self.risk_manager.record_trade(
-                    TradeRecord(0, 0, direction, trade["entry_price"], exit_p, pnl, reason)
-                )
-                logger.info(
-                    f"[EXIT] {reason}: PnL=${pnl:+.2f} "
-                    f"(entry={trade['entry_price']:.2f}, exit={exit_p:.2f})"
-                )
-                self.active_trade = None
+            # Order matters: when a single bar's range spans BOTH levels we cannot
+            # know intrabar which filled first, so assume the stop (conservative).
+            # This must be checked before the stop-only / target-only branches.
+            if stop_hit and target_hit:
+                logger.info("Both stop and target hit in same bar — exiting at stop (conservative)")
+                self._exit_trade(reason="stop_loss", last_close=c)
+                return
+
+            if stop_hit:
+                logger.info("Software stop triggered: bar low=%.2f, sl=%.2f", l, sl_p)
+                self._exit_trade(reason="stop_loss", last_close=c)
+                return
+
+            if target_hit:
+                logger.info("Profit target hit: bar high=%.2f, pt=%.2f", h, pt_p)
+                self._exit_trade(reason="profit_target", last_close=c)
+                return
+
+            if trade["bars_in"] >= self.lookahead:
+                logger.info("Time stop: %d bars elapsed", trade["bars_in"])
+                self._exit_trade(reason="time_stop", last_close=c)
+                return
+
             return
 
+        # ── No active trade — evaluate signal ─────────────────────────────
+
         if self.trades_today >= self.max_trades_per_day:
-            logger.debug(f"Skip: max trades/day ({self.max_trades_per_day})")
+            logger.debug("Skip: max trades/day (%d)", self.max_trades_per_day)
             return
 
         can_trade, block_reason = self.risk_manager.can_trade()
         if not can_trade:
-            logger.info(f"Skip: risk block — {block_reason}")
+            logger.info("Skip: risk block — %s", block_reason)
             return
 
         if not self._in_trading_window(bar_time):
-            logger.debug(f"Skip: outside 9:45–15:00 ET window ({bar_time})")
+            logger.debug("Skip: outside model session window (%s)", bar_time)
             return
 
         prob, atr_val = self._predict_prob(bars_df)
         if prob is None:
-            logger.debug("Skip: incomplete features")
+            self._consecutive_nan_skips += 1
+            if (self._features_ever_ok
+                    and self._consecutive_nan_skips >= _NAN_SKIP_ALERT_THRESHOLD):
+                logger.warning(
+                    "FEATURE FEED ALERT: %d consecutive in-window bars skipped for NaN "
+                    "features after the feed was previously healthy — live tick "
+                    "subscription may have dropped. Check Rithmic market-data connection.",
+                    self._consecutive_nan_skips,
+                )
+            else:
+                logger.debug("Skip: incomplete features (%d consecutive)",
+                             self._consecutive_nan_skips)
             return
+        # Prediction succeeded → features are healthy; reset the canary.
+        self._consecutive_nan_skips = 0
+        self._features_ever_ok = True
         if atr_val is None:
             logger.debug("Skip: invalid ATR")
+            return
+        # min_atr_pts filter: v3/v7 backtest skips entries when ATR < min (low-vol chop)
+        if atr_val < self.min_atr_pts:
+            logger.debug("Skip: ATR %.2f < min_atr_pts %.2f", atr_val, self.min_atr_pts)
             return
 
         direction = self._signal_direction(prob)
         if direction is None:
-            logger.info(f"No signal: p={prob:.3f} (conf={self.conf_threshold:.2f})")
+            logger.info("No signal: p=%.3f (conf=%.3f)", prob, self.conf_threshold)
             return
 
-        ep = c + slip * direction
-        sl_p = ep - self.sl_atr * atr_val * direction
-        pt_p = ep + self.pt_atr * atr_val * direction
-        direction_str = "LONG" if direction == 1 else "SHORT"
-
-        logger.info(
-            f"SIGNAL: {direction_str} p={prob:.3f} @ {ep:.2f} "
-            f"SL={sl_p:.2f} PT={pt_p:.2f} ATR={atr_val:.2f}"
-        )
+        ep    = c + slip * direction
+        sl_p  = ep - self.sl_atr  * atr_val * direction
+        pt_p  = ep + self.pt_atr  * atr_val * direction
+        dir_s = "LONG" if direction == 1 else "SHORT"
+        logger.info("SIGNAL: %s p=%.3f @ %.2f  SL=%.2f  PT=%.2f  ATR=%.2f",
+                    dir_s, prob, ep, sl_p, pt_p, atr_val)
 
         if self.dry_run:
-            logger.info("[DRY RUN] Trade logged, no order sent")
             self.active_trade = {
-                "direction": direction,
-                "entry_price": ep,
-                "stop_loss": sl_p,
-                "profit_target": pt_p,
-                "bars_in": 0,
-                "last_bar_close": c,
+                "direction": direction, "entry_price": ep, "actual_entry": ep,
+                "stop_loss": sl_p, "profit_target": pt_p, "bars_in": 0,
+                "last_bar_close": c, "last_bar_low": l, "last_bar_high": h,
                 "entry_time": bar_time,
+                "order_id": None, "fill_confirmed": True,
+                "fill_poll_start": 0.0, "stop_order_id": None,
+                "consecutive_no_pos": 0,
             }
             self.trades_today += 1
+            logger.info("[DRY RUN] Trade logged, no order sent")
             return
 
-        if self._place_order(direction_str, ep, sl_p, pt_p):
-            self.active_trade = {
-                "direction": direction,
-                "entry_price": ep,
-                "stop_loss": sl_p,
-                "profit_target": pt_p,
-                "bars_in": 0,
-                "last_bar_close": c,
-                "entry_time": bar_time,
-            }
-            self.trades_today += 1
+        order_id = self._place_entry_order(dir_s, ep, sl_p, pt_p)
+        if order_id is None:
+            logger.error("Order placement failed — no trade entered")
+            return
+
+        self.active_trade = {
+            "direction": direction,
+            "entry_price": ep,
+            "actual_entry": None,      # filled in by _run_fill_confirmation
+            "stop_loss": sl_p,
+            "profit_target": pt_p,
+            "bars_in": 0,
+            "last_bar_close": c,
+            "last_bar_low": l,
+            "last_bar_high": h,
+            "entry_time": bar_time,
+            "order_id": order_id,
+            "fill_confirmed": False,
+            "fill_poll_start": time.monotonic(),
+            "stop_order_id": None,
+            "limit_order_id": None,
+            "consecutive_no_pos": 0,
+        }
+        self.trades_today += 1
+        self._save_state()  # persist entry immediately
+
+    def _process_bar_dry_run(self, trade: dict, h: float, l: float,
+                              c: float, slip: float) -> None:
+        direction = trade["direction"]
+        sl_p, pt_p = trade["stop_loss"], trade["profit_target"]
+        bars_in    = trade["bars_in"]
+        exited     = False
+        exit_p, reason = c, ""
+
+        if direction == 1:
+            if l <= sl_p:
+                exit_p, reason, exited = sl_p - slip, "stop_loss", True
+            elif h >= pt_p:
+                exit_p, reason, exited = pt_p - slip, "profit_target", True
+            elif bars_in >= self.lookahead:
+                exit_p, reason, exited = c - slip, "time_stop", True
         else:
-            logger.error(f"[LIVE] Order failed for {direction_str}")
+            if h >= sl_p:
+                exit_p, reason, exited = sl_p + slip, "stop_loss", True
+            elif l <= pt_p:
+                exit_p, reason, exited = pt_p + slip, "profit_target", True
+            elif bars_in >= self.lookahead:
+                exit_p, reason, exited = c + slip, "time_stop", True
+
+        if exited:
+            self._record_and_clear(exit_p, reason)
+
+    # ─────────────────────────────────────────── main loop ───────────────────
 
     def _signal_handler(self, signum, _frame) -> None:
-        logger.warning(f"Signal {signum} received — shutting down")
+        logger.warning("Signal %d received — shutting down", signum)
         self.running = False
 
     def run(self) -> None:
         logger.info("=" * 60)
-        logger.info(f"ML STRATEGY LIVE RUNNER [{self.symbol}]")
+        logger.info("ML STRATEGY LIVE RUNNER [%s]", self.symbol)
         logger.info("=" * 60)
-        logger.info(f"Dry run:    {self.dry_run}")
-        logger.info(f"Contracts:  {self.n_contracts}")
-        logger.info(f"Config:     {self.strategy_cfg}")
-        logger.info(f"Contract:   {self.contract_id}")
+        logger.info("Dry run:    %s", self.dry_run)
+        logger.info("Contracts:  %d", self.n_contracts)
+        logger.info("Config:     %s", self.strategy_cfg)
 
         if not self._init_data_fetcher():
-            logger.error("Failed to initialize — aborting")
+            logger.error("Failed to initialize data fetcher — aborting")
             return
 
-        signal.signal(signal.SIGINT, self._signal_handler)
+        # ── Startup safety check ──────────────────────────────────────────
+        self._startup_position_check()
+
+        signal.signal(signal.SIGINT,  self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
         self.running = True
-        update_interval = 30
 
         logger.info("Live trading started")
         while self.running:
             try:
+                # Day rollover
                 now_date = datetime.now().date()
                 if self.current_date is not None and now_date != self.current_date:
+                    if self.active_trade is not None and not self.dry_run:
+                        logger.warning("Day rollover with active trade — cancelling stop and recording time_stop")
+                        self._cancel_stop_order(self.active_trade.get("stop_order_id"))
+                        exit_price, reason = self._resolve_exit_price(
+                            direction=self.active_trade["direction"],
+                            entry=self.active_trade.get("actual_entry") or self.active_trade["entry_price"],
+                            sl=self.active_trade["stop_loss"],
+                            tp=self.active_trade["profit_target"],
+                            entry_time=self.active_trade.get("entry_time"),
+                            last_close=self.active_trade["last_bar_close"],
+                            last_low=self.active_trade.get("last_bar_low"),
+                            last_high=self.active_trade.get("last_bar_high"),
+                        )
+                        self._record_and_clear(exit_price, "day_rollover_close")
                     self.risk_manager.reset_daily()
                     self.trades_today = 0
-                    self.active_trade = None
                     logger.info("New trading day — state reset")
                 self.current_date = now_date
 
+                # Ingest latest bar
                 new_bar = self.data_fetcher.fetch_latest_bar()
                 if new_bar is not None:
                     self.data_fetcher.update_buffer(new_bar)
 
+                # ── EOD flatten: close any position by session_close - flatten_mins ─
                 if self.active_trade is not None and not self.dry_run:
-                    self._check_fill()
+                    now_et = datetime.now(tz=_TZ_ET)
+                    flatten_mins = self.risk_cfg.get("session", {}).get("flatten_minutes_before_close", 5)
+                    session_h, session_m = map(int, self.risk_cfg.get("session", {}).get("session_close", "15:00").split(":"))
+                    flatten_total_mins = session_h * 60 + session_m - flatten_mins
+                    current_mins = now_et.hour * 60 + now_et.minute
+                    if current_mins >= flatten_total_mins:
+                        logger.info("EOD flatten: %02d:%02d ET — closing position before session close",
+                                    now_et.hour, now_et.minute)
+                        self._exit_trade(reason="eod_flatten", last_close=0.0)
 
+                # ── Trade management (every poll) ─────────────────────────
+                if self.active_trade is not None and not self.dry_run:
+                    if not self.active_trade.get("fill_confirmed"):
+                        self._run_fill_confirmation()
+                    else:
+                        self._check_position_closed()
+
+                # ── Bar processing (only on new bar) ─────────────────────
                 latest_bar = self.data_fetcher.get_latest_bar()
                 if latest_bar is not None and (
                     self.last_bar_time is None or latest_bar.name > self.last_bar_time
                 ):
                     bar_time = latest_bar.name
-                    logger.info(
-                        f"New bar: {bar_time}, {self.symbol} close={latest_bar['close']:.2f}"
-                    )
+                    logger.info("New bar: %s, %s close=%.2f", bar_time, self.symbol, latest_bar["close"])
                     bars_df = self.data_fetcher.get_buffer()
                     self._process_bar(bar_time, latest_bar, bars_df)
                     self.last_bar_time = bar_time
 
-                time.sleep(update_interval)
+                # Adaptive poll interval: tight while waiting for fill, relaxed otherwise
+                if self.active_trade is not None and not self.active_trade.get("fill_confirmed"):
+                    time.sleep(_FILL_POLL_INTERVAL_S)
+                elif self.active_trade is not None:
+                    time.sleep(10)
+                else:
+                    time.sleep(30)
+
             except KeyboardInterrupt:
                 break
             except Exception as e:
-                logger.error(f"Error in main loop: {e}", exc_info=True)
-                time.sleep(update_interval)
+                logger.error("Error in main loop: %s", e, exc_info=True)
+                time.sleep(10)
 
         logger.info("ML strategy runner stopped")
         stats = self.risk_manager.session_stats
-        logger.info(
-            f"Session: trades_today={self.trades_today}, "
-            f"daily_pnl=${stats['daily_pnl']:+.2f}, halted={stats['halted']}"
-        )
+        logger.info("Session: trades=%d, daily_pnl=$%+.2f, halted=%s",
+                    self.trades_today, stats["daily_pnl"], stats["halted"])
 
+
+# ─────────────────────────────────────────────────────────────────── CLI ─────
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="ML Strategy live runner (MNQ 5-min)")
     parser.add_argument("--dry-run", action="store_true", default=True)
-    parser.add_argument("--live", action="store_true")
-    parser.add_argument("--yes", action="store_true")
-    parser.add_argument("--contract-id", type=str)
-    parser.add_argument("--account-id", type=str)
-    parser.add_argument("--model-path", type=str)
-    parser.add_argument("--risk-config", type=str)
-    parser.add_argument(
-        "--n-contracts",
-        type=int,
-        default=None,
-        help="Override ML_N_CONTRACTS env (default 6)",
-    )
+    parser.add_argument("--live",    action="store_true")
+    parser.add_argument("--yes",     action="store_true")
+    parser.add_argument("--contract-id",  type=str)
+    parser.add_argument("--account-id",   type=str)
+    parser.add_argument("--model-path",   type=str)
+    parser.add_argument("--risk-config",  type=str)
+    parser.add_argument("--n-contracts",  type=int, default=None)
     parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument(
-        "--stdout-only",
-        action="store_true",
-        help="Log to stdout only (no file handler; for remote Docker deploy)",
-    )
+    parser.add_argument("--stdout-only",  action="store_true")
     args = parser.parse_args()
 
-    stdout_only = args.stdout_only or os.environ.get("ML_STDOUT_ONLY", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
+    stdout_only = args.stdout_only or os.environ.get("ML_STDOUT_ONLY", "").lower() in ("1", "true", "yes")
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if not stdout_only:
         log_path = (
@@ -655,7 +1322,6 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
         handlers=handlers,
     )
-    # Silence noisy third-party loggers regardless of verbosity level
     for _noisy in ("websockets", "websockets.client", "asyncio", "rithmic"):
         logging.getLogger(_noisy).setLevel(logging.WARNING)
 

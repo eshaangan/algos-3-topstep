@@ -1,0 +1,211 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PRE-REGISTERED VALIDATION RULE
+#
+# Fill this out and commit it BEFORE you look at the holdout. The harness hashes
+# the holdout / dsr_n_trials / gate / sim blocks; editing any of them after an
+# evaluation is recorded shows up in holdout_ledger.jsonl as a changed hash —
+# i.e. the harness will tell on you. That is the entire point: it makes the
+# decision honest by fixing it in advance.
+#
+# WORKFLOW FOR A NEW MODEL
+#   1. Decide the holdout window NOW (most recent ~6 months ideally). Never train,
+#      tune, or threshold-pick on it.
+#   2. Set dsr_n_trials to the HONEST number of configs you searched (grid size,
+#      thresholds tried, feature sets, etc.). Under-counting inflates the DSR.
+#   3. Do all development on data BEFORE holdout.start.
+#   4. Run validate_model.py --commit-holdout exactly once. Read the verdict.
+#      If NO-GO, the strategy is dead — do not re-tune against the holdout.
+# ─────────────────────────────────────────────────────────────────────────────
+
+strategy_id: ml_strategy_mnq_v3
+
+holdout:
+  # Frozen out-of-sample window. The deployed v3 model trained through 2026-02-28,
+  # so everything from March on is genuinely OOS for it. NOTE: this window was
+  # already inspected during the June 2026 review, so for the *current* model it
+  # is a demonstration, not a pristine holdout. For the NEXT model, set this
+  # before training.
+  start: "2026-03-01"
+  end:   "2026-06-01"
+
+# Number of configurations effectively searched, for the DSR selection-bias
+# penalty. ml_strategy_search.py swept hundreds of (pt, sl, lookahead, conf, mt)
+# combos and selected on OOS PnL; 50 is a deliberately conservative floor.
+dsr_n_trials: 50
+
+# ── Decision rule (conjunctive: ALL must pass for GO) ────────────────────────
+gate:
+  # Sample-size floor. The honest target once 3+ years of data exists is >=150
+  # trades spanning >=6 months. 60 is the achievable floor on the current
+  # 6-month dataset — raise it as data grows.
+  min_oos_trades: 60
+  min_months: 3
+  # Require the edge to hold across months, not in one lucky window. 0.67 = at
+  # least 2 of 3 months net positive.
+  min_positive_month_fraction: 0.67
+  require_net_profitable: true
+  # Deflated Sharpe: probability the edge is real after the selection-bias and
+  # non-normality penalties. 0.95 ≈ p < 0.05.
+  min_dsr: 0.95
+  # Capital-preservation bound: leave >= $300 of the $3k Lucid MLL (at the
+  # n_contracts below). Scale this with n_contracts.
+  max_drawdown_usd: 2700
+
+# ── Simulator + adapter parameters (must match how the model is actually run) ─
+sim:
+  # Execution (consumed by SimParams)
+  pt_atr: 2.0
+  sl_atr: 1.0
+  horizon_bars: 12
+  cooldown_bars: 3
+  max_trades_per_day: 6
+  point_value: 2.0
+  tick_size: 0.25
+  commission_per_side: 0.62
+  slippage_ticks: 1
+  n_contracts: 1
+  # Adapter (consumed by validate_model.py to turn probabilities into signals)
+  conf: 0.248
+  min_atr_pts: 5.0
+  long_only: true
+
+# ── pre-registered 2026-07-08 (frozen BEFORE any holdout contact) ────────────
+ask_cancel_pull_v1:
+  hypothesis: >
+    Ask-side liquidity withdrawal (cancels, not consumption) precedes short-term
+    price declines. Asymmetric/short-only; bid side explicitly NOT claimed.
+  event_spec:
+    side: ask
+    min_prev_sz: 5
+    drop_frac: 0.40           # size falls to <=40% of prior within <=2s, px unchanged
+    cancel_frac_min: 0.70     # (drop - aggressive buy vol in window) / drop
+    session: "13:30-20:00 UTC (RTH)"
+    de_overlap_secs: 30
+  evaluation:
+    data: holdout days >= 2026-06-27, UNTOUCHED as of registration
+    test_date: 2026-07-25     # single shot, alongside the imb_fade_midday re-test
+    metric: drift-adjusted mean forward mid move at 60s/120s
+    go_criteria: "f60 <= -0.8pt AND t(f60) <= -2.0 AND days_negative@60s >= 65%"
+    on_pass: simulate as short-only strategy under latency cost model (never fixed)
+    on_fail: permanent kill; no threshold re-tuning
+  dev_evidence: "f60=-1.10p t=-1.7 n=998, days<0=78% (12 dev days, drift-adjusted)"
+  trials_context: "~60 cells examined across 5s-grid + tick-level + drift passes"
+
+# ── pre-registered 2026-07-09 (dev-selected, holdout untouched) ──────────────
+range_ignite_v1:
+  hypothesis: >
+    5-min range-expansion bars closing near their extreme continue over the next
+    ~20 minutes on MNQ (momentum ignition at the 5-30min horizon). Supported by
+    the inverse evidence: fading the same moves (vwap_fade) lost catastrophically.
+  signal_spec:
+    bar: 5min from 1s Rithmic bars (tz: bar_end_datetime is naive Chicago)
+    entry: bar range >= 1.8 * ATR(14) AND close in top/bottom 25% of bar range
+    direction: with the bar (top -> long, bottom -> short)
+    session: entries 09:45-15:30 ET
+    exits: PT 1.5xATR / SL 1.0xATR / horizon 4 bars; cooldown 2; max 6/day
+    costs: harness latency model, decision_lag=3s, 2 contracts MNQ
+  dev_evidence: >
+    215 days (Jun 2025-Mar 2026): 126tr, WR 50%, +$3,588, DD -$1,152,
+    DSR(44 trials)=0.340. Robustness: both eras positive, both directions
+    positive, 75% of 36 neighborhood cells positive (median +$856), surface
+    strengthens toward looser thresholds (no knife-edge). Caveat: monthly
+    consistency only 50%; Jan-Feb 2026 contributes heavily.
+  evaluation:
+    data: holdout >= 2026-04-01, UNTOUCHED as of registration
+    test_date: 2026-07-25   # single shot with ask_cancel_pull_v1 + fade re-test
+    go_criteria: "holdout total_pnl > 0 AND DSR >= 0.40 AND positive months >= 50%"
+    on_pass: shadow-paper 2 weeks vs live quotes, then live 1-micro shakedown
+    on_fail: permanent kill, no re-tuning
+  trials_context: "44 cells cumulative in the 5-30min zone (8 families run + 36 surface)"
+  # RESULT 2026-07-09 (single shot fired early — holdout was historical, waiting
+  # to Jul 25 added nothing): 44tr WR=34% PnL=-$3,003 DD=-$3,824 posMonths=0%
+  # DSR 0.005. NO-GO -> PERMANENT KILL. Dev robustness (DSR 0.34, 75% surface,
+  # both eras/directions positive) did not survive contact with sealed data.
+
+# ── fomc_drift_v1 — REGISTERED AND PASSED 2026-07-09 ─────────────────────────
+fomc_drift_v1:
+  hypothesis: >
+    Pre-FOMC announcement drift (Lucca-Moench): index futures rise in the ~24h
+    before the 14:00 ET FOMC decision as the uncertainty premium resolves.
+    Literature-specified BEFORE any data contact (window, direction, event).
+  signal_spec:
+    instrument: MNQ (2 micros baseline)
+    entry: 14:00 ET the day BEFORE each scheduled FOMC decision, long, market
+    exit: 13:55 ET on decision day (always flat before the announcement)
+    costs: commission + 1 tick/side
+  results:
+    dev_2021_2024: "32 events, +$388/event, t=+2.83, WR 69%, control windows $0 (t=-0.07)"
+    holdout_2025_2026_SEALED: "12 events, +$212/event, WR 67% (9/12), MAE p50 -$236 worst -$832"
+    pooled: "44 events, ~+$340/event, combined t~3.1"
+    verdict: PASS — first candidate to clear every stage of the gauntlet
+  next:
+    - verify all FOMC dates against the official Fed calendar before any live use
+    - forward validation: next scheduled decision 2026-07-29 (paper first)
+    - sizing MC vs $3k buffer (worst MAE $832 per 2 micros bounds size ~4-6 micros)
+  caveats: "n=44 lifetime events; 2021 was negative; effect documented to wax/wane by era"
+  # ── event-clock siblings, tested 2026-07-09 (one spec each, no grids) ──────
+  # CPI pre-release drift: DEV 2021-24 +$141/ev t=2.36 WR71% (inflation-crisis
+  #   era) but HOLDOUT 2025-26 -$74/ev WR47% -> KILL (regime-bound: premium
+  #   followed CPI only while it was the dominant macro uncertainty).
+  # NFP pre-release drift: dead both eras (-$71 dev, -$180 holdout).
+  # Mechanism refinement: the drift attaches to POLICY DECISIONS (structural),
+  # not to data releases per se. Keep fomc_drift_v1 pure; do not basket.
+
+# ── monday_rth_v1 — REGISTERED 2026-07-10 ────────────────────────────────────
+monday_rth_v1:
+  hypothesis: >
+    Equity weekend-risk premium: long index futures over Monday RTH
+    (9:30->16:00 ET) earns a positive premium as weekend uncertainty resolves.
+    Modern (reversed) Monday effect; equity-specific.
+  evidence:
+    mnq_2020_2026: "n=336, +$117/Mon per 2 micros, t=+3.37, 7/7 years positive, eras +$65/+$162"
+    mes_2019_2025: "n=309, +$42/Mon, t=+2.25, 6/7 years, both eras positive (correlated sample)"
+    placebo_panel: "MGC -$1 (t=-0.06), MCL +$4 (t=0.21), M6E -$9 (t=-2.13) -> equity-specific, not pipeline artifact"
+    dsr: "0.943 at 12 counted DOW-family trials — highest of project"
+    path_risk: "MAE p50 -$270 / p95 -$1,307 / worst -$2,962 per 2 micros"
+  caveats: >
+    Found via full-sample look (control row of weekend-effect test) — no sealed
+    holdout existed; mitigants: 7/7 year consistency, era halves, placebo panel.
+    FORWARD MONDAYS ARE THE HOLDOUT.
+  deployment:
+    phase1: "paper + optional 1-micro live shakedown from Monday 2026-07-13"
+    go_scale: "after 8 forward Mondays: mean > 0 and >= 5/8 positive -> size per MC (4-6 micros, portfolio with fomc_drift_v1)"
+    kill: "8 forward Mondays mean < 0 -> suspend; 16 negative -> permanent kill"
+  trials_context: "12 DOW cells (2 instruments x 5 days + 2 weekend-effect configs)"
+
+# ── weekend_hold_v1 — REGISTERED 2026-07-10 (supersedes monday_rth_v1 as primary) ──
+weekend_hold_v1:
+  hypothesis: >
+    Equity weekend-risk premium, full expression: long MNQ Sunday 18:00 ET ->
+    Monday 16:00 ET (one ~22h hold, Lucid-legal, flat before the maintenance
+    window). Paid for carrying weekend gap risk; both legs (Sun night t=3.16,
+    Mon RTH t=3.37) independently positive.
+  evidence:
+    mnq_2020_2026: "n=220, +$265/wk per 2 micros, sd $815, t=+4.82, 6/7 years (2022 only miss)"
+    placebo_panel: "gold +$29 (t=0.71), crude -$64 (t=-1.50), euro +$5 (t=0.25) -> equity-specific"
+    dsr: "0.997 at 16 counted trials"
+    path_risk: "MAE p50 -$341 / p95 -$1,473 / worst -$4,183 per 2 micros (COVID-era Sunday)"
+    eval_mc: "2 micros: 63.1% pass / median 17wk; 3: 48%/10wk; 4: 42%/8wk (path-aware, trailing $3k)"
+  caveats: >
+    Full-sample discovery (extension of monday_rth control finding) — forward
+    weekends are the holdout. Tail risk is the mechanism: a -$2,100/micro weekend
+    exists in sample; never size so one such weekend busts the account.
+  deployment:
+    phase1: "paper from Sunday 2026-07-12 18:00 ET; optional 1-micro live shakedown"
+    go_scale: "after 8 forward weekends: mean > 0 and >= 5/8 positive -> 2-3 micros live"
+    kill: "8 forward weekends mean < 0 -> suspend; 16 -> permanent kill"
+  trials_context: "16 cells cumulative (12 DOW + Sun-leg + BLW windows + this)"
+
+# ── euro_open_v1 — WATCHLIST-REGISTERED 2026-07-11 (t=1.84, below GO bar) ────
+euro_open_v1:
+  hypothesis: >
+    Overnight drift (Boyarchenko et al., NY Fed): equity premium concentrates in
+    the European open window via dealer inventory unwind, strongest after
+    down/high-range days. Long MNQ 2:00->5:00 ET when prior RTH day was down
+    AND prior range > 20d median.
+  evidence:
+    mnq_2020_2026: "n=437, +$26/night per 2 micros, t=+1.84, 71% posYrs, eras +$12/+$38"
+    gradient: "uncond +$6 (t=1.0) -> down +$12 (86% posYrs) -> down+range +$26; prior-UP control exactly $0"
+    leadlag_battery_same_session: "cross-asset 15min lead-lag killed (18 cells all <=0)"
+  status: "BELOW GO (t<2). No tuning permitted. Forward nights accrue via paper runner; promote if combined t>=2.5."
+  trials_context: "~24 cells cumulative this push"

@@ -385,16 +385,24 @@ class RithmicClient:
     async def _on_time_bar(self, data: dict) -> None:
         """Bar close event: finalize microstructure from accumulated ticks then ingest."""
         self._last_bar_received_at = time.monotonic()
-        end_dt = data.get("bar_end_datetime")
-        if end_dt is None:
-            marker = data.get("marker")
-            if marker is None:
+        # Prefer marker (Unix epoch seconds → unambiguous UTC).
+        # bar_end_datetime from async_rithmic is a naive local-time datetime on some
+        # systems; replace(tzinfo=utc) would mislabel CDT 10:05 as "UTC 10:05", shifting
+        # every bar 5 hours into the past.  marker has no such ambiguity.
+        marker = data.get("marker")
+        if marker is not None:
+            end_dt: datetime = datetime.fromtimestamp(int(marker), tz=timezone.utc)
+        else:
+            raw = data.get("bar_end_datetime")
+            if raw is None:
                 return
-            end_dt = datetime.fromtimestamp(int(marker), tz=timezone.utc)
-        elif isinstance(end_dt, datetime) and end_dt.tzinfo is None:
-            end_dt = end_dt.replace(tzinfo=timezone.utc)
+            if isinstance(raw, datetime):
+                # astimezone() treats naive datetimes as local time → correct UTC
+                end_dt = raw.astimezone(timezone.utc)
+            else:
+                return
 
-        bar_start = (pd.Timestamp(end_dt).tz_localize("UTC") if pd.Timestamp(end_dt).tzinfo is None else pd.Timestamp(end_dt).tz_convert("UTC")) - pd.Timedelta(minutes=self._bar_size_minutes)
+        bar_start = pd.Timestamp(end_dt).tz_convert("UTC") - pd.Timedelta(minutes=self._bar_size_minutes)
 
         # Compute microstructure features from ticks accumulated in this bar
         micro = self._tick_acc.finalize_bar(bar_start)
@@ -416,16 +424,20 @@ class RithmicClient:
                         Pass {} for historical OHLCV-only bars (missing features → NaN).
         """
         try:
-            end_dt = data.get("bar_end_datetime")
-            if end_dt is None:
-                marker = data.get("marker")
-                if marker is None:
+            # Prefer marker (Unix epoch → unambiguous UTC); see _on_time_bar for rationale.
+            marker = data.get("marker")
+            if marker is not None:
+                end_dt: datetime = datetime.fromtimestamp(int(marker), tz=timezone.utc)
+            else:
+                raw = data.get("bar_end_datetime")
+                if raw is None:
                     return
-                end_dt = datetime.fromtimestamp(int(marker), tz=timezone.utc)
-            elif isinstance(end_dt, datetime) and end_dt.tzinfo is None:
-                end_dt = end_dt.replace(tzinfo=timezone.utc)
+                if isinstance(raw, datetime):
+                    end_dt = raw.astimezone(timezone.utc)
+                else:
+                    return
 
-            bar_start = (pd.Timestamp(end_dt).tz_localize("UTC") if pd.Timestamp(end_dt).tzinfo is None else pd.Timestamp(end_dt).tz_convert("UTC")) - pd.Timedelta(minutes=self._bar_size_minutes)
+            bar_start = pd.Timestamp(end_dt).tz_convert("UTC") - pd.Timedelta(minutes=self._bar_size_minutes)
 
             ohlcv = {
                 "open":   float(data.get("open_price",  data.get("open",  0))),
@@ -519,27 +531,19 @@ class RithmicClient:
         stop_loss: Optional[float] = None,
         take_profit: Optional[float] = None,
         client_order_id: Optional[str] = None,
-        stop_loss_bracket: Optional[BracketInstruction] = None,
-        take_profit_bracket: Optional[BracketInstruction] = None,
+        stop_loss_bracket: Optional[BracketInstruction] = None,  # kept for API compat, ignored
+        take_profit_bracket: Optional[BracketInstruction] = None,  # kept for API compat, ignored
         account_id: Optional[int] = None,
         contract_id: Optional[str] = None,   # unused for Rithmic
         linked_order_id: Optional[int] = None,
     ) -> OrderState:
+        # Bracket orders (template 330) are silently rejected on paper/sim accounts.
+        # Submit a plain MARKET entry only; caller is responsible for placing the
+        # stop via place_stop_order() after confirming the fill.
         order_id = client_order_id or str(uuid.uuid4())[:16]
         tx_type  = TransactionType.BUY if side.upper() == "BUY" else TransactionType.SELL
 
-        kwargs: Dict[str, Any] = {}
-        if stop_loss_bracket is not None:
-            kwargs["stop_ticks"]   = abs(stop_loss_bracket.ticks)
-            kwargs["stop_market_on_reject"] = True
-        if take_profit_bracket is not None:
-            kwargs["target_ticks"] = abs(take_profit_bracket.ticks)
-
-        logger.info(
-            "place_order: %s %d×%s  stop_ticks=%s  target_ticks=%s  id=%s",
-            side.upper(), quantity, self._contract,
-            kwargs.get("stop_ticks"), kwargs.get("target_ticks"), order_id,
-        )
+        logger.info("place_order: %s %d×%s MARKET  id=%s", side.upper(), quantity, self._contract, order_id)
 
         responses = self._run_async(
             self._arith.submit_order(
@@ -550,7 +554,6 @@ class RithmicClient:
                 transaction_type=tx_type,
                 order_type=OrderType.MARKET,
                 account_id=self._account_id,
-                **kwargs,
             ),
             timeout=15,
         )
@@ -568,6 +571,76 @@ class RithmicClient:
             status="ACCEPTED",
             avg_fill_price=None,
         )
+
+    def place_stop_order(
+        self,
+        stop_price: float,
+        quantity: int,
+        side: str = "SELL",
+        client_order_id: Optional[str] = None,
+    ) -> str:
+        """Place a STOP_MARKET order to protect an open position.  Returns order_id."""
+        order_id = client_order_id or str(uuid.uuid4())[:16]
+        tx_type  = TransactionType.BUY if side.upper() == "BUY" else TransactionType.SELL
+        logger.info(
+            "place_stop_order: %s %d×%s STOP_MARKET @ %.2f  id=%s",
+            side.upper(), quantity, self._contract, stop_price, order_id,
+        )
+        responses = self._run_async(
+            self._arith.submit_order(
+                order_id=order_id,
+                symbol=self._contract,
+                exchange=_EXCHANGE,
+                qty=quantity,
+                transaction_type=tx_type,
+                order_type=OrderType.STOP_MARKET,
+                account_id=self._account_id,
+                trigger_price=stop_price,  # STOP_MARKET requires trigger_price, not price
+            ),
+            timeout=15,
+        )
+        basket_id = None
+        if responses:
+            first = responses[0]
+            basket_id = getattr(first, "basket_id", None) or getattr(first, "order_id", None)
+        resolved = str(basket_id or order_id)
+        logger.info("Stop order accepted: id=%s", resolved)
+        return resolved
+
+    def place_limit_order(
+        self,
+        limit_price: float,
+        quantity: int,
+        side: str = "SELL",
+        client_order_id: Optional[str] = None,
+    ) -> str:
+        """Place a LIMIT order (e.g. profit target). Returns order_id."""
+        order_id = client_order_id or str(uuid.uuid4())[:16]
+        tx_type  = TransactionType.BUY if side.upper() == "BUY" else TransactionType.SELL
+        logger.info(
+            "place_limit_order: %s %d×%s LIMIT @ %.2f  id=%s",
+            side.upper(), quantity, self._contract, limit_price, order_id,
+        )
+        responses = self._run_async(
+            self._arith.submit_order(
+                order_id=order_id,
+                symbol=self._contract,
+                exchange=_EXCHANGE,
+                qty=quantity,
+                transaction_type=tx_type,
+                order_type=OrderType.LIMIT,
+                account_id=self._account_id,
+                price=limit_price,
+            ),
+            timeout=15,
+        )
+        basket_id = None
+        if responses:
+            first = responses[0]
+            basket_id = getattr(first, "basket_id", None) or getattr(first, "order_id", None)
+        resolved = str(basket_id or order_id)
+        logger.info("Limit order accepted: id=%s", resolved)
+        return resolved
 
     def cancel_order(self, order_id: str, account_id: Optional[int] = None) -> None:
         self._run_async(
@@ -638,18 +711,33 @@ class RithmicClient:
             )
             result = []
             for p in (positions or []):
-                # Filter for our symbol; skip flat (qty == 0) positions
+                # Filter for our symbol; skip flat (qty == 0) positions.
+                # InstrumentPnLPositionUpdate proto fields (in priority order):
+                #   net_quantity          — signed net position (positive=long, negative=short)
+                #   buy_qty / sell_qty    — cumulative filled quantities
+                #   open_position_quantity — open contracts (long perspective)
+                # open_long_quantity / quantity do NOT exist in this proto and return None.
                 sym = getattr(p, "symbol", "") or ""
-                qty_str = getattr(p, "open_long_quantity", None) or getattr(p, "quantity", "0")
-                try:
-                    qty = abs(int(qty_str))
-                except (TypeError, ValueError):
-                    qty = 0
-                if qty > 0 and _SYMBOL in sym.upper():
+                if _SYMBOL not in sym.upper():
+                    continue
+                def _int(attr: str) -> int:
+                    v = getattr(p, attr, None)
+                    try:
+                        return int(v) if v is not None else 0
+                    except (TypeError, ValueError):
+                        return 0
+                net_qty = _int("net_quantity")
+                if net_qty == 0:
+                    # fallback: buy - sell
+                    net_qty = _int("buy_qty") - _int("sell_qty")
+                if net_qty == 0:
+                    net_qty = _int("open_position_quantity")
+                qty = abs(net_qty)
+                if qty > 0:
                     result.append({
                         "contract_id": sym,
                         "size": qty,
-                        "average_price": float(getattr(p, "open_position_pnl", 0) or 0),
+                        "average_price": float(getattr(p, "avg_open_fill_price", 0) or 0),
                     })
             return result
         except Exception as exc:
