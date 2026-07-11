@@ -34,8 +34,15 @@ def push(m):
     except Exception: pass
 
 def ladder_size(kind, banked):
-    step = int(max(banked, 0) // 1500)
-    return min(1 + step, 4) if kind == "WK" else min(2 + step, 6)
+    """EOD-trailing floor rises with banked PnL until it locks at breakeven
+    (+$3k banked). Cushion is ~$3k until lock, then grows. Sizes chosen so the
+    HISTORICAL WORST event MAE at that size stays under the cushion at that rung."""
+    if kind == "WK":                       # worst MAE ~ -$2,092/micro
+        return 2 if banked >= 4500 else 1
+    # EO/FOMC: worst MAE ~ -$416/micro
+    if banked >= 6000: return 4
+    if banked >= 3000: return 3
+    return 2
 
 class Daemon:
     def __init__(self, out, live, now_fn=None, quote_fn=None):
@@ -82,9 +89,16 @@ class Daemon:
             reconnection_settings=ReconnectionSettings(max_retries=None,
                 backoff_type="exponential", interval=3, max_delay=120))
         await self.client.connect(plants=[SysInfraType.ORDER_PLANT, SysInfraType.PNL_PLANT])
-        self.acct = (await self.client.plants["order"].list_accounts())[0].account_id
+        accounts = await self.client.plants["order"].list_accounts()
+        want = os.environ.get("LUCID_ACCOUNT_ID")
+        match = [a for a in accounts if not want or str(a.account_id) == want]
+        if not match:
+            raise RuntimeError(f"account {want} not found in {[a.account_id for a in accounts]}")
+        self.acct = match[0].account_id
         self.contract = os.environ.get("FADE_CONTRACT", "MNQU6")
+        self.pos_qty = None           # live position per PNL plant
         self.client.on_exchange_order_notification += self._note
+        self.client.on_instrument_pnl_update += self._pnl_note
         log(f"connected acct={self.acct} {self.contract} mode={'LIVE' if self.live else 'DRY'}")
         push(f"ladder daemon up ({'LIVE' if self.live else 'DRY'})")
 
@@ -92,12 +106,24 @@ class Daemon:
         from async_rithmic import ExchangeOrderNotificationType as NT
         if getattr(n, "notify_type", None) != NT.FILL: return
         px, side = getattr(n, "fill_price", None), getattr(n, "transaction_type", None)
-        self.jlog(ev="fill", px=px, side=side, tag=getattr(n, "user_tag", ""))
+        sym = getattr(n, "symbol", ""); tag = str(getattr(n, "user_tag", "") or "")
+        acct = getattr(n, "account_id", None)
+        qty = int(getattr(n, "fill_size", 0) or 0)
+        self.jlog(ev="fill", px=px, side=side, tag=tag, sym=sym, qty=qty, acct=acct)
         ot = self.st.get("open")
         if not (ot and px): return
-        if side == 1 and ot.get("fill") is None:
-            ot["fill"] = float(px); self.save()
-            log(f"ENTRY FILLED @ {px}"); push(f"{ot['kind']} entry filled @ {px}")
+        # STRICT attribution: our contract, our account (if reported), our order tags only
+        if sym != self.contract: return
+        if acct and self.acct and str(acct) != str(self.acct): return
+        ours = tag.startswith(ot["oid"]) or tag == ""      # exit_position fills carry no tag
+        if not ours: return
+        if side == 1 and tag == ot["oid"]:
+            filled = ot.get("filled_qty", 0) + (qty or ot["qty"])
+            ot["filled_qty"] = filled
+            ot["fill"] = float(px) if ot.get("fill") is None else ot["fill"]
+            self.save()
+            log(f"ENTRY FILL {filled}/{ot['qty']} @ {px}")
+            if filled >= ot["qty"]: push(f"{ot['kind']} entry filled @ {px}")
         elif side == 2:
             qty = ot["qty"]
             pnl = (float(px) - (ot.get("fill") or ot["ref"]))*PV*qty - 2*COMM*qty
@@ -108,6 +134,14 @@ class Daemon:
             push(f"{ot['kind']} closed {pnl:+.2f} (banked {self.st['banked']:+.0f})")
             self.st["done"].append(ot["key"]); self.st["open"] = None; self.save()
             asyncio.create_task(self._cancel_all())
+
+    async def _pnl_note(self, n):
+        try:
+            if getattr(n, "symbol", "") == self.contract:
+                q = getattr(n, "open_position_quantity", None)
+                if q is None: q = getattr(n, "fill_buy_qty", 0) - getattr(n, "fill_sell_qty", 0)
+                self.pos_qty = int(q)
+        except Exception: pass
 
     async def _cancel_all(self):
         try: await self.client.plants["order"].cancel_all_orders(account_id=self.acct)
@@ -123,6 +157,12 @@ class Daemon:
     async def enter(self, kind, key):
         from async_rithmic import OrderType, TransactionType
         qty = ladder_size(kind, self.st["banked"])
+        worst = 2100 if kind == "WK" else 420              # historical worst MAE $/micro
+        cushion = 3000 + max(0, float(self.st["banked"]) - 3000)   # floor-lock model
+        if self.live and qty * worst > 0.75 * cushion:
+            log(f"{kind}: cushion gate blocked entry (need {qty*worst} vs {0.75*cushion:.0f})")
+            self.jlog(ev="cushion_block", kind=kind, qty=qty)
+            self.st["done"].append(key); self.save(); return
         ref, age = self.quote()
         if ref is None or age > 300:
             log(f"{kind}: no fresh quote (age {age:.0f}s) — retry next loop"); return
@@ -180,17 +220,26 @@ class Daemon:
         self.jlog(ev="flatten", why=why, live=self.live)
         ot = self.st.get("open")
         if self.live:
-            for attempt in range(3):                       # verification sweep
+            confirmed = False
+            for attempt in range(4):                       # verification sweep
                 await self._cancel_all()
                 try:
                     await self.client.plants["order"].exit_position(
                         account_id=self.acct, symbol=self.contract, exchange=EXCHANGE)
                 except Exception as e: log(f"exit err {e}")
-                await asyncio.sleep(3)
+                await asyncio.sleep(4)
                 tags = await self._working_orders()
-                if tags is not None and not any(tags): break
-                log(f"flatten sweep {attempt+1}: orders still working, retrying")
-            log(f"FLATTEN ({why})")
+                orders_clear = tags is not None and not any(t for t in tags)
+                pos_clear = (self.pos_qty == 0) if self.pos_qty is not None else None
+                if orders_clear and pos_clear in (True, None):
+                    confirmed = pos_clear is True or attempt >= 1
+                    if confirmed: break
+                log(f"flatten sweep {attempt+1}: orders_clear={orders_clear} pos={self.pos_qty}")
+            if not confirmed:
+                log("CRITICAL: flatten UNCONFIRMED — manual check required")
+                push("CRITICAL: flatten unconfirmed — CHECK ACCOUNT NOW")
+                self.jlog(ev="flatten_unconfirmed")
+            log(f"FLATTEN ({why}) confirmed={confirmed}")
         else:
             if ot:
                 px, _ = self.quote()
