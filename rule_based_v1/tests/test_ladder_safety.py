@@ -39,7 +39,8 @@ def test_flatten_confirms_only_on_zero_position():
     d._cancel_all = lambda: asyncio.sleep(0)
     d.client = types.SimpleNamespace(plants={"order": types.SimpleNamespace(exit_position=lambda **k: asyncio.sleep(0))})
     d._list_orders = lambda: _aret([])
-    d.pos_qty = 0
+    import time as _t
+    d.pos_qty = 0; d.pos_qty_ts = _t.time() + 1   # fresh post-exit zero
     asyncio.run(d.flatten("test"))
     assert not d.st.get("halted")
     assert d.st["open"] is None
@@ -89,3 +90,26 @@ def test_broker_cushion_none_when_balance_unknown():
 
 async def _aret_coro(v): return v
 def _aret(v): return _aret_coro(v)
+
+
+def test_flatten_rejects_stale_zero():
+    """B1b: a pos_qty of 0 from BEFORE the exit request must not confirm flat."""
+    import time as _t
+    d = _daemon()
+    d.st["open"] = {"kind": "WK", "key": "k", "oid": "wk-1", "qty": 1, "ref": 23000.0, "fill": 23000.0, "filled_qty": 1}
+    d._cancel_all = lambda: asyncio.sleep(0)
+    d.client = types.SimpleNamespace(plants={"order": types.SimpleNamespace(exit_position=lambda **k: asyncio.sleep(0))})
+    d._list_orders = lambda: _aret([])
+    d.pos_qty = 0; d.pos_qty_ts = _t.time() - 100   # STALE zero (before this flatten)
+    asyncio.run(d.flatten("test"))
+    assert d.st.get("halted") is True               # stale zero rejected -> halt
+    assert d.st["open"] is not None
+
+
+def test_validate_stop_rejects_cancelled():
+    """B5b: an order matching the tag but status=cancelled is NOT valid protection."""
+    d = _daemon()
+    ot = {"oid": "wk-1", "qty": 1, "filled_qty": 1, "stop_px": 22550.0}
+    assert d._validate_stop([_order("wk-1-stp", status="cancelled")], ot)[0] is False
+    assert d._validate_stop([_order("wk-1-stp", status="complete")], ot)[0] is False
+    assert d._validate_stop([_order("wk-1-stp", status="working")], ot)[0] is True

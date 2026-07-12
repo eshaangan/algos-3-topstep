@@ -25,8 +25,37 @@ NO_ENTRY_SUNDAYS = {"2026-09-06"}          # Labor Day Monday
 HOLIDAYS = {"2026-09-07", "2026-11-26", "2026-12-25"}
 NTFY = os.environ.get("NTFY_TOPIC", "")
 
-def log(m): print(f"[{datetime.now(timezone.utc):%m-%d %H:%M:%S}Z] {m}", flush=True)
+def _scrub(m):
+    sec = os.environ.get("RITHMIC_PASSWORD", "")
+    return m.replace(sec, "***") if (sec and isinstance(m, str)) else m
+
+def log(m): print(f"[{datetime.now(timezone.utc):%m-%d %H:%M:%S}Z] {_scrub(str(m))}", flush=True)
+
+def _install_redaction():
+    """Redact the Rithmic password from every logging record (async_rithmic logs
+    connection params at reconnect). Belt for the library; our own log() scrubs too."""
+    import logging
+    sec = os.environ.get("RITHMIC_PASSWORD", "")
+    if not sec:
+        return
+    class _R(logging.Filter):
+        def filter(self, rec):
+            try:
+                if isinstance(rec.msg, str) and sec in rec.msg:
+                    rec.msg = rec.msg.replace(sec, "***")
+                if rec.args:
+                    rec.args = tuple(a.replace(sec, "***") if isinstance(a, str) else a
+                                     for a in rec.args)
+            except Exception:
+                pass
+            return True
+    filt = _R()
+    for nm in ("", "rithmic", "async_rithmic"):
+        lg = logging.getLogger(nm); lg.addFilter(filt)
+    logging.getLogger("async_rithmic").setLevel(logging.WARNING)
+    logging.getLogger("rithmic").setLevel(logging.WARNING)
 def push(m):
+    m = _scrub(str(m))
     if not NTFY: return
     try:
         urllib.request.urlopen(urllib.request.Request(
@@ -53,6 +82,10 @@ class Daemon:
         self.kill_p = os.path.join(out, "KILL")
         self.st = json.load(open(self.state_p)) if os.path.exists(self.state_p) else \
             {"open": None, "done": [], "banked": 0.0}
+        for _f in (self.state_p, self.ev_p):
+            try:
+                if os.path.exists(_f): os.chmod(_f, 0o600)
+            except OSError: pass
         self.client = None; self.acct = None; self.contract = None
         self.now = now_fn or (lambda: pd.Timestamp.now(tz=ET))
         self.quote = quote_fn or self._stream_quote
@@ -80,6 +113,7 @@ class Daemon:
         return None, 1e9
 
     async def connect(self):
+        _install_redaction()
         from async_rithmic import RithmicClient, ReconnectionSettings, SysInfraType
         self.client = RithmicClient(
             user=os.environ["RITHMIC_USERNAME"], password=os.environ["RITHMIC_PASSWORD"],
@@ -156,7 +190,7 @@ class Daemon:
             if getattr(n, "symbol", "") == self.contract:
                 q = getattr(n, "open_position_quantity", None)
                 if q is None: q = getattr(n, "fill_buy_qty", 0) - getattr(n, "fill_sell_qty", 0)
-                self.pos_qty = int(q)
+                self.pos_qty = int(q); self.pos_qty_ts = time.time()
         except Exception: pass
 
     async def _acct_note(self, n):
@@ -248,6 +282,7 @@ class Daemon:
             except Exception as e:
                 log(f"{kind} submit FAILED {e} — clearing for retry"); self.jlog(ev="submit_fail", err=str(e))
                 self.st["open"] = None; self.save(); return
+            self.pos_qty = None; self.pos_qty_ts = 0.0   # invalidate; only a fresh PNL update counts
             log(f"LIVE ENTRY {kind} {qty} {self.contract} @~{ref}")
         else:
             self.st["open"]["fill"] = ref     # dry: simulate instant fill for branch coverage
@@ -281,6 +316,9 @@ class Daemon:
         for o in orders or []:
             if str(getattr(o, "user_tag", "") or "") != want_tag:
                 continue
+            status = str(getattr(o, "status", "") or "").lower()
+            if any(k in status for k in ("cancel", "complete", "fill", "reject", "done", "inactive", "expire")):
+                return (False, f"status={status}")
             if getattr(o, "symbol", self.contract) not in ("", self.contract):
                 return (False, "symbol")
             tt = str(getattr(o, "transaction_type", "") or "")
@@ -316,6 +354,7 @@ class Daemon:
         if ot: ot["closing"] = True; self.save()
         if self.live:
             confirmed = False
+            t0 = time.time()                               # exit-request timestamp
             for attempt in range(4):                       # verification sweep
                 await self._cancel_all()
                 try:
@@ -325,10 +364,12 @@ class Daemon:
                 await asyncio.sleep(4)
                 orders = await self._list_orders()
                 orders_clear = orders is not None and not self._our_working_tags(orders)
-                pos_clear = (self.pos_qty == 0)   # None is NOT flat — must be a confirmed 0
+                # a FRESH (post-exit) zero only — a stale 0 from before entry never counts
+                fresh = getattr(self, "pos_qty_ts", 0.0) >= t0
+                pos_clear = (self.pos_qty == 0 and fresh)
                 if orders_clear and pos_clear:
                     confirmed = True; break
-                log(f"flatten sweep {attempt+1}: orders_clear={orders_clear} pos={self.pos_qty}")
+                log(f"flatten sweep {attempt+1}: orders_clear={orders_clear} pos={self.pos_qty} fresh={fresh}")
             if not confirmed:
                 log("CRITICAL: flatten UNCONFIRMED — HALTING (state preserved)")
                 push("CRITICAL: flatten unconfirmed — CHECK ACCOUNT NOW (daemon halted)")
@@ -404,8 +445,9 @@ class Daemon:
                 if f == 0:
                     log("fill timeout (no fill) — reconciling"); push("fill timeout — reconciling")
                     await self.flatten("fill_timeout")
-                elif f < ot["qty"]:
-                    log(f"PARTIAL fill stuck {f}/{ot['qty']} — flatten"); push("partial fill stuck — flattening")
+            if ot and self.live and 0 < ot.get("filled_qty", 0) < ot.get("qty", 1) \
+               and time.time() - ot["entered_at"] > 25:
+                    log(f"PARTIAL fill stuck {ot['filled_qty']}/{ot['qty']} — flatten"); push("partial fill stuck — flattening")
                     await self.flatten("partial_fill_timeout")
             # protection lifecycle: only once the order is FULLY filled
             ot = self.st.get("open")
