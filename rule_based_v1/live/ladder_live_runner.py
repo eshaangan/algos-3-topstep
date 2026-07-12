@@ -10,7 +10,7 @@ every position, fill-timeout reconciliation, flatten verification sweep, holiday
 guard, KILL file, watchdog, atomic state, ntfy phone alerts. DRY unless --live.
 """
 from __future__ import annotations
-import asyncio, glob, json, os, time, urllib.request, uuid
+import asyncio, glob, json, math, os, time, urllib.request, uuid
 from datetime import datetime, timezone
 import pandas as pd
 
@@ -100,17 +100,31 @@ class Daemon:
         os.replace(tmp, self.state_p)
 
     def _stream_quote(self):
+        """Reconstruct a two-sided mid from the recorder's ONE-SIDED BBO stream:
+        each line carries a bid update OR an ask update (other side NaN). We scan the
+        tail newest->oldest and take the most recent finite bid and finite ask."""
         fs = sorted(glob.glob(os.path.join(os.environ.get("RAW_DIR", ""), "stream_MNQ_*.csv")))
         if not fs: return None, 1e9
         with open(fs[-1], "rb") as f:
-            try: f.seek(-300, 2)
-            except OSError: pass
-            for line in reversed(f.read().decode(errors="ignore").strip().splitlines()):
-                p = line.split(",")
-                if len(p) == 5:
-                    try: return (float(p[1])+float(p[3]))/2, time.time()-float(p[0])/1e9
-                    except ValueError: continue
-        return None, 1e9
+            try: f.seek(-65536, 2)
+            except OSError: f.seek(0)
+            lines = f.read().decode(errors="ignore").strip().splitlines()
+        bid = ask = newest_ns = None
+        for line in reversed(lines):
+            p = line.split(",")
+            if len(p) != 5: continue
+            try:
+                ns = float(p[0]); b = float(p[1]); a = float(p[3])
+            except ValueError:
+                continue
+            if newest_ns is None: newest_ns = ns
+            if bid is None and math.isfinite(b): bid = b
+            if ask is None and math.isfinite(a): ask = a
+            if bid is not None and ask is not None: break
+        if bid is None or ask is None or newest_ns is None: return None, 1e9
+        mid = (bid + ask) / 2
+        if mid <= 0: return None, 1e9
+        return mid, time.time() - newest_ns / 1e9
 
     async def connect(self):
         _install_redaction()
@@ -266,8 +280,8 @@ class Daemon:
             self.jlog(ev="cushion_block", kind=kind, qty=qty)
             self.st["done"].append(key); self.save(); return
         ref, age = self.quote()
-        if ref is None or age > 300:
-            log(f"{kind}: no fresh quote (age {age:.0f}s) — retry next loop"); return
+        if ref is None or not math.isfinite(ref) or age > 300:
+            log(f"{kind}: no fresh two-sided quote (age {age:.0f}s) — retry next loop"); return
         oid = f"{kind.lower()}-{uuid.uuid4().hex[:6]}"
         self.st["open"] = {"kind": kind, "key": key, "oid": oid, "qty": qty, "ref": ref,
                            "fill": None, "verified": False, "stp_sent": False,
@@ -285,7 +299,8 @@ class Daemon:
             self.pos_qty = None; self.pos_qty_ts = 0.0   # invalidate; only a fresh PNL update counts
             log(f"LIVE ENTRY {kind} {qty} {self.contract} @~{ref}")
         else:
-            self.st["open"]["fill"] = ref     # dry: simulate instant fill for branch coverage
+            self.st["open"]["fill"] = ref      # dry: simulate a full instant fill so the
+            self.st["open"]["filled_qty"] = qty  # protection lifecycle is exercised end-to-end
             log(f"DRY ENTER {kind} {qty} @~{ref}")
         self.jlog(ev="entry", kind=kind, qty=qty, ref=ref, live=self.live)
 
