@@ -151,6 +151,8 @@ class Daemon:
 
     async def _pnl_note(self, n):
         try:
+            if str(getattr(n, "account_id", "") or "") not in ("", str(self.acct)):
+                return
             if getattr(n, "symbol", "") == self.contract:
                 q = getattr(n, "open_position_quantity", None)
                 if q is None: q = getattr(n, "fill_buy_qty", 0) - getattr(n, "fill_sell_qty", 0)
@@ -158,6 +160,8 @@ class Daemon:
         except Exception: pass
 
     async def _acct_note(self, n):
+        if str(getattr(n, "account_id", "") or "") not in ("", str(self.acct)):
+            return
         for f in ("account_balance", "cash_on_hand", "net_liquidating_value", "current_balance"):
             v = getattr(n, f, None)
             if v:
@@ -171,31 +175,41 @@ class Daemon:
     async def _broker_cushion(self):
         try:
             rms = await self.client.plants["order"].get_account_rms()
-            txt = str(rms)
-            import re
-            floor_m = re.search(r"min_account_balance:\s*([0-9.]+)", txt)
-            bal = None
-            for pat in (r"(?<!min_)account_balance:\s*([0-9.]+)", r"cash_on_hand:\s*([0-9.]+)",
-                        r"current_balance:\s*([0-9.]+)"):
-                m = re.search(pat, txt)
-                if m: bal = float(m.group(1)); break
-            if bal is None and getattr(self, "acct_balance", None):
-                bal = float(self.acct_balance)
-            if floor_m and bal:
-                c = bal - float(floor_m.group(1))
-                self.jlog(ev="broker_cushion", cushion=c)
-                return c
-            self.jlog(ev="broker_cushion_fields_missing", raw=txt[:300])
-            return None
+            recs = list(rms) if isinstance(rms, (list, tuple)) else [rms]
+            rec = next((r for r in recs
+                        if str(getattr(r, "account_id", "")) == str(self.acct)), None)
+            if rec is None:
+                self.jlog(ev="broker_cushion_no_account_record", n=len(recs))
+                return None
+            floor = getattr(rec, "min_account_balance", None)
+            bal = getattr(self, "acct_balance", None)   # from account-filtered PNL plant
+            if floor is None or bal is None:
+                self.jlog(ev="broker_cushion_fields_missing",
+                          have_floor=floor is not None, have_bal=bal is not None)
+                return None
+            c = float(bal) - float(floor)
+            self.jlog(ev="broker_cushion", cushion=c, bal=float(bal), floor=float(floor))
+            return c
         except Exception as e:
             log(f"rms err {e}"); return None
 
-    async def _working_orders(self):
+    async def _list_orders(self):
         try:
-            orders = await self.client.plants["order"].list_orders(account_id=self.acct)
-            return [getattr(o, "user_tag", "") for o in orders]
+            return list(await self.client.plants["order"].list_orders(account_id=self.acct))
         except Exception:
             return None
+
+    def _our_working_tags(self, orders):
+        """Tags of orders on our contract that are NOT in a terminal state."""
+        out = []
+        for o in orders or []:
+            if getattr(o, "symbol", self.contract) not in ("", self.contract):
+                continue
+            status = str(getattr(o, "status", "") or "").lower()
+            if any(k in status for k in ("complete", "cancel", "fill", "reject", "done")):
+                continue
+            out.append(str(getattr(o, "user_tag", "") or ""))
+        return out
 
     async def enter(self, kind, key):
         from async_rithmic import OrderType, TransactionType
@@ -243,6 +257,7 @@ class Daemon:
     async def protect(self, ot):
         from async_rithmic import OrderType, TransactionType
         stop_px = round((ot["fill"] - CAT_STOP_PTS)/TICK)*TICK
+        ot["stop_px"] = stop_px
         if self.live:
             try:
                 await self.client.plants["order"].submit_order(
@@ -258,16 +273,41 @@ class Daemon:
         else:
             ot["verified"] = True; log(f"DRY cat-stop @ {stop_px}")
 
+    def _validate_stop(self, orders, ot):
+        """A resting stop that matches tag AND side(SELL)/qty/symbol/trigger."""
+        want_tag = f"{ot['oid']}-stp"
+        need_qty = int(ot.get("filled_qty", ot["qty"]))
+        want_px = ot.get("stop_px")
+        for o in orders or []:
+            if str(getattr(o, "user_tag", "") or "") != want_tag:
+                continue
+            if getattr(o, "symbol", self.contract) not in ("", self.contract):
+                return (False, "symbol")
+            tt = str(getattr(o, "transaction_type", "") or "")
+            if tt and tt not in ("2", "SELL", "TransactionType.SELL"):
+                return (False, f"side={tt}")
+            q = getattr(o, "quantity", None)
+            if q is None: q = getattr(o, "qty", None)
+            if q is not None and int(q) != need_qty:
+                return (False, f"qty={q}!={need_qty}")
+            trg = getattr(o, "trigger_price", None) or getattr(o, "stop_price", None)
+            if trg is not None and want_px is not None and abs(float(trg) - want_px) > 5 * TICK:
+                return (False, f"trigger={trg}!={want_px}")
+            return (True, "ok")
+        return (False, "missing")
+
     async def verify(self, ot):
-        tags = await self._working_orders()
-        if tags is None:
+        orders = await self._list_orders()
+        if orders is None:
             ot["verify_after"] = time.time() + 6; return
-        if f"{ot['oid']}-stp" in tags:
+        ok, why = self._validate_stop(orders, ot)
+        if ok:
             ot["verified"] = True; ot["verify_after"] = None
             log("protection verified ✓"); push(f"{ot['kind']} protected ✓")
             self.jlog(ev="protection_verified")
         else:
-            log("CRITICAL stop not resting — flatten"); push(f"CRITICAL {ot['kind']} stop missing — flattening")
+            log(f"CRITICAL stop not valid ({why}) — flatten"); push(f"CRITICAL {ot['kind']} stop {why} — flattening")
+            self.jlog(ev="protection_invalid", why=why)
             await self.flatten("protection_not_resting")
 
     async def flatten(self, why):
@@ -283,12 +323,11 @@ class Daemon:
                         account_id=self.acct, symbol=self.contract, exchange=EXCHANGE)
                 except Exception as e: log(f"exit err {e}")
                 await asyncio.sleep(4)
-                tags = await self._working_orders()
-                orders_clear = tags is not None and not any(t for t in tags)
-                pos_clear = (self.pos_qty == 0) if self.pos_qty is not None else None
-                if orders_clear and pos_clear in (True, None):
-                    confirmed = pos_clear is True or attempt >= 1
-                    if confirmed: break
+                orders = await self._list_orders()
+                orders_clear = orders is not None and not self._our_working_tags(orders)
+                pos_clear = (self.pos_qty == 0)   # None is NOT flat — must be a confirmed 0
+                if orders_clear and pos_clear:
+                    confirmed = True; break
                 log(f"flatten sweep {attempt+1}: orders_clear={orders_clear} pos={self.pos_qty}")
             if not confirmed:
                 log("CRITICAL: flatten UNCONFIRMED — HALTING (state preserved)")
@@ -359,14 +398,19 @@ class Daemon:
             if os.path.exists(self.kill_p):
                 await self.flatten("kill"); push("KILL — daemon down"); return
             ot = self.st.get("open")
-            # fill-timeout reconciliation
-            if ot and self.live and ot.get("fill") is None and time.time() - ot["entered_at"] > 90:
-                log("fill timeout — reconciling via flatten"); push("fill timeout — reconciling")
-                await self.flatten("fill_timeout")
-            # protection lifecycle
+            # fill-timeout reconciliation: no fill at all, OR stuck partial fill
+            if ot and self.live and time.time() - ot["entered_at"] > 90:
+                f = ot.get("filled_qty", 0)
+                if f == 0:
+                    log("fill timeout (no fill) — reconciling"); push("fill timeout — reconciling")
+                    await self.flatten("fill_timeout")
+                elif f < ot["qty"]:
+                    log(f"PARTIAL fill stuck {f}/{ot['qty']} — flatten"); push("partial fill stuck — flattening")
+                    await self.flatten("partial_fill_timeout")
+            # protection lifecycle: only once the order is FULLY filled
             ot = self.st.get("open")
-            if ot and ot.get("fill") and not ot.get("verified") and self.live and \
-               ot.get("verify_after") and time.time() >= ot["verify_after"]:
+            if ot and ot.get("filled_qty", 0) >= ot.get("qty", 1) and not ot.get("verified") \
+               and self.live and ot.get("verify_after") and time.time() >= ot["verify_after"]:
                 if not ot.get("stp_sent"):
                     await self.protect(ot); ot["stp_sent"] = True
                 else:
