@@ -6,17 +6,29 @@ NC, PV, COMM, TICK = 2, 2.0, 0.62, 0.25
 ET = "America/New_York"
 def log(m): print(f"[{datetime.now(timezone.utc):%m-%d %H:%M:%S}Z] {m}", flush=True)
 def quote(raw):
+    # recorder stream is ONE-SIDED BBO per line (bid OR ask; other NaN). Forward-fill
+    # most-recent finite bid AND ask over a 64KB tail. (fixed 2026-07-13: NaN-at-reopen)
+    import math
     fs = sorted(glob.glob(os.path.join(raw, "stream_MNQ_*.csv")))
     if not fs: return None, 1e9
     with open(fs[-1], "rb") as f:
-        try: f.seek(-300, 2)
-        except OSError: pass
-        for line in reversed(f.read().decode(errors="ignore").strip().splitlines()):
-            p = line.split(",")
-            if len(p) == 5:
-                try: return (float(p[1])+float(p[3]))/2, time.time()-float(p[0])/1e9
-                except ValueError: continue
-    return None, 1e9
+        try: f.seek(-65536, 2)
+        except OSError: f.seek(0)
+        lines = f.read().decode(errors="ignore").strip().splitlines()
+    bid = ask = newest = None
+    for line in reversed(lines):
+        p = line.split(",")
+        if len(p) != 5: continue
+        try: ns, b, a = float(p[0]), float(p[1]), float(p[3])
+        except ValueError: continue
+        if newest is None: newest = ns
+        if bid is None and math.isfinite(b): bid = b
+        if ask is None and math.isfinite(a): ask = a
+        if bid is not None and ask is not None: break
+    if bid is None or ask is None or newest is None: return None, 1e9
+    mid = (bid + ask) / 2
+    if mid <= 0: return None, 1e9
+    return mid, time.time() - newest / 1e9
 def main():
     import argparse
     ap = argparse.ArgumentParser(); ap.add_argument("--raw-dir", required=True); ap.add_argument("--out-dir", required=True)

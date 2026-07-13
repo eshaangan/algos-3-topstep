@@ -39,22 +39,36 @@ def last_quote(raw_dir: str):
     files = sorted(glob.glob(os.path.join(raw_dir, f"stream_MNQ_*.csv")))
     if not files:
         return None, 1e9
+    import math
     with open(files[-1], "rb") as f:
         try:
-            f.seek(-300, 2)
+            f.seek(-65536, 2)
         except OSError:
-            pass
+            f.seek(0)
         lines = f.read().decode(errors="ignore").strip().splitlines()
+    bid = ask = newest = None                       # one-sided BBO -> forward-fill both sides
     for line in reversed(lines):
         p = line.split(",")
-        if len(p) == 5:
-            try:
-                ns, bpx, _, apx, _ = float(p[0]), float(p[1]), 0, float(p[3]), 0
-                age = time.time() - ns / 1e9
-                return (bpx + apx) / 2, age
-            except ValueError:
-                continue
-    return None, 1e9
+        if len(p) != 5:
+            continue
+        try:
+            ns, b, a = float(p[0]), float(p[1]), float(p[3])
+        except ValueError:
+            continue
+        if newest is None:
+            newest = ns
+        if bid is None and math.isfinite(b):
+            bid = b
+        if ask is None and math.isfinite(a):
+            ask = a
+        if bid is not None and ask is not None:
+            break
+    if bid is None or ask is None or newest is None:
+        return None, 1e9
+    mid = (bid + ask) / 2
+    if mid <= 0:
+        return None, 1e9
+    return mid, time.time() - newest / 1e9
 
 
 def main():
