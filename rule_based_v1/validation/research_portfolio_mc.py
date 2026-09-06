@@ -121,7 +121,14 @@ def portfolio_mc(wk: pd.DataFrame, fo: pd.DataFrame, target: float, buffer_usd: 
         done |= live & (eq < floor)
         live = ~done
         peak = np.where(live, np.maximum(peak, eq), peak)
-        floor = np.where(live, np.maximum(floor, peak - buffer_usd), floor)
+        # LOCK: LucidFlex's EOD-trailing drawdown STOPS trailing once the floor
+        # reaches the starting balance (account_rules.yaml::drawdown.
+        # locks_at_starting_balance). Equity is relative here, so the starting
+        # balance is 0 and the floor may never exceed it. Trailing past 0 -- which
+        # every MC in this repo did until 2026-09-05 -- silently understates
+        # P(pass), and it understates it MOST at large sizes, because those are
+        # the paths that build a big peak.
+        floor = np.where(live, np.maximum(floor, np.minimum(peak - buffer_usd, 0.0)), floor)
     return float(passed.mean()), (float(np.median(weeks[passed])) if passed.any() else float("nan"))
 
 

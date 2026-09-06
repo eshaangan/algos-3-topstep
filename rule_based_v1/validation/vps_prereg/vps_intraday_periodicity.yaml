@@ -1,0 +1,74 @@
+name: vps_intraday_periodicity
+registered: "2026-09-05"
+status: pre-registered (no returns computed at time of writing)
+
+motivation: >
+  The required-edge frontier (vps_disaster_stop_sizing_VERDICT.md) says the deadline needs
+  roughly 3.2x the current edge, i.e. about +$350/week on top of the book's $162. Only a
+  HIGH-VELOCITY family can supply that, because the two existing legs fire 52x and 8x a
+  year and are already sized to their tail limit.
+
+  Intraday periodicity is the last unmined high-velocity item and it is NOT covered by the
+  540-cell 24h x weekday clock map that this project already ran and killed. That map
+  tested UNCONDITIONAL CELL MEANS -- "does 10:00-10:30 ET on a Tuesday pay on average".
+  Heston/Korajczyk/Sadka (JF 2010) and Bogousslavsky (JF 2016) predict something
+  different and orthogonal: a LAGGED effect at a one-DAY lag, matched by time of day.
+  A cell can have a zero mean and still carry strong day-over-day autocorrelation at its
+  own clock time. The clock map could not have detected this.
+
+mechanism: >
+  HKS attribute half-hour periodicity to institutional order-splitting across days at
+  consistent times; Bogousslavsky derives periodic autocorrelation from INFREQUENT
+  REBALANCING. Both are forced-flow stories, not behavioural ones, which is the class the
+  ledger says to prefer. Both imply the sign of a bucket's return recurs at the same
+  bucket on the following day.
+
+primary_spec:
+  buckets: 13 half-hour RTH buckets, 09:30-10:00 ... 15:30-16:00 ET
+  signal:  sign of the SAME bucket's return on the previous SESSION (not calendar day --
+           "previous day" must mean previous session or every Monday is silently dropped)
+  trade:   take the bucket in that direction, entry at bucket open, exit at bucket close
+  side_accounting: short net = -gross - cost, NEVER -(gross - cost)
+  instruments: ES 2010-2025 (primary -- 15.5y, and the long era split), MNQ 2020-2026
+  legality: intraday, entirely inside RTH. Legal at every firm. Machine-checked.
+
+cost_floor_gate:
+  rule: >
+    CHECK FIRST, before any signal test. Report each bucket's mean |return| against the
+    round-turn cost. A bucket whose predictable component cannot plausibly exceed cost is
+    not tradeable no matter how significant the autocorrelation. This is the arithmetic-
+    first discipline the goal demands.
+  mnq_round_turn: 2.24 points per contract
+
+controls:
+  unconditional_bucket: >
+    MANDATORY. The same bucket traded LONG-ONLY, unconditionally. The reported edge is the
+    conditional strategy MINUS this. Without it, a bucket that simply drifts up would read
+    as a periodicity edge.
+  shuffled_lag: >
+    Second control -- the same rule using a RANDOM other day's same-bucket sign instead of
+    the previous session's. Isolates the lag structure from bucket-level drift.
+
+era_split:
+  es:  dev 2010-2017, val 2018-2025
+  mnq: dev 2020-2023, val 2024-2026
+  requirement: both halves positive; a sign flip is a kill.
+
+trial_count:
+  cells: 26   # 13 buckets x 2 instruments
+  bonferroni_t_bar: 3.09   # two-sided alpha 0.05 / 26
+  note: >
+    All 26 counted. A pooled all-bucket test is the headline; individual buckets are
+    exploratory and must clear the Bonferroni bar to be taken seriously on their own.
+
+kill_conditions:
+  - pooled conditional-minus-unconditional t < 2.0
+  - net edge below the round-turn cost floor
+  - no bucket clears the 3.09 Bonferroni bar with both eras positive
+  - efficiency (mean / |MAE p05|) < 0.20
+  - fails cross-instrument confirmation
+
+promotion_condition: >
+  Pooled t >= 2.5 net of cost, at least one bucket clearing Bonferroni with both eras
+  positive on both instruments, efficiency >= 0.20, and enough $/week at a tail-legal
+  size to close the ~$350/week gap the frontier identified.

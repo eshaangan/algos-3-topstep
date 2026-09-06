@@ -186,7 +186,7 @@ def main() -> None:
     for sd in [None] + STOPS:
         wk_raw, fo_raw = legs["weekend"][sd], legs["fomc@18:00"][sd]
         for wn in (1, 2, 3, 4, 5, 6):
-            for fn_ in (0, 2, 3, 4, 6):
+            for fn_ in (0, 1, 2, 3, 4, 6):
                 wk, fo = sized(wk_raw, wn), sized(fo_raw, fn_) if fn_ else None
                 w_worst = float(wk["pnl"].min())
                 f_worst = float(fo["pnl"].min()) if fn_ else 0.0

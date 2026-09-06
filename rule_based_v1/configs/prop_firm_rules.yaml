@@ -114,3 +114,45 @@ firms:
       daily limit is applied to closed equity rather than open drawdown.
     sources:
       - https://elitetraderfunding.app/blog/swing-trading-prop-firms-which-allow-overnight-holds-2026
+
+  # --- Smaller LucidFlex tiers. Added 2026-09-05 after the required-edge frontier showed
+  # the binding geometry is the TARGET/MLL RATIO, not the edge. The 100k pairs a $6,000
+  # target with $3,000 of room (ratio 2.0); the 25k pairs $1,250 with $1,000 (ratio 1.25).
+  # Same book, same rules, a fundamentally easier problem. Numbers from accounts: in
+  # account_rules.yaml -- the single source of truth -- not retyped from a web page.
+
+  lucid_flex_25k:
+    label: "LucidFlex 25k"
+    verified: false
+    balance: 25000
+    profit_target: 1250
+    max_loss_limit: 1000
+    drawdown_type: end_of_day_trailing
+    locks_at_starting_balance: true
+    daily_loss_limit: null
+    consistency: 0.50
+    min_trading_days: 2
+    flatten_et: "16:45"
+    resumes_et: "18:00"
+    overnight_permitted: false
+    weekend_permitted: false
+    news_restriction: none_documented
+    position_cap_micros: 20
+
+  lucid_flex_50k:
+    label: "LucidFlex 50k"
+    verified: false
+    balance: 50000
+    profit_target: 3000
+    max_loss_limit: 2000
+    drawdown_type: end_of_day_trailing
+    locks_at_starting_balance: true
+    daily_loss_limit: null
+    consistency: 0.50
+    min_trading_days: 2
+    flatten_et: "16:45"
+    resumes_et: "18:00"
+    overnight_permitted: false
+    weekend_permitted: false
+    news_restriction: none_documented
+    position_cap_micros: 40

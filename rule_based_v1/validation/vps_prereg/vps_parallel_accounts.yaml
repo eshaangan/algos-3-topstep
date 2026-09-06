@@ -1,0 +1,60 @@
+name: vps_parallel_accounts
+registered: "2026-09-05"
+status: pre-registered (no campaign returns computed at time of writing)
+
+motivation: >
+  Every single-account route has been measured and none reaches 85% within 16 weeks. But
+  the deliverable is "pass AN evaluation", and the frontier established this session is
+  that small tiers are FAST and unsafe (25k: 8-week median, ~64% ceiling) while the 100k
+  is SAFE and slow (94%, 31-35 weeks). A campaign of several cheap fast accounts converts
+  that ceiling problem into a "at least one succeeds" problem, which is a different and
+  much easier question -- IF the accounts are not perfectly correlated.
+
+  This is the last untested lever and it is ordinary prop-firm practice, not a trick.
+
+the_correlation_trap: >
+  THE NAIVE VERSION IS WORTHLESS AND MUST BE MODELLED AS SUCH. N accounts running the same
+  strategy at the same size from the same start date are the SAME ACCOUNT N times: they
+  see identical weekends, bust together, and P(at least one passes) equals the single
+  account probability exactly. Any result that shows a benefit from same-start,
+  same-size parallelism is a bug in the simulation, not an edge.
+
+  Decorrelation can only come from two places:
+    STAGGER  -- accounts started k weeks apart see the same return stream at different
+                phases, so an early disaster kills a new account but only dents a seasoned
+                one that has banked a cushion.
+    SIZE MIX -- an aggressive account (fast, bust-prone) and a conservative one (slow,
+                durable) fail in different states of the world.
+
+  Both must be simulated on ONE SHARED weekly return stream, never on independent draws
+  per account. Independent draws would fabricate diversification that does not exist.
+
+primary_spec:
+  stream: one simulated sequence of weekly (weekend, fomc) outcomes, bootstrapped as
+          elsewhere in this project
+  accounts: N in {1,2,3,4}, each running the validated book with the $600/micro stop
+  stagger_weeks: {0, 2, 4} between consecutive account starts
+  success: at least one account reaches its profit target within 16 weeks OF THE CAMPAIGN
+           START -- not 16 weeks of its own start. A staggered account gets less time, and
+           charging it the full 16 weeks would be cheating the deadline.
+  tiers: lucid_flex_25k (fast) and lucid_flex_100k (safe), and mixed campaigns
+  cost_note: >
+    N accounts cost N evaluation fees. Report P(pass) per campaign AND the number of
+    accounts consumed, so the result is judged on economics and not only on probability.
+
+controls:
+  zero_stagger_identity_check: >
+    MANDATORY SANITY CHECK. With stagger 0 and identical size, P(campaign) MUST equal
+    P(single account) to within Monte Carlo noise. If it does not, the shared-stream
+    plumbing is broken and every other number in the run is invalid.
+
+kill_conditions:
+  - the identity check fails (simulation is wrong -- discard the run)
+  - no campaign reaches 85% within 16 weeks
+  - the only campaigns that reach it require so many accounts that the expected
+    evaluation-fee cost exceeds the profit target being chased
+
+promotion_condition: >
+  A campaign reaching P >= 85% within 16 weeks of campaign start, at an account count
+  whose total evaluation cost is a sensible fraction of the payout, with the identity
+  check passing.
