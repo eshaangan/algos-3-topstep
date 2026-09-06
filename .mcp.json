@@ -17,6 +17,12 @@
         "CLOUDSDK_CORE_PROJECT": "trading-algo-3"
       }
     },
+    "paper-search": {
+      "args": [
+        "paper-search-mcp"
+      ],
+      "command": "uvx"
+    },
     "scientific-papers": {
       "args": [
         "-y",

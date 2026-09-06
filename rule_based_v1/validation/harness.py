@@ -232,6 +232,8 @@ def simulate(bars: pd.DataFrame, signals: pd.DataFrame, p: SimParams) -> pd.Data
                     "pnl": pnl,
                     "exit_reason": reason,
                     "bars_held": pos["bars_held"],
+                    "stop_price": sl_p,
+                    "target_price": pt_p,
                 })
                 pos = None
                 cooldown = p.cooldown_bars
@@ -293,6 +295,85 @@ def aggregate_stats(trades: pd.DataFrame) -> dict:
         "profit_factor": (gross_win / gross_loss) if gross_loss > 0 else float("inf"),
         "exits": trades["exit_reason"].value_counts().to_dict(),
     }
+
+
+def execution_realism(trades: pd.DataFrame) -> dict:
+    """Detect trade books that cannot describe real execution.
+
+    Added 2026-09-05 after three externally-supplied "VPS strategy lab" books
+    passed the full gate (DSR 1.000, WR 74%, max DD $98) while being synthetic.
+    Three independent tells, none of which needs external price data:
+
+    1. ``exact_stop_frac`` -- fraction of stop exits landing EXACTLY on the stop.
+       Stops are market orders triggered by adverse movement; they gap and slip.
+       A book where every stop fills at the stop price is not describing fills.
+       (Profit targets are deliberately NOT tested: a resting limit legitimately
+       fills at its limit price, and this harness's own simulator does exactly
+       that, so testing them would false-positive on honest sims.)
+
+    2. ``distinct_pnl_ratio`` -- distinct PnL values / trades. Real fills produce
+       near-unique values. ``morningrip_strict`` had TWO across 1,126 trades.
+
+    3. ``bracket_z`` -- excess of the observed target-hit rate over the
+       barrier-touch probability of the book's own bracket. For a driftless walk,
+       P(target first) = stop_dist / (stop_dist + target_dist); at RR 0.5 that is
+       66.7%, which is exactly break-even. A real edge DOES exceed this, so the
+       threshold is deliberately loose -- it flags the physically implausible
+       (the three books scored z = +4.6, +18.4, +19.2), not the merely good.
+
+    Returns ``status``: "ok" | "n/a" (no bracketed trades) | "unverifiable"
+    (the book claims bracket exits but withholds the bracket).
+    """
+    if trades is None or len(trades) == 0:
+        return {"status": "n/a", "reason": "no trades"}
+
+    reasons = trades.get("exit_reason")
+    claims_bracket = (
+        reasons.isin(["stop_loss", "profit_target"]).any() if reasons is not None else False
+    )
+    have_bracket = {"stop_price", "target_price", "entry_price"} <= set(trades.columns)
+    if not have_bracket:
+        if claims_bracket:
+            return {"status": "unverifiable",
+                    "reason": "exit_reason claims stop/target but stop_price/target_price absent"}
+        return {"status": "n/a", "reason": "not a bracketed strategy"}
+
+    t = trades.dropna(subset=["stop_price", "target_price", "entry_price"]).copy()
+    if t.empty:
+        return {"status": "n/a", "reason": "no bracketed trades"}
+
+    out: dict = {"status": "ok", "n_bracketed": int(len(t))}
+
+    # 1. stop-fill exactness
+    stops = t[t["exit_reason"] == "stop_loss"]
+    if len(stops):
+        # rtol=0 is essential: np.isclose's DEFAULT relative tolerance is 1e-5,
+        # which at MNQ prices (~25,000) is 0.25 -- a full tick. That would score
+        # an honestly-slipped stop as "exact". Fabricated books fill at the stop
+        # to the cent, so demand true equality.
+        exact = float(np.isclose(stops["exit_price"].to_numpy(float),
+                                 stops["stop_price"].to_numpy(float),
+                                 rtol=0.0, atol=1e-9).mean())
+        out["exact_stop_frac"] = exact
+        out["n_stops"] = int(len(stops))
+
+    # 2. PnL granularity
+    if "pnl" in t.columns:
+        out["distinct_pnl_ratio"] = float(t["pnl"].nunique() / len(t))
+
+    # 3. barrier-touch plausibility
+    dist_t = (t["target_price"] - t["entry_price"]).abs()
+    dist_s = (t["entry_price"] - t["stop_price"]).abs()
+    ok = (dist_t > 0) & (dist_s > 0)
+    if ok.sum() >= 30:
+        p_theory = float((dist_s[ok] / (dist_s[ok] + dist_t[ok])).mean())
+        hit = t.loc[ok, "exit_reason"].eq("profit_target").to_numpy()
+        observed = float(hit.mean())
+        n = int(ok.sum())
+        se = float(np.sqrt(max(p_theory * (1 - p_theory), 1e-12) / n))
+        out.update({"barrier_theory_wr": p_theory, "observed_target_rate": observed,
+                    "bracket_z": (observed - p_theory) / se, "n_barrier": n})
+    return out
 
 
 def monthly_breakdown(trades: pd.DataFrame) -> pd.DataFrame:
@@ -397,9 +478,50 @@ def evaluate(trades: pd.DataFrame, prereg: PreRegistration) -> dict:
             f"max_drawdown ${abs(agg['max_dd']):,.0f} > max_drawdown_usd ${g['max_drawdown_usd']:,.0f}"
         )
 
+    # Execution realism. A book that cannot describe real fills must never reach
+    # a DSR calculation -- DSR faithfully scores whatever numbers it is handed.
+    realism = execution_realism(trades)
+    if g.get("require_execution_realism", True):
+        # "unverifiable" = the book claims bracket exits but withholds the bracket.
+        # This is NOT failed by default: many honest adapters report an exit reason
+        # without carrying stop/target, and blocking them would make the gate
+        # unusable. But omission is also the obvious way to dodge the check, so
+        # any book from an EXTERNAL source should set require_bracket_disclosure.
+        if realism["status"] == "unverifiable":
+            if g.get("require_bracket_disclosure", False):
+                failures.append(f"execution realism unverifiable: {realism['reason']}")
+            else:
+                realism["warning"] = (
+                    "bracket not disclosed -- realism checks could NOT run; "
+                    "set require_bracket_disclosure: true for external books"
+                )
+        elif realism["status"] == "ok":
+            esf = realism.get("exact_stop_frac")
+            if esf is not None and esf > g.get("max_exact_stop_frac", 0.90):
+                failures.append(
+                    f"{esf:.0%} of stop exits fill EXACTLY at the stop "
+                    f"(> {g.get('max_exact_stop_frac', 0.90):.0%}) -- stops gap and slip; "
+                    f"this book is not describing real fills"
+                )
+            dpr = realism.get("distinct_pnl_ratio")
+            if dpr is not None and dpr < g.get("min_distinct_pnl_ratio", 0.05):
+                failures.append(
+                    f"only {dpr:.1%} distinct PnL values "
+                    f"(< {g.get('min_distinct_pnl_ratio', 0.05):.0%}) -- fixed-payout synthesis"
+                )
+            bz = realism.get("bracket_z")
+            if bz is not None and bz > g.get("max_bracket_z", 5.0):
+                failures.append(
+                    f"target-hit rate {realism['observed_target_rate']:.1%} exceeds the "
+                    f"bracket's barrier-touch probability {realism['barrier_theory_wr']:.1%} "
+                    f"by z=+{bz:.1f} (> {g.get('max_bracket_z', 5.0):.1f}) -- "
+                    f"intrabar ambiguity resolved in the book's favour"
+                )
+
     return {
         "verdict": "GO" if not failures else "NO-GO",
         "failures": failures,
+        "execution_realism": realism,
         "aggregate": agg,
         "monthly": monthly.to_dict(orient="records"),
         "dsr": dsr_res,

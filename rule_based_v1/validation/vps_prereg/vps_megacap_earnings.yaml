@@ -1,0 +1,81 @@
+# Mega-cap earnings as INDEX-LEVEL uncertainty-resolution events on MNQ.
+# PRE-REGISTERED 2026-09-05 before computing a single return.
+
+strategy_id: vps_megacap_earnings
+
+mechanism: |
+  The Nasdaq-100 is ~40-45% concentrated in seven names. When one of them reports,
+  a large fraction of the INDEX's earnings uncertainty resolves at a scheduled
+  instant. Hu-Pan-Wang-Zhu show the pre-announcement premium is compensation for
+  heightened uncertainty ahead of scheduled resolution, and Savor-Wilson show
+  announcing firms earn a premium; the novel step here is that at this level of
+  index concentration a single-stock announcement is materially an index-level
+  event, so the premium should be visible in MNQ itself.
+
+  This is the same family as fomc_drift_v1 -- the project's only sealed-holdout
+  survivor -- and the reason it is worth a slot is VELOCITY, which is the binding
+  constraint on time-to-pass: 28 events/yr against FOMC's 8.
+
+# Overfit controls, fixed before looking:
+universe:
+  symbols: [AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA]
+  rationale: |
+    The "Magnificent 7" is an externally-defined, widely-used grouping chosen for
+    index weight. It is NOT a basket selected by checking which tickers move MNQ.
+    The set is frozen for the whole sample -- no adding AVGO because it later grew,
+    no dropping TSLA because it later shrank. Survivorship is therefore against us
+    if anything, since some of these were smaller early in the sample.
+  no_weighting: true          # equal treatment; weighting by index weight is tuning
+  no_surprise_conditioning: true   # surprise is only known AFTER the print
+
+spec:
+  primary:
+    entry: prior_session_1600_et      # HPWZ window shape
+    exit:  earnings_day_1555_et       # flat before the after-close print
+  secondary:                          # counted as a trial, not a free look
+    entry: earnings_day_0930_et       # RTH-only variant, less overnight path risk
+    exit:  earnings_day_1555_et
+  direction: long_only
+  dedupe: by_date                     # two mega-caps on one day is ONE position
+  instrument: MNQ 1-min ETH (data/processed/mnq_1m_all.parquet)
+  cross_check: ES front-month ETH (data/processed/es_1min_eth_frontmonth.parquet)
+  contracts: 2
+
+# THE CONTROL THAT DECIDES IT. Identical to the one that killed ISM/GDP: the same
+# clock window on non-event days. A positive earnings-day return proves nothing if
+# every other day pays the same.
+placebo:
+  same_window_non_event_days: true
+  require_event_beats_control: true
+  per_symbol_breakdown: true    # if it is only NVDA, it is one stock's story, not an
+                                # index-level premium, and does not get promoted
+
+era_split:
+  dev: "2020-01-01 .. 2022-12-31"
+  val: "2023-01-01 .. 2026-07-31"
+
+dsr_n_trials: 12      # 2 windows x 2 instruments x 3 eras
+
+gate:
+  min_events: 100
+  require_net_profitable: true
+  min_t_stat: 2.5
+  require_placebo_separation: true
+  require_not_single_name: true       # dropping the best symbol must not kill it
+  # and the reason this exists at all:
+  must_beat_incumbent: "P(pass) > 96.4% OR median weeks < 15 at comparable P(pass)"
+
+sim:
+  mnq: {point_value: 2.0, tick_size: 0.25, commission_per_side: 0.62, slippage_ticks: 1.0}
+  es:  {point_value: 5.0, tick_size: 0.25, commission_per_side: 0.62, slippage_ticks: 1.0}
+
+# KNOWN THREATS, recorded pre-run:
+#   1. Clustering. Mega-caps report within the same 2-3 week span each quarter, so
+#      events are not independent draws; the MC must not treat 28/yr as evenly
+#      spread, and a bad earnings season hits several positions in days.
+#   2. 2020-2026 only. MNQ history does not reach further, and this session showed
+#      post-2020 is the favourable regime for equity holds. ES cross-check partly
+#      addresses instrument risk but NOT era risk.
+#   3. The index concentration that motivates the mechanism is itself a post-2020
+#      phenomenon, so an effect here may be genuinely regime-bound rather than
+#      structural. If it works, size it as a regime bet, not a constant.

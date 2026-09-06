@@ -195,7 +195,7 @@ async def fetch_ohlcv(
                 end_dt = datetime.fromtimestamp(int(marker), tz=timezone.utc)
             if isinstance(end_dt, datetime) and end_dt.tzinfo is None:
                 end_dt = end_dt.replace(tzinfo=timezone.utc)
-            bar_ts = pd.Timestamp(end_dt, tz="UTC") - pd.Timedelta(minutes=bar_min)
+            bar_ts = pd.Timestamp(end_dt).tz_convert("UTC") - pd.Timedelta(minutes=bar_min)
             row = pd.Series({
                 "open":   float(b.get("open_price",  b.get("open",  0))),
                 "high":   float(b.get("high_price",  b.get("high",  0))),

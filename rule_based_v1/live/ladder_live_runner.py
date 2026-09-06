@@ -15,6 +15,38 @@ from datetime import datetime, timezone
 import pandas as pd
 
 ET = "America/New_York"
+
+
+class _RedactStream:
+    """Wrap a text stream; redact the Rithmic password from every write. This is the
+    guaranteed backstop: the supervisor captures our stdout/stderr into runner.log,
+    so scrubbing the streams catches leaks from ANY source (rithmic.plant.* child
+    loggers, tracebacks, prints) regardless of logging configuration."""
+    def __init__(self, wrapped, secret):
+        self._w = wrapped; self._s = secret
+    def write(self, m):
+        try:
+            if self._s and self._s in m:
+                m = m.replace(self._s, "***")
+        except Exception:
+            pass
+        return self._w.write(m)
+    def flush(self):
+        try: return self._w.flush()
+        except Exception: pass
+    def __getattr__(self, n):
+        return getattr(self._w, n)
+
+
+def _wrap_streams():
+    import sys as _sys
+    sec = os.environ.get("RITHMIC_PASSWORD", "")
+    if sec and not isinstance(_sys.stdout, _RedactStream):
+        _sys.stdout = _RedactStream(_sys.stdout, sec)
+        _sys.stderr = _RedactStream(_sys.stderr, sec)
+
+
+_wrap_streams()   # install at import, before any logging handler is constructed
 SYMBOL, EXCHANGE = "MNQ", "CME"
 PV, COMM, TICK = 2.0, 0.62, 0.25
 CAT_STOP_PTS = 450.0
@@ -32,28 +64,34 @@ def _scrub(m):
 def log(m): print(f"[{datetime.now(timezone.utc):%m-%d %H:%M:%S}Z] {_scrub(str(m))}", flush=True)
 
 def _install_redaction():
-    """Redact the Rithmic password from every logging record (async_rithmic logs
-    connection params at reconnect). Belt for the library; our own log() scrubs too."""
+    """Handler-level redaction: filters on HANDLERS see records propagated from child
+    loggers (rithmic.plant.*), unlike filters on loggers. Renders msg%args first so
+    the secret is caught in either. Belt-and-suspenders with _wrap_streams()."""
     import logging
+    _wrap_streams()
     sec = os.environ.get("RITHMIC_PASSWORD", "")
     if not sec:
         return
     class _R(logging.Filter):
         def filter(self, rec):
             try:
-                if isinstance(rec.msg, str) and sec in rec.msg:
-                    rec.msg = rec.msg.replace(sec, "***")
-                if rec.args:
-                    rec.args = tuple(a.replace(sec, "***") if isinstance(a, str) else a
-                                     for a in rec.args)
+                msg = rec.getMessage()
+                if sec in msg:
+                    rec.msg = msg.replace(sec, "***"); rec.args = ()
             except Exception:
                 pass
             return True
     filt = _R()
-    for nm in ("", "rithmic", "async_rithmic"):
-        lg = logging.getLogger(nm); lg.addFilter(filt)
-    logging.getLogger("async_rithmic").setLevel(logging.WARNING)
+    root = logging.getLogger()
+    if not root.handlers:
+        root.addHandler(logging.StreamHandler())
+    for h in root.handlers:
+        h.addFilter(filt)
+    for nm in list(logging.root.manager.loggerDict):
+        for h in getattr(logging.getLogger(nm), "handlers", []):
+            h.addFilter(filt)
     logging.getLogger("rithmic").setLevel(logging.WARNING)
+    logging.getLogger("async_rithmic").setLevel(logging.WARNING)
 def push(m):
     m = _scrub(str(m))
     if not NTFY: return

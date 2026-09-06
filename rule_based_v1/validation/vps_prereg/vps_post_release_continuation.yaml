@@ -1,0 +1,74 @@
+name: vps_post_release_continuation
+registered: "2026-09-05"
+status: pre-registered (no returns computed at time of writing)
+
+motivation: >
+  Track B established that no surveyed firm's rules get the existing book to 85% in 16
+  weeks: at the only size whose worst historical trade does not breach the MLL (1 micro
+  on the weekend leg), the book earns roughly $212/week against the ~$375-500/week the
+  arithmetic demands. The gap is VELOCITY, not significance. weekend_hold fires 52x/yr
+  and fomc_drift 8x/yr.
+
+  This is the highest-velocity family left on the unmined list: scheduled macro releases
+  produce roughly 250 events a year, and the window is intraday by construction, so it
+  is legal at every firm including LucidFlex.
+
+  It is a genuinely DIFFERENT family from the pre-announcement drift this project
+  killed (CPI, NFP, ISM, GDP, FOMC minutes, mega-cap earnings). Those all traded the
+  approach TO a release. This trades the reaction AFTER one, entering only once the
+  jump is already in the price -- which is also what makes it a candidate under the
+  "quiet drift" heuristic: the release-instant variance, which is what made mega-cap
+  earnings unsizeable (MAE p05 -$1,960), is excluded from the holding window entirely.
+
+hypothesis: >
+  Scheduled macro releases resolve uncertainty in a direction that is not fully
+  impounded in the first minutes. The initial post-release move therefore CONTINUES over
+  the following hour or two, at a magnitude exceeding the same clock window on non-event
+  days conditioned identically.
+
+primary_spec:
+  signal: sign of the return from release time R to R+15min
+  entry:  R+15min, long if that return > 0, short if < 0
+  exit:   R+75min (primary). R+135min as a shape check.
+  short_accounting: >
+    Short net = -gross - cost, NEVER -(gross - cost). The ledger records a scanner bug
+    where ranking by the long's t-stat made pure cost drag look like a short edge.
+  instruments: MNQ 2020-2026 (primary), ES 2010-2025 (cross-instrument + long era)
+  legality: intraday, crosses no flatten at any surveyed firm. Machine-checked.
+
+event_universe:
+  fomc_decisions: 14:00 ET, from the Fed-verified calendar (127 dates)
+  gdp_advance:    08:30 ET, from the BEA calendar (62 dates)
+  jobless_claims: 08:30 ET every Thursday -- derived, not from a file. ~52/yr, the
+                  single highest-velocity scheduled release available.
+  note: claims dates are derived as Thursday sessions and will be holiday-shifted by
+        the session calendar itself, which is the same treatment the control gets.
+
+controls:
+  same_clock_window: >
+    MANDATORY, and conditioned IDENTICALLY -- the control must also enter on the sign of
+    the R->R+15 move, on non-event days at the same clock time. Otherwise this measures
+    intraday momentum, not an event effect. This control killed ISM and mega-cap
+    earnings; without it the raw number is meaningless.
+  reported_edge: event minus control, with the Welch t of the difference.
+
+era_split:
+  mnq: dev 2020-2023, val 2024-2026
+  es:  dev 2010-2017, val 2018-2025
+  requirement: both halves positive on both instruments; a sign flip is a kill.
+
+trial_count:
+  cells: 12    # 3 event families x 2 horizons x 2 instruments
+  bonferroni_t_bar: 3.03    # two-sided alpha 0.05 / 12
+  note: all 12 are counted whether or not they are reported as headline.
+
+kill_conditions:
+  - event-minus-control t < 2.0 on the primary horizon
+  - either era half negative
+  - efficiency (mean / |MAE p05|) < 0.20
+  - net edge below the round-turn cost floor
+  - per-event mean too small to add $150/week at a size inside the MLL
+
+promotion_condition: >
+  minus-control t >= 2.5, both eras positive on both instruments, efficiency >= 0.20,
+  and enough $/week at a legal size to close the gap Track B left open.

@@ -1,0 +1,59 @@
+name: vps_disaster_stop_sizing
+registered: "2026-09-05"
+status: pre-registered (no stopped returns computed at time of writing)
+
+motivation: >
+  Track B established that the binding constraint is NOT the 16:45 flatten and NOT
+  statistical significance. It is single-event risk. The weekend leg's worst historical
+  trade is -$1,900 at 1 micro (63% of the $3,000 MLL) and -$3,801 at 2 micros (127% =
+  a one-weekend account kill). Every firm surveyed disqualifies 2 micros for that reason
+  alone, which caps the book at ~$132-232/week against the $375-500/week the 16-week
+  deadline requires.
+
+  So the lever that actually moves the deliverable is not a new edge. It is capping the
+  left tail so that a larger size stops being an account-kill. The ledger lists a
+  "pre-specified disaster stop" as a queued dev-only test that was never run.
+
+  This is sizing/risk engineering, not alpha discovery. The trial count is small and the
+  question is narrow: does a hard stop cap the tail WITHOUT destroying the premium?
+
+hypothesis: >
+  The weekend and FOMC premia are drift effects, not mean-reversion effects. If so, a
+  stop placed beyond ordinary path noise (below the MAE p05) removes only genuine
+  disasters and leaves the mean largely intact -- permitting 2-3 micros where 1 was the
+  ceiling. If instead the premium comes from recovering deep excursions, the stop will
+  cut the mean roughly in proportion and the idea dies.
+
+primary_spec:
+  legs: weekend_hold_v1 (Sun 18:00 -> Mon 15:59), fomc_drift_v1 (legal 18:00 entry)
+  stop_levels_per_micro_usd: [300, 400, 500, 600, 800, 1000]
+  fill_model: >
+    CONSERVATIVE AND MANDATORY. A stop is triggered when a 1-min bar's LOW breaches it.
+    The fill is taken at min(stop_price, that bar's OPEN), so a bar that GAPS through the
+    stop fills at the gap price, not at the stop. Anything else would assume the Sunday
+    reopen and Monday gaps -- exactly the risk being hedged -- are free to trade through.
+    One extra tick of slippage is charged on the stop exit.
+  no_optimisation: >
+    The reported pick must be justified by the tail-capping requirement (worst trade
+    <= 60% of MLL at the chosen size), NOT by whichever level maximises P(pass).
+    Report the whole grid.
+
+kill_conditions:
+  - stop cuts the leg's mean by more than it cuts its worst trade, proportionally
+    (i.e. the premium lives in the deep excursions -- the stop is destroying edge)
+  - no (stop, size) pair keeps worst-trade <= 60% of the MLL while beating the
+    unstopped 1-micro book's P(pass)
+  - stopped leg's t-stat falls below 2.0
+  - era split: either half turns negative under the stop
+
+trial_count:
+  cells: 12   # 6 stop levels x 2 legs
+  note: >
+    These are not independent edge searches -- they are a risk transform of an
+    already-validated book, so the multiple-comparison concern is weaker than for a
+    discovery scan. Counted and reported regardless.
+
+promotion_condition: >
+  A (stop, size) pair that is legal, keeps every historical single event under 60% of
+  the MLL, keeps both legs' t >= 2.0 with both era halves positive, and reaches
+  P(pass) >= 85% within 16 weeks under the path-aware MC.

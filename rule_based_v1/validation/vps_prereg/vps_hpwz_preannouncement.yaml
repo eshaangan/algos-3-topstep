@@ -1,0 +1,88 @@
+# HPWZ pre-announcement drift — Hu, Pan, Wang & Zhu, "Premium for Heightened
+# Uncertainty: Explaining Pre-Announcement Market Returns" (NBER w25817, rev. Mar 2021).
+# Paper: ml_intraday_v3/research papers/edge_hunt_sep2026/hu_pan_wang_zhu_premium_heightened_uncertainty.pdf
+#
+# PRE-REGISTERED 2026-09-05 BEFORE running. Spec taken from the paper's own window
+# definitions (Section 1 / footnote 4), not from anything seen in our data.
+
+strategy_id: vps_hpwz_preannouncement
+
+mechanism: |
+  HPWZ extend Lucca-Moench beyond FOMC: they find large OVERNIGHT returns, with no
+  abnormal variance, before NFP, ISM and GDP releases. Their model attributes it to
+  uncertainty about the magnitude of the impending news' market impact, accumulating
+  and then partially resolving before the announcement. Sep 1994 - May 2018 on S&P 500
+  index futures: NFP +10.1bps, ISM +9.1bps, GDP +7.5bps, all significant.
+  This is the same family as fomc_drift_v1, which passed dev + sealed holdout here.
+
+# Why THESE two events and no others -- the screen, applied before looking at data:
+#   HPWZ's documented positives are exactly NFP, ISM, GDP. Their paper never finds
+#   CPI or PPI, which is consistent with this project's own CPI kill (regime-bound,
+#   2021-24 only) and NFP kill (dead both eras, tested 2026-07-10). NFP is therefore
+#   spent. That leaves ISM and GDP, neither ever tested here. Two events, as budgeted.
+events:
+  ism:
+    description: ISM Manufacturing PMI
+    release_time_et: "10:00"
+    calendar_rule: first US business day of each month   # deterministic, no data source needed
+    expected_n_2010_2025: ~186
+  gdp:
+    description: BEA GDP advance estimate
+    release_time_et: "08:30"
+    calendar_rule: BEA published release dates            # NOT deterministic, needs a real calendar
+    expected_n_2010_2025: ~62
+
+# Paper-faithful window (HPWZ footnote 4 and surrounding text):
+#   pre-announcement window = previous trading day's 16:00 close -> 5 min before release
+spec:
+  entry: prior_session_close_1600_et
+  exit_offset_minutes_before_release: 5
+  direction: long_only        # HPWZ document a positive premium; shorting is not the paper
+  instruments:
+    primary: ES front-month ETH 1-min, data/processed/es_1min_eth_frontmonth.parquet (2010-06..2025-12)
+    cross:   MNQ 1-min ETH,            data/processed/mnq_1m_all.parquet          (2020-01..2026-07)
+  contracts: 2
+
+# THE CONTROL THAT DECIDES THIS. The ledger already establishes that overnight drift
+# in equity index futures is REAL but not harvestable
+# (project_structural_taker_verdict_jul2026). So a positive ISM/GDP overnight return
+# proves nothing on its own -- it may be ordinary overnight drift wearing an event
+# label. The event must beat the SAME CLOCK WINDOW on non-event days.
+placebo:
+  same_window_non_event_days: true     # prior 16:00 -> (release_time - 5min) on every other session
+  require_event_beats_placebo: true
+  # Also report the event window against the unconditional overnight mean so the
+  # incremental claim is explicit, not implied.
+
+era_split:
+  dev: "2010-06-06 .. 2017-12-31"
+  val: "2018-01-01 .. 2025-12-31"
+
+# Counted honestly: 2 events x 2 instruments x (event + placebo) x 3 eras. No window
+# tuning is permitted -- the entry/exit are the paper's, not ours. If a variant is
+# tried later it must be added here first.
+dsr_n_trials: 24
+
+gate:
+  min_events: 60
+  require_net_profitable: true         # AFTER costs
+  min_t_stat: 2.5
+  require_placebo_separation: true
+  min_dsr: 0.95
+
+sim:
+  es:  {point_value: 5.0, tick_size: 0.25, commission_per_side: 0.62, slippage_ticks: 1.0}
+  mnq: {point_value: 2.0, tick_size: 0.25, commission_per_side: 0.62, slippage_ticks: 1.0}
+
+# NO VIX/vol conditioning. The ledger records that HPWZ-style vol-conditioning of CPI
+# already INVERTED on pre-specification (2026-07-10). The unconditional window is the
+# paper's headline result and is what gets the single shot here.
+#
+# KNOWN THREATS, recorded pre-run:
+#   1. Overnight drift confound -- addressed by the placebo above; if the event window
+#      does not beat the non-event window, this is a NO-GO regardless of its own t-stat.
+#   2. HPWZ's sample ends May 2018. Our val half (2018-2025) is genuinely out of their
+#      sample, so a dev/val split here is also a publication-decay test.
+#   3. ISM at 10:00 ET means the window spans the 09:30 RTH open, so it holds through
+#      the single most volatile minute of the day; MAE will be much worse than the mean
+#      return suggests. Report path risk, not just the mean.

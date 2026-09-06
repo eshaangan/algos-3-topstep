@@ -1,0 +1,70 @@
+name: vps_legal_fomc_window
+registered: "2026-09-05"
+status: pre-registered (no returns computed at time of writing)
+
+motivation: >
+  The ledger records "fomc_drift_v1 = ILLEGAL" as a blanket verdict. That verdict was
+  reached by running tzguard.check_window_legal() on the two entry hours the strategy
+  had historically used -- 14:00 and 16:00 ET on the prior session -- both of which sit
+  BEFORE the 16:45 ET mandatory flatten and are therefore force-closed.
+
+  But check_window_legal() returns LEGAL for any entry strictly after 16:45 ET whose
+  exit precedes the next 16:45. Machine-checked at registration time: entries at 17:00,
+  18:00, 18:30 and 20:00 ET -> exit 13:55 next day are all LEGAL. The strategy family is
+  not dead; only two of its parameterisations are.
+
+  The ledger's own accrual profile (n=47, 9 entry points) already reports prior-18:00 =
+  $185/event versus $354 at 14:00 -- i.e. roughly half the premium accrues after the
+  Globex reopen. That half has never been evaluated as a standalone tradeable strategy:
+  no control, no era split, no MAE efficiency, no cross-instrument check, no MC.
+
+hypothesis: >
+  The Lucca-Moench pre-FOMC drift accrues partly during the overnight Globex session of
+  the day before the decision. A long entered at the 18:00 ET session reopen on the
+  session before an FOMC decision and exited at 13:55 ET on decision day (flat before the
+  announcement) earns a positive premium that is (a) not explained by being long index
+  futures over the same clock window on ordinary days, and (b) present in both era halves.
+
+primary_spec:
+  side: long only
+  instrument: MNQ (primary), ES (cross-instrument confirmation)
+  entry: 18:00 ET on the session PRECEDING a scheduled FOMC announcement
+  exit:  13:55 ET on the announcement day (flat before the 14:00 release)
+  legality: machine-checked LEGAL via tzguard.check_window_legal("18:00","13:55",1)
+  prior_session: must be the previous TRADING SESSION, not the previous calendar day
+  costs: round-turn commission + one tick of slippage per side, per contract
+
+sensitivity_grid:
+  entry_hours_et: [17:00, 18:00, 19:00, 20:00]
+  purpose: >
+    Confirm the accrual profile is SMOOTH across legal entries. A single spiking hour
+    surrounded by dead ones is a mined window and is to be rejected even if it is the
+    largest. Smoothness is the pass condition here, not magnitude.
+
+controls:
+  same_clock_window: >
+    MANDATORY. Identical 18:00 -> 13:55 hold on all non-FOMC session pairs. The reported
+    edge is event MINUS control. This control alone killed ISM and mega-cap earnings.
+  minus_control_t: report t-stat of the paired difference, not of the raw event mean.
+
+era_split:
+  es:  dev 2010-2017, val 2018-2025
+  mnq: dev 2020-2023, val 2024-2026
+  requirement: BOTH halves must be positive; a sign flip in either is a kill.
+
+trial_count:
+  cells: 8   # 4 legal entry hours x 2 instruments
+  bonferroni_t_bar: 2.90   # two-sided alpha 0.05 / 8 cells, large-n normal approx
+  note: the primary 18:00 cell is designated in advance; the other 3 hours are shape checks.
+
+kill_conditions:
+  - event-minus-control t < 2.0 on MNQ at the primary 18:00 entry
+  - either era half negative on either instrument
+  - accrual profile non-monotone/spiky across the four legal entry hours
+  - efficiency (mean / |MAE p05|) < 0.20
+  - worst single historical event at the intended size exceeds 60% of the $3,000 MLL
+
+promotion_condition: >
+  All of: minus-control t >= 2.5 on MNQ, both era halves positive on both instruments,
+  smooth accrual profile, efficiency >= 0.20, and no single event able to breach 60% of
+  the MLL at the size used in the portfolio MC.

@@ -35,6 +35,13 @@ dsr_n_trials: 50
 
 # ── Decision rule (conjunctive: ALL must pass for GO) ────────────────────────
 gate:
+  # Execution-realism gate (added 2026-09-05). Three synthetic trade books
+  # cleared every statistical test here (DSR 1.000) because DSR faithfully
+  # scores whatever numbers it is handed. These check the numbers are fills.
+  require_execution_realism: true
+  max_exact_stop_frac: 0.90        # stops gap and slip; ~1.0 means synthetic
+  min_distinct_pnl_ratio: 0.05     # fixed-payout books have ~2 values
+  max_bracket_z: 5.0               # excess over barrier-touch probability
   # Sample-size floor. The honest target once 3+ years of data exists is >=150
   # trades spanning >=6 months. 60 is the achievable floor on the current
   # 6-month dataset — raise it as data grows.

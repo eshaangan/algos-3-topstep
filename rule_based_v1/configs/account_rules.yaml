@@ -1,0 +1,93 @@
+# LucidFlex account rules — SINGLE SOURCE OF TRUTH.
+#
+# Why this file exists: these four numbers were previously carried in prose memory,
+# were wrong, and the error propagated into months of pass-probability work. On
+# 2026-09-05 an external audit found the project had been assuming a $3,000 buffer,
+# no consistency rule, and that ~23h holds were allowed. Two of those were false and
+# the third is the opposite of the truth. Nothing may hardcode these values again.
+#
+# SOURCES (public rule pages, retrieved 2026-09-05):
+#   https://tradetanto.com/learn/lucid-trading-rules-explained-every-plan-rule-and-limit
+#   https://saveonpropfirms.com/blog/lucid-trading-lucidflex-guide
+# STATUS: web-sourced, NOT yet confirmed against the user's own account dashboard.
+#   Anything marked `verified: false` must be checked before real money is risked.
+
+verified_against_account_dashboard: false      # <-- set true only after checking in-app
+retrieved: "2026-09-05"
+
+active_account: flex_100k                       # matches configs/risk_lucid_100k.yaml
+                                                # and "Lucid 100k hard cap" in ml_strategy_runner.py
+
+accounts:
+  flex_25k:  {balance: 25000,  max_loss_limit: 1000, profit_target: 1250}
+  flex_50k:  {balance: 50000,  max_loss_limit: 2000, profit_target: 3000}
+  flex_100k: {balance: 100000, max_loss_limit: 3000, profit_target: 6000}
+  flex_150k: {balance: 150000, max_loss_limit: 4500, profit_target: 9000}
+
+drawdown:
+  type: end_of_day_trailing     # trails EOD equity peak, does NOT trail intraday highs
+  locks_at_starting_balance: true   # floor stops rising once it reaches the start balance
+  daily_loss_limit: null            # LucidFlex evaluations have NO daily loss limit
+                                    # (LucidPro does -- do not confuse the two)
+
+consistency:
+  applies_to: evaluation_only       # drops once funded
+  max_best_day_fraction: 0.50       # largest single profitable day <= 50% of total profit
+  enforced_at: moment_of_pass
+  min_trading_days: 2
+
+session:
+  # THE RULE THAT KILLS OVERNIGHT EVENT STRATEGIES.
+  mandatory_flatten_et: "16:45"     # Mon-Fri; open positions are AUTO-flattened
+  flatten_days: [Mon, Tue, Wed, Thu, Fri]
+  trading_resumes_et: "18:00"       # Sun-Thu
+  overnight_holding_permitted: false
+
+# Consequences, derived from the rules above. Recorded here so no future analysis
+# has to re-derive them (or forget them).
+strategy_legality:
+  fomc_drift_v1:
+    legal: partial          # CORRECTED 2026-09-05 -- was a blanket `false`, which is wrong
+    reason: >
+      The 14:00 and 16:00 ET prior-session entries are ILLEGAL: they open before the
+      16:45 flatten, so the position is force-closed hours after entry and the tested
+      window can never complete. But an entry at or after 18:00 ET (when trading
+      resumes) held to 13:55 the next day crosses no flatten and IS legal. Roughly
+      half the premium accrues after the Globex reopen; measured on MNQ n=47 the
+      18:00 entry pays +$219.61/event (minus-control t=+2.29, p=0.026, efficiency
+      0.260) versus +$354 at the illegal 14:00 entry.
+      The earlier blanket "ILLEGAL" verdict came from testing only the two entry
+      hours the strategy happened to use. See
+      validation/vps_prereg/vps_legal_fomc_window_VERDICT.md.
+    legal_entries_et: ["18:00", "19:00", "20:00"]
+    illegal_entries_et: ["14:00", "16:00", "17:00"]
+    note_on_17_00: >
+      17:00 is ILLEGAL for a second, independent reason worth recording: it falls in
+      the 16:45-18:00 closed window (no orders accepted), AND its entire measured
+      advantage over the 18:00 entry accrues across the untradeable 17:00-18:00 CME
+      maintenance halt. check_window_legal() originally reported it LEGAL because it
+      checked only the flatten crossing, not whether the entry could be placed. That
+      gap is now closed -- the function enforces trading_resumes_et.
+  weekend_hold_v1:
+    legal: true
+    reason: >
+      Sunday 18:00 ET entry (trading resumes 18:00 Sun) to Monday 15:59 ET exit. The
+      flatten applies Mon-Fri at 16:45; this window opens after Sunday's session start
+      and closes before Monday's flatten, so it crosses no flatten boundary.
+    caveat: >
+      The published rules also say "overnight holding not permitted" as a general
+      statement. Mechanically this window crosses no flatten, but CONFIRM with the
+      firm before trading it -- a Sunday-night-into-Monday hold is exactly the kind of
+      edge case a written rule and an automated system can disagree about.
+  euro_open_v1:
+    legal: true
+    reason: 02:00-05:00 ET weeknights; entirely inside a single session, no flatten crossed.
+
+# Contract caps (micros) by account size.
+position_caps_micros:
+  flex_25k: 20
+  flex_50k: 40
+  flex_100k: 100
+  flex_150k: 100
+# NOTE: risk_lucid_100k.yaml and ml_strategy_runner.py both impose a self-chosen cap
+# of 5-6 MNQ micros, far below the firm limit. That is a risk decision, not a rule.

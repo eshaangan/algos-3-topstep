@@ -1,0 +1,116 @@
+# TRACK B — surveyed prop-firm rule sets, machine-readable.
+#
+# Why this file exists: the same reason account_rules.yaml exists. Firm rules carried in
+# prose got this project's P(pass) numbers wrong for months. Nothing here may be
+# retyped into a script; load it with tzguard.load_firm_rules().
+#
+# STATUS: web-sourced from public rule pages + independent aggregator reviews,
+# retrieved 2026-09-05. NONE are confirmed against a real account dashboard.
+# `verified` is false everywhere until someone checks in-app. Treat every P(pass)
+# computed from these as provisional.
+#
+# The decisive field is `flatten_et`. A firm with flatten_et: null imposes no daily
+# auto-liquidation, which is the ONLY thing standing between this project's validated
+# book and a pass.
+
+retrieved: "2026-09-05"
+
+firms:
+
+  lucid_flex_100k:
+    label: "LucidFlex 100k (incumbent)"
+    verified: false
+    balance: 100000
+    profit_target: 6000
+    max_loss_limit: 3000
+    drawdown_type: end_of_day_trailing
+    locks_at_starting_balance: true
+    daily_loss_limit: null
+    consistency: 0.50           # evaluation only
+    min_trading_days: 2
+    flatten_et: "16:45"         # MANDATORY daily auto-flatten Mon-Fri
+    resumes_et: "18:00"
+    overnight_permitted: false
+    weekend_permitted: false
+    news_restriction: none_documented
+    sources:
+      - https://tradetanto.com/learn/lucid-trading-rules-explained-every-plan-rule-and-limit
+      - https://saveonpropfirms.com/blog/lucidflex-guide
+
+  myfundedfutures_pro_100k:
+    label: "MyFundedFutures Pro/Core 100k"
+    verified: false
+    balance: 100000
+    profit_target: 6000
+    max_loss_limit: 3000        # 3% of starting balance
+    drawdown_type: end_of_day_trailing
+    locks_at_starting_balance: true   # locks at start + $100
+    daily_loss_limit: null
+    consistency: 0.50
+    min_trading_days: 2
+    flatten_et: "16:10"         # auto-liquidation at 16:10 ET, non-holiday days
+    resumes_et: "18:00"
+    overnight_permitted: true   # 18:00 entry may be held to 16:10 NEXT day
+    weekend_permitted: false    # the 16:10 flatten runs every weekday incl. Friday
+    news_restriction: tier1_flat_2min   # FOMC/CPI/NFP: flat 2 min either side
+    note: >
+      Aggregators advertise MFF as allowing overnight holds, and in the same sense
+      Lucid does -- an evening entry survives to the next afternoon. But the official
+      help centre states open positions are AUTO-CLOSED at 16:10 ET on every regular
+      trading day, which is STRICTER than Lucid's 16:45. MFF is not an escape from the
+      flatten. It also adds a Tier-1 news restriction Lucid does not have, which
+      constrains an FOMC strategy from the other side.
+    sources:
+      - https://help.myfundedfutures.com/en/articles/9558251-permitted-times-to-trade
+      - https://help.myfundedfutures.com/en/articles/8230009-news-trading-policy
+
+  phidias_swing_100k:
+    label: "Phidias Swing/Premium 100k"
+    verified: false
+    balance: 100000
+    profit_target: 6000
+    max_loss_limit: 3000
+    drawdown_type: end_of_day_trailing
+    locks_at_starting_balance: true
+    daily_loss_limit: null
+    consistency: null           # NO consistency rule on the evaluation
+    min_trading_days: 1
+    flatten_et: null            # NO mandatory daily flatten -- the decisive difference
+    resumes_et: "18:00"
+    overnight_permitted: true
+    weekend_permitted: true     # Friday close -> Monday open holds explicitly allowed
+    news_restriction: none      # news trading allowed on all accounts
+    position_cap_micros: 140
+    sources:
+      - https://damnpropfirms.com/futures-prop-firms/phidias-prop-firm/
+      - https://saveonpropfirms.com/prop-firms/phidias-prop-firm
+      - https://phidiaspropfirm.com/swing-allowed   # 403s to automated fetch; check in a browser
+    note: >
+      Identical headline arithmetic to LucidFlex 100k -- same $6,000 target, same
+      $3,000 EOD-trailing MLL -- but with no daily flatten and no evaluation
+      consistency rule. If these numbers hold up in-app, every window this project
+      validated becomes legal, including the 14:00/16:00 fomc_drift_v1 entries that
+      Lucid's flatten force-closes.
+
+  elite_trader_funding_diamond_100k:
+    label: "Elite Trader Funding 'Diamond Hands' 100k"
+    verified: false
+    balance: 100000
+    profit_target: 5000
+    max_loss_limit: 3500
+    drawdown_type: end_of_day_trailing
+    daily_loss_limit: 1500      # measured from prior day's closing balance
+    consistency: null
+    min_trading_days: 5
+    flatten_et: null
+    resumes_et: "18:00"
+    overnight_permitted: true
+    weekend_permitted: true
+    news_restriction: unknown
+    note: >
+      Lower target ($5,000) and a bigger buffer ($3,500) than Lucid, and it permits
+      weekend holds -- but it reintroduces a $1,500 DAILY loss limit, which is exactly
+      the constraint a single bad weekend gap breaches. Worth modelling only if the
+      daily limit is applied to closed equity rather than open drawdown.
+    sources:
+      - https://elitetraderfunding.app/blog/swing-trading-prop-firms-which-allow-overnight-holds-2026

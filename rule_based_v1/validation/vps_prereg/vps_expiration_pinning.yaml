@@ -1,0 +1,94 @@
+# Expiration-day strike pinning — Golez & Jackwerth (2012), JFE 106, 566-585.
+# Paper: ml_intraday_v3/research papers/edge_hunt_sep2026/golez_jackwerth_2012_pinning_sp500_futures.pdf
+#
+# PRE-REGISTERED 2026-09-05, BEFORE running any of it. Written from the paper's
+# own Section 3 (Methodology) and Appendix A.1, not from anything seen in our data.
+
+strategy_id: vps_expiration_pinning
+
+mechanism: |
+  Market makers short SP options (options ON the S&P 500 future) delta-hedge into
+  expiration. As an option's moneyness flips through its strike, the hedge delta
+  swings 0 -> 1, and rebalancing trades push the future toward the nearest strike.
+  It is a hedging obligation, not a behavioural pattern, so publication does not
+  arbitrage it away. Golez-Jackwerth measure it Nov 1992 - Nov 2009 and find
+  pinning (not the Avellaneda-Lipkin predicted anti-pinning), worth >= $115m of
+  notional price move per expiration date, stronger post-Oct-1998.
+
+# The paper's own structural control, and the reason this is worth a trial slot:
+# pinning of the FIRST-TO-MATURITY future is only possible on SERIAL expirations.
+# On QUARTERLY expirations (Mar/Jun/Sep/Dec) the front future itself expires and
+# must converge to the cash basket, which SP-option hedging does not touch; the
+# paper also argues hedgers would use the second-to-maturity future there.
+# So quarterly expirations are a mechanism placebo that must come out FLAT.
+directional_prediction:
+  serial_expiration_friday: pin        # price drawn toward nearest strike into settlement
+  quarterly_expiration_friday: none    # paper predicts no pinning in front future
+  non_expiration_days: none
+
+data:
+  primary:
+    instrument: ES
+    bars: data/processed/es_bars_2010_2025.h5   # key /bars_5min, RTH 09:30-16:00 ET
+    span: "2010-06-07 .. 2025-12-19"            # 3995 sessions
+  cross_instrument:
+    instrument: MNQ
+    bars: data/processed/mnq_1m_all.parquet     # naive America/Chicago, DST-aware
+    span: "2020-01-01 .. 2026-07-09"
+
+# Paper-faithful primary spec (Eq. 2 and Appendix A.1). Everything else is
+# exploratory and counted as a trial.
+primary_spec:
+  expiration_day: third_friday          # prior trading day if not a session
+  serial_months: [1, 2, 4, 5, 7, 8, 10, 11]
+  quarterly_months: [3, 6, 9, 12]
+  strike_grid_points: 5.0               # SP options, first/second nearest month
+  pin_band_points: 0.375                # Pinn_sym: |Fut_settle - K_atm| <= 0.375
+  settlement_bar: last_rth_bar_close    # 15:55-16:00 ET bar close
+  control_window_trading_days: 10       # +/-10 days around each expiration, excl. the day
+
+robustness_grid:                        # paper's own robustness band values, plus
+  pin_band_points: [0.25, 0.375, 0.5]   # modern-grid variants for OI concentration
+  strike_grid_points_es: [5.0, 25.0, 50.0]
+  strike_grid_points_nq: [25.0, 50.0, 100.0]
+
+# Converting a clustering statistic into a trade: at decision time T, if the price
+# sits d points from the nearest strike, buy/sell TOWARD that strike and exit at
+# settlement. This is the tradeable implication of pinning and is what decides GO.
+tradeable_spec:
+  decision_times_et: ["13:00", "14:00", "15:00"]
+  exit: settlement
+  min_distance_points: 0.0              # swept; entering at d~0 has nothing to capture
+  direction: toward_nearest_strike
+
+era_split:
+  dev:  "2010-06-07 .. 2017-12-31"
+  val:  "2018-01-01 .. 2025-12-31"
+  # MNQ 2020-2026 is a separate instrument, not a third look at the same tape.
+
+# Counted honestly: 3 decision times x 3 bands x 3 grids x 2 instruments, plus the
+# distance sweep. Do not report a survivor at less than this.
+dsr_n_trials: 60
+
+gate:
+  min_events: 60                        # serial expirations available on ES: ~124
+  require_net_profitable: true          # AFTER costs, not gross
+  min_dsr: 0.95
+  require_placebo_flat: true            # quarterly expirations must not pay
+  min_t_stat: 2.5
+
+sim:
+  es:  {point_value: 5.0,  tick_size: 0.25, commission_per_side: 0.62, slippage_ticks: 1.0}
+  mnq: {point_value: 2.0,  tick_size: 0.25, commission_per_side: 0.62, slippage_ticks: 1.0}
+
+# KNOWN THREAT TO THE HYPOTHESIS, recorded before seeing results so it cannot be
+# retrofitted as an excuse: the strike grid has not widened with the index. In the
+# paper's 1992-2009 sample a 5-point grid on an S&P of 400-1500 was 0.3-1.2% wide.
+# At ES 6900 it is 0.07%. The maximum capturable move is half a grid interval, so
+# the paper-faithful 5-point spec caps at 2.5 pts = $12.50/MES gross against
+# $3.74/contract of round-turn cost -- and pinning captures only a fraction of the
+# cap. If the effect is real but sub-cost, that is a NO-GO, and the honest reason
+# is economic (grid width) rather than statistical. Report the gross-vs-cost
+# arithmetic explicitly either way. The wider exploratory grids (25/50 on ES) are
+# a proxy for where option OI actually concentrates, which is the only version
+# with room to pay; they are NOT the paper's spec and carry their own trial cost.
