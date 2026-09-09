@@ -14,9 +14,19 @@ __pycache__/
 *.tmp
 
 # Data + outputs
-data/
-artifacts/
-runs/
+# NOTE: these are anchored with a leading slash. A bare `data/` matches a
+# directory of that name at ANY depth, which silently excluded the entire
+# ml_intraday_v3/data/ SOURCE package (ingest.py, continuous.py, resample.py,
+# session.py, qa.py, reindex.py) from version control.
+/data/
+/artifacts/
+/runs/
+
+# Data artifacts that live inside the source package
+ml_intraday_v3/data/raw/
+ml_intraday_v3/data/raw_futures/
+ml_intraday_v3/data/*.parquet
+ml_intraday_v3/data/*.h5
 rule_based_v1/models/
 !rule_based_v1/models/ml_strategy_mnq_v7.pkl
 logs/remote_pc/
