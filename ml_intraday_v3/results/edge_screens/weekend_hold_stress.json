@@ -1,0 +1,107 @@
+{
+  "source": "rule_based_v1/validation/research_portfolio_mc.weekend_trades",
+  "bars": "data/processed/mnq_1m_all.parquet",
+  "contracts": 1,
+  "instrument": "MNQ",
+  "n": 202,
+  "total_pnl": 26674.519999999997,
+  "mean_pnl": 132.05207920792077,
+  "full_t": 4.500334485602597,
+  "worst_loo_period": "2026",
+  "worst_loo_t": 3.3798847858820795,
+  "worst_loo_mean": 95.16,
+  "loo_table": [
+    {
+      "period": "2020",
+      "n_dropped": 30,
+      "dropped_mean": 224.14333333333337,
+      "dropped_total": 6724.300000000001,
+      "dropped_t": 3.3926819350176647,
+      "remaining_n": 172,
+      "remaining_mean": 115.98965116279066,
+      "remaining_t": 3.580715360857409,
+      "thin": false
+    },
+    {
+      "period": "2021",
+      "n_dropped": 31,
+      "dropped_mean": 26.985806451612895,
+      "dropped_total": 836.5599999999997,
+      "dropped_t": 0.4592503460856759,
+      "remaining_n": 171,
+      "remaining_mean": 151.09918128654968,
+      "remaining_t": 4.601673506831014,
+      "thin": false
+    },
+    {
+      "period": "2022",
+      "n_dropped": 30,
+      "dropped_mean": -53.15666666666668,
+      "dropped_total": -1594.7000000000005,
+      "dropped_t": -0.6922619981355065,
+      "remaining_n": 172,
+      "remaining_mean": 164.3559302325581,
+      "remaining_t": 5.2688263421231465,
+      "thin": false
+    },
+    {
+      "period": "2023",
+      "n_dropped": 30,
+      "dropped_mean": 94.37666666666668,
+      "dropped_total": 2831.3,
+      "dropped_t": 2.6716285362998105,
+      "remaining_n": 172,
+      "remaining_mean": 138.62337209302322,
+      "remaining_t": 4.0878609612932,
+      "thin": false
+    },
+    {
+      "period": "2024",
+      "n_dropped": 32,
+      "dropped_mean": 30.33812499999999,
+      "dropped_total": 970.8199999999997,
+      "dropped_t": 0.5381959278361084,
+      "remaining_n": 170,
+      "remaining_mean": 151.19823529411764,
+      "remaining_t": 4.572593550696815,
+      "thin": false
+    },
+    {
+      "period": "2025",
+      "n_dropped": 32,
+      "dropped_mean": 244.885,
+      "dropped_total": 7836.32,
+      "dropped_t": 2.6529627941510654,
+      "remaining_n": 170,
+      "remaining_mean": 110.81294117647057,
+      "remaining_t": 3.6820512386424493,
+      "thin": false
+    },
+    {
+      "period": "2026",
+      "n_dropped": 17,
+      "dropped_mean": 533.5247058823529,
+      "dropped_total": 9069.92,
+      "dropped_t": 3.9417851826485077,
+      "remaining_n": 185,
+      "remaining_mean": 95.16,
+      "remaining_t": 3.3798847858820795,
+      "thin": false
+    }
+  ],
+  "top_k_share": {
+    "top_1": 0.06428456819466667,
+    "top_5": 0.2571855088676385,
+    "top_10": 0.4348194456732493,
+    "top_20": 0.7001138164810462
+  },
+  "gini": 0.4472849227755902,
+  "first_half_mean": 57.5421782178218,
+  "second_half_mean": 206.5619801980197,
+  "split_t": 2.574605651076265,
+  "split_p": 0.01078717195032944,
+  "verdict": "ROBUST",
+  "notes": [
+    "second half is significantly stronger than the first (57.54 -> 206.56, p=0.011)"
+  ]
+}

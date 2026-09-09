@@ -1,0 +1,116 @@
+{
+  "trade_log": "ml_intraday_v3/results/ml_scalper_v3_oos_trades.parquet",
+  "pnl_col": "pnl_dollars",
+  "n_trades_raw": 54,
+  "frac_long": 1.0,
+  "stability": {
+    "n_trades": 54,
+    "n_blocks": 3,
+    "n_bins": 10,
+    "mean_pairwise_js": 0.14779453791812702,
+    "first_last_js": 0.14617701908601155,
+    "p_value": 0.00866377874041986,
+    "null_mean_js": 0.08242975178372357,
+    "null_q95_js": 0.12552575782917466,
+    "ks_first_last_stat": 0.3333333333333333,
+    "ks_first_last_p": 0.2754184632376776,
+    "block_stats": [
+      {
+        "n": 18,
+        "mean_pnl": 186.33722222222218,
+        "total_pnl": 3354.0699999999993,
+        "p_win": 0.4444444444444444,
+        "avg_win": 1544.24,
+        "avg_loss": -899.9849999999999,
+        "std_pnl": 1451.9092991068712
+      },
+      {
+        "n": 18,
+        "mean_pnl": 973.4288888888888,
+        "total_pnl": 17521.719999999998,
+        "p_win": 0.7222222222222222,
+        "avg_win": 1536.283846153846,
+        "avg_loss": -489.994,
+        "std_pnl": 1286.6413277754875
+      },
+      {
+        "n": 18,
+        "mean_pnl": 200.4055555555556,
+        "total_pnl": 3607.3000000000006,
+        "p_win": 0.4444444444444444,
+        "avg_win": 1238.89625,
+        "avg_loss": -630.3870000000001,
+        "std_pnl": 994.0797084162655
+      }
+    ],
+    "verdict": "UNSTABLE",
+    "notes": [
+      "P/L distribution drifts more than chance: backtest distribution is not the one you would trade forward",
+      "average loser moved -900 -> -630.4 from first to last block"
+    ]
+  },
+  "alpha_beta": {
+    "n_days": 42,
+    "n_trades": 54,
+    "total_pnl": 24483.090000000004,
+    "mean_daily_pnl": 582.9307142857144,
+    "frac_long": 1.0,
+    "directional": {
+      "n_obs": 42,
+      "r_squared": 0.001309986010487929,
+      "hac_lags": 3,
+      "terms": {
+        "alpha": {
+          "coef": 556.7818229877561,
+          "se": 281.2157472304633,
+          "t": 1.9799098324727153,
+          "p": 0.05462268584056417
+        },
+        "beta": {
+          "coef": 0.19046233418867098,
+          "se": 1.0471022973255806,
+          "t": 0.1818946770292966,
+          "p": 0.8565840510829412
+        }
+      }
+    },
+    "with_convexity": {
+      "n_obs": 42,
+      "r_squared": 0.012279776742411985,
+      "hac_lags": 3,
+      "terms": {
+        "alpha": {
+          "coef": 698.2965843126606,
+          "se": 399.01677797429875,
+          "t": 1.7500431632417193,
+          "p": 0.08797579999585506
+        },
+        "beta": {
+          "coef": 0.6270948126375873,
+          "se": 0.7368473973074565,
+          "t": 0.8510511334220348,
+          "p": 0.39993628664810277
+        },
+        "gamma_abs": {
+          "coef": -0.8853333338045899,
+          "se": 1.2608302288803566,
+          "t": -0.7021828264625162,
+          "p": 0.48673507683280137
+        }
+      }
+    },
+    "beta_contracts_equiv": 0.0063487444729557,
+    "pnl_explained_by_beta": 1098.253434515424,
+    "pnl_residual_alpha": 23384.836565485755,
+    "verdict": "NO_SIGNAL",
+    "notes": [
+      "flat days zero-filled across the strategy's active range (2026-03-24 to 2026-05-11); 16 of 42 days flat",
+      "neither alpha nor beta is distinguishable from zero"
+    ]
+  },
+  "benchmark": {
+    "bars": "data/processed/mnq_1min_ohlc.parquet",
+    "key": null,
+    "point_value": 30.0
+  }
+}

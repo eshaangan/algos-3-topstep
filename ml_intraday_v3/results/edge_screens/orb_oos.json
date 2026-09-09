@@ -1,0 +1,47 @@
+{
+  "trade_log": "ml_intraday_v3/diagnostics/orb_oos_results.json",
+  "pnl_col": "pnl",
+  "n_trades_raw": 32,
+  "frac_long": 0.53125,
+  "stability": {
+    "n_trades": 32,
+    "n_blocks": 2,
+    "n_bins": 6,
+    "mean_pairwise_js": 0.12599976805861776,
+    "first_last_js": 0.12599976805861776,
+    "p_value": 0.06598680263947211,
+    "null_mean_js": 0.06137308088759519,
+    "null_q95_js": 0.13362435584048737,
+    "ks_first_last_stat": 0.4375,
+    "ks_first_last_p": 0.09332629866697198,
+    "block_stats": [
+      {
+        "n": 16,
+        "mean_pnl": -21.880671528504738,
+        "total_pnl": -350.0907444560758,
+        "p_win": 0.375,
+        "avg_win": 119.8896277331995,
+        "avg_loss": -106.94285108552728,
+        "std_pnl": 124.80036134077605
+      },
+      {
+        "n": 16,
+        "mean_pnl": 79.52677374241536,
+        "total_pnl": 1272.4283798786457,
+        "p_win": 0.75,
+        "avg_win": 175.20673394449932,
+        "avg_loss": -207.51310686383655,
+        "std_pnl": 188.54208045386716
+      }
+    ],
+    "verdict": "STABLE",
+    "notes": [
+      "hit rate moved 0.375 -> 0.75 from first to last block",
+      "average winner moved 119.9 -> 175.2 from first to last block",
+      "average loser moved -106.9 -> -207.5 from first to last block"
+    ]
+  },
+  "alpha_beta": {
+    "error": "no timestamps; cannot align to a benchmark"
+  }
+}

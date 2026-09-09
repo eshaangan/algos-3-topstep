@@ -1,0 +1,116 @@
+{
+  "trade_log": "ml_intraday_v3/results/informed_flow_ml_trades.parquet",
+  "pnl_col": "pnl_dollars",
+  "n_trades_raw": 65,
+  "frac_long": 1.0,
+  "stability": {
+    "n_trades": 65,
+    "n_blocks": 3,
+    "n_bins": 7,
+    "mean_pairwise_js": 0.05554492777200892,
+    "first_last_js": 0.06714610771259458,
+    "p_value": 0.3255581472842386,
+    "null_mean_js": 0.04809133364237041,
+    "null_q95_js": 0.08210544822909961,
+    "ks_first_last_stat": 0.27056277056277056,
+    "ks_first_last_p": 0.30423243364193064,
+    "block_stats": [
+      {
+        "n": 22,
+        "mean_pnl": 17.662272727272725,
+        "total_pnl": 388.56999999999994,
+        "p_win": 0.2727272727272727,
+        "avg_win": 299.60499999999996,
+        "avg_loss": -88.06625,
+        "std_pnl": 214.26961133629703
+      },
+      {
+        "n": 22,
+        "mean_pnl": -1.7504545454545464,
+        "total_pnl": -38.51000000000002,
+        "p_win": 0.22727272727272727,
+        "avg_win": 122.356,
+        "avg_loss": -38.25235294117647,
+        "std_pnl": 94.85858303798358
+      },
+      {
+        "n": 21,
+        "mean_pnl": 12.719047619047624,
+        "total_pnl": 267.1000000000001,
+        "p_win": 0.3333333333333333,
+        "avg_win": 124.24142857142859,
+        "avg_loss": -43.042142857142856,
+        "std_pnl": 103.0537230237104
+      }
+    ],
+    "verdict": "STABLE",
+    "notes": [
+      "average winner moved 299.6 -> 124.2 from first to last block",
+      "average loser moved -88.07 -> -43.04 from first to last block"
+    ]
+  },
+  "alpha_beta": {
+    "n_days": 59,
+    "n_trades": 65,
+    "total_pnl": 113.07,
+    "mean_daily_pnl": 1.9164406779661016,
+    "frac_long": 1.0,
+    "directional": {
+      "n_obs": 59,
+      "r_squared": 0.27476148276647305,
+      "hac_lags": 3,
+      "terms": {
+        "alpha": {
+          "coef": -0.35146304259814576,
+          "se": 10.524978402137064,
+          "t": -0.033393231716920414,
+          "p": 0.9734776692717526
+        },
+        "beta": {
+          "coef": 0.7768146270727363,
+          "se": 0.2322601892269016,
+          "t": 3.3445879367378106,
+          "p": 0.0014618615103749726
+        }
+      }
+    },
+    "with_convexity": {
+      "n_obs": 59,
+      "r_squared": 0.3919166903641734,
+      "hac_lags": 3,
+      "terms": {
+        "alpha": {
+          "coef": -35.68008609455656,
+          "se": 13.709264822330903,
+          "t": -2.602625783144664,
+          "p": 0.011817767990280986
+        },
+        "beta": {
+          "coef": 0.6502927875818818,
+          "se": 0.18238743942757316,
+          "t": 3.5654472129376864,
+          "p": 0.0007519276487922506
+        },
+        "gamma_abs": {
+          "coef": 0.7358484223662838,
+          "se": 0.23132067001729426,
+          "t": 3.1810750950672477,
+          "p": 0.0023931744546335084
+        }
+      }
+    },
+    "beta_contracts_equiv": 0.15536292541454727,
+    "pnl_explained_by_beta": 133.80631951327882,
+    "pnl_residual_alpha": -20.7363195132906,
+    "verdict": "BETA_ONLY",
+    "notes": [
+      "flat days zero-filled across the strategy's active range (2026-02-02 to 2026-05-12); 44 of 59 days flat",
+      "no significant intercept but significant market loading: this is directional exposure, not edge"
+    ]
+  },
+  "benchmark": {
+    "bars": "data/processed/mes_2026_ytd_5m.h5",
+    "key": "bars_5min",
+    "point_value": 5.0
+  }
+}
