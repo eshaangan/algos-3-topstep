@@ -179,9 +179,28 @@ def main(argv=None) -> int:
                     help="alert only; never restart the recorder")
     ap.add_argument("--dry", action="store_true", help="report, take no action")
     ap.add_argument("--stale-secs", type=int, default=STALE_SECS)
+    ap.add_argument("--loop", type=int, default=0, metavar="SECS",
+                    help="run forever, checking every SECS (0 = single pass)")
     args = ap.parse_args(argv)
 
     _load_env()
+    if args.loop:
+        # cron is not usable on this machine: it has no Full Disk Access, so it
+        # cannot even read a script under ~/Documents ("Operation not
+        # permitted"), and it resolves python3 to the CommandLineTools build
+        # which lacks pandas. A long-lived user process inherits the launching
+        # terminal's rights, which is how the recorder and runner already run.
+        log(f"watchdog loop started (every {args.loop}s)")
+        while True:
+            try:
+                _one_pass(args)
+            except Exception as exc:
+                log(f"watchdog pass error: {type(exc).__name__}: {exc}")
+            time.sleep(args.loop)
+    return _one_pass(args)
+
+
+def _one_pass(args) -> int:
     problems = []
 
     # --- runner: presence only, NEVER restarted ------------------------------
