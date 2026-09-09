@@ -60,7 +60,12 @@ OUT_DIR = ROOT / "logs" / "weekend_fwd"
 LIVE_DIR = OUT_DIR / "live"
 WD_LOG = OUT_DIR / "watchdog.log"
 STALE_SECS = 900          # quote older than this on a trading day = stale
-RECORDER_PAT = "record_l2.py"
+# Match either spelling: the recorder may be started directly (record_l2.py, as
+# on a workstation with .env sourced) or via its dotenv launcher
+# (launch_recorder.py, which is how the watchdog and the mini start it). A
+# pattern matching only one of the two would report the recorder permanently
+# down and restart-loop it forever.
+RECORDER_PAT = "record_l2.py|launch_recorder.py"
 RUNNER_PAT = "launch_weekend_fwd.py"
 
 
@@ -153,8 +158,11 @@ def market_should_be_open() -> bool:
 
 
 def restart_recorder() -> bool:
+    # Go through launch_recorder, not record_l2 directly: record_l2 reads
+    # os.environ and does not load .env, so invoking it straight from here
+    # (cron/daemon context, no sourced shell) dies on KeyError RITHMIC_USERNAME.
     cmd = ["caffeinate", "-is", sys.executable,
-           str(ROOT / "data_collection" / "record_l2.py"),
+           str(ROOT / "rule_based_v1" / "live" / "launch_recorder.py"),
            "--symbol", "MNQ", "--out-dir", str(RAW_DIR)]
     try:
         with open(OUT_DIR / "recorder.log", "a") as fh:
