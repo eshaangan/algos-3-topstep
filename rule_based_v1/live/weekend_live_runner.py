@@ -41,40 +41,58 @@ class WkLive:
             url=os.environ.get("RITHMIC_GATEWAY_URI", "wss://rprotocol.rithmic.com:443"),
             reconnection_settings=ReconnectionSettings(max_retries=None,
                 backoff_type="exponential", interval=2, max_delay=60))
-        await self.client.connect(plants=[SysInfraType.ORDER_PLANT, SysInfraType.PNL_PLANT,
-                                          SysInfraType.TICKER_PLANT])
+        # NO TICKER_PLANT. Rithmic allows ONE concurrent ticker session per login
+        # and record_l2.py holds it continuously. Subscribing here made the two
+        # processes force each other out in a ~5s ForcedLogout/reconnect loop,
+        # which corrupts the very quote stream this runner depends on.
+        await self.client.connect(plants=[SysInfraType.ORDER_PLANT, SysInfraType.PNL_PLANT])
         self.acct = (await self.client.plants["order"].list_accounts())[0].account_id
-        self.contract = await self.front_month()
+        self.contract = self.front_month()
         self.client.on_exchange_order_notification += self._note
         log(f"connected acct={self.acct} contract={self.contract} mode={'LIVE' if self.live else 'DRY'}")
         self.jlog(ev="connected", live=self.live)
 
-    async def front_month(self):
+    def front_month(self, today=None):
         """
-        Resolve the tradable MNQ contract at the moment it is needed.
+        Front-month MNQ contract, computed from the CME calendar. No network.
 
         This used to be `os.environ.get("FADE_CONTRACT", "MNQU6")`, read once at
-        startup. A quarterly roll happens 8 days before expiry, so a runner
+        startup. The quarterly roll lands 8 days before expiry, so a runner
         launched mid-week and left up over the weekend would submit into the
-        expiring contract -- thin book, bad fill, and eventually no market at
-        all. FADE_CONTRACT still wins if set, as an explicit manual override.
+        expiring contract -- thin book, bad fill, eventually no market at all.
+
+        An earlier fix called client.get_front_month_contract(), which required
+        TICKER_PLANT and collided with record_l2.py over Rithmic's single
+        permitted ticker session. Hence this offline calculation instead.
+
+        CME equity index futures: quarterly H/M/U/Z, expiring on the third
+        Friday of the contract month, with volume rolling to the next quarter
+        roughly 8 days before that. FADE_CONTRACT overrides everything.
         """
         override = os.environ.get("FADE_CONTRACT")
         if override:
             log(f"contract: {override} (FADE_CONTRACT override)")
             return override
-        try:
-            c = await self.client.get_front_month_contract(SYMBOL, exchange=EXCHANGE)
-            if c:
-                return str(c)
-        except Exception as e:
-            log(f"front-month lookup failed: {type(e).__name__}: {e}")
-        if self.contract:
-            log(f"front-month lookup failed; keeping {self.contract}")
-            return self.contract
-        raise RuntimeError(
-            "cannot resolve MNQ front month and no FADE_CONTRACT override is set; "
-            "refusing to guess a contract")
+
+        d = today or pd.Timestamp.now(tz=ET).normalize()
+        codes = {3: "H", 6: "M", 9: "U", 12: "Z"}
+
+        def third_friday(y, m):
+            first = pd.Timestamp(year=y, month=m, day=1)
+            # weekday(): Mon=0 .. Fri=4
+            return first + pd.Timedelta(days=(4 - first.weekday()) % 7 + 14)
+
+        y, m = d.year, d.month
+        while True:
+            qm = m + (-m % 3 if m % 3 else 0)        # next quarterly month >= m
+            if qm > 12:
+                y, m = y + 1, 1
+                continue
+            if d.tz_localize(None) < third_friday(y, qm) - pd.Timedelta(days=8):
+                return f"{SYMBOL}{codes[qm]}{y % 10}"
+            m = qm + 1
+            if m > 12:
+                y, m = y + 1, 1
 
     async def _note(self, n):
         from async_rithmic import ExchangeOrderNotificationType as NT
@@ -202,7 +220,7 @@ class WkLive:
                 if ent <= now <= ent + pd.Timedelta(minutes=15):
                     # Re-resolve at entry: the runner may have been up since before
                     # a quarterly roll.
-                    self.contract = await self.front_month()
+                    self.contract = self.front_month()
                     ref = self.quote()
                     if ref:
                         await self.enter(ref)
