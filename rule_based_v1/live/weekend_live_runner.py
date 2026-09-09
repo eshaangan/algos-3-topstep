@@ -41,12 +41,40 @@ class WkLive:
             url=os.environ.get("RITHMIC_GATEWAY_URI", "wss://rprotocol.rithmic.com:443"),
             reconnection_settings=ReconnectionSettings(max_retries=None,
                 backoff_type="exponential", interval=2, max_delay=60))
-        await self.client.connect(plants=[SysInfraType.ORDER_PLANT, SysInfraType.PNL_PLANT])
+        await self.client.connect(plants=[SysInfraType.ORDER_PLANT, SysInfraType.PNL_PLANT,
+                                          SysInfraType.TICKER_PLANT])
         self.acct = (await self.client.plants["order"].list_accounts())[0].account_id
-        self.contract = os.environ.get("FADE_CONTRACT", "MNQU6")
+        self.contract = await self.front_month()
         self.client.on_exchange_order_notification += self._note
         log(f"connected acct={self.acct} contract={self.contract} mode={'LIVE' if self.live else 'DRY'}")
         self.jlog(ev="connected", live=self.live)
+
+    async def front_month(self):
+        """
+        Resolve the tradable MNQ contract at the moment it is needed.
+
+        This used to be `os.environ.get("FADE_CONTRACT", "MNQU6")`, read once at
+        startup. A quarterly roll happens 8 days before expiry, so a runner
+        launched mid-week and left up over the weekend would submit into the
+        expiring contract -- thin book, bad fill, and eventually no market at
+        all. FADE_CONTRACT still wins if set, as an explicit manual override.
+        """
+        override = os.environ.get("FADE_CONTRACT")
+        if override:
+            log(f"contract: {override} (FADE_CONTRACT override)")
+            return override
+        try:
+            c = await self.client.get_front_month_contract(SYMBOL, exchange=EXCHANGE)
+            if c:
+                return str(c)
+        except Exception as e:
+            log(f"front-month lookup failed: {type(e).__name__}: {e}")
+        if self.contract:
+            log(f"front-month lookup failed; keeping {self.contract}")
+            return self.contract
+        raise RuntimeError(
+            "cannot resolve MNQ front month and no FADE_CONTRACT override is set; "
+            "refusing to guess a contract")
 
     async def _note(self, n):
         from async_rithmic import ExchangeOrderNotificationType as NT
@@ -172,8 +200,16 @@ class WkLive:
             if now.weekday() == 6 and ot is None and self.key() not in self.st["done"]:
                 ent = now.normalize() + pd.Timedelta(hours=18)
                 if ent <= now <= ent + pd.Timedelta(minutes=15):
+                    # Re-resolve at entry: the runner may have been up since before
+                    # a quarterly roll.
+                    self.contract = await self.front_month()
                     ref = self.quote()
-                    if ref: await self.enter(ref)
+                    if ref:
+                        await self.enter(ref)
+                    else:
+                        log("NO QUOTE at entry window — is record_l2.py running "
+                            "and RAW_DIR pointing at its stream_MNQ_*.csv? skipping")
+                        self.jlog(ev="entry_skipped", why="no_quote")
             # EXIT: Monday 16:00
             if now.weekday() == 0 and ot and ot["key"] == str(now.date()) and \
                now >= now.normalize() + pd.Timedelta(hours=16):
