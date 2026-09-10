@@ -1,0 +1,157 @@
+Connected. Recording MNQU6 @ CME → data/l2_raw
+Subscribed to ORDER_BOOK + BBO + LAST_TRADE. Recording…
+[01:23:24Z] flushed book=1 bbo=224 trade=1322 (cumulative)
+[01:24:24Z] flushed book=1 bbo=447 trade=2815 (cumulative)
+[01:25:24Z] flushed book=1 bbo=679 trade=4160 (cumulative)
+[01:26:24Z] flushed book=1 bbo=905 trade=5039 (cumulative)
+[01:27:24Z] flushed book=1 bbo=1133 trade=6471 (cumulative)
+[01:28:24Z] flushed book=1 bbo=1366 trade=7332 (cumulative)
+[01:29:24Z] flushed book=1 bbo=1576 trade=7895 (cumulative)
+[01:30:24Z] flushed book=1 bbo=1797 trade=8628 (cumulative)
+[01:31:24Z] flushed book=1 bbo=2034 trade=9511 (cumulative)
+[01:32:24Z] flushed book=1 bbo=2273 trade=10625 (cumulative)
+[01:33:25Z] flushed book=1 bbo=2502 trade=11190 (cumulative)
+[01:34:25Z] flushed book=1 bbo=2741 trade=12410 (cumulative)
+[01:35:25Z] flushed book=1 bbo=2969 trade=13085 (cumulative)
+[01:36:25Z] flushed book=1 bbo=3204 trade=14713 (cumulative)
+[01:37:25Z] flushed book=1 bbo=3441 trade=15680 (cumulative)
+[01:38:25Z] flushed book=1 bbo=3670 trade=16536 (cumulative)
+[01:39:25Z] flushed book=1 bbo=3897 trade=17409 (cumulative)
+[01:40:25Z] flushed book=1 bbo=4124 trade=17893 (cumulative)
+[01:41:25Z] flushed book=1 bbo=4341 trade=18252 (cumulative)
+[01:42:26Z] flushed book=1 bbo=4568 trade=19103 (cumulative)
+[01:43:26Z] flushed book=1 bbo=4796 trade=19626 (cumulative)
+[01:44:26Z] flushed book=1 bbo=5009 trade=19959 (cumulative)
+[01:45:26Z] flushed book=1 bbo=5234 trade=20463 (cumulative)
+[01:46:26Z] flushed book=1 bbo=5469 trade=21446 (cumulative)
+[01:47:26Z] flushed book=1 bbo=5704 trade=22416 (cumulative)
+[01:48:26Z] flushed book=1 bbo=5932 trade=22991 (cumulative)
+[01:49:26Z] flushed book=1 bbo=6150 trade=23392 (cumulative)
+[01:50:26Z] flushed book=1 bbo=6373 trade=23923 (cumulative)
+[01:51:27Z] flushed book=1 bbo=6607 trade=24762 (cumulative)
+[01:52:27Z] flushed book=1 bbo=6837 trade=26069 (cumulative)
+[01:53:27Z] flushed book=1 bbo=7058 trade=26565 (cumulative)
+[01:54:27Z] flushed book=1 bbo=7289 trade=27333 (cumulative)
+[01:55:27Z] flushed book=1 bbo=7508 trade=27620 (cumulative)
+[01:56:27Z] flushed book=1 bbo=7728 trade=27981 (cumulative)
+[01:57:27Z] flushed book=1 bbo=7955 trade=28392 (cumulative)
+[01:58:27Z] flushed book=1 bbo=8179 trade=28936 (cumulative)
+[01:59:28Z] flushed book=1 bbo=8402 trade=29249 (cumulative)
+[02:00:28Z] flushed book=1 bbo=8626 trade=29927 (cumulative)
+[02:01:28Z] flushed book=1 bbo=8863 trade=31093 (cumulative)
+[02:02:28Z] flushed book=1 bbo=9095 trade=31828 (cumulative)
+[02:03:28Z] flushed book=1 bbo=9316 trade=32260 (cumulative)
+[02:04:28Z] flushed book=1 bbo=9532 trade=32996 (cumulative)
+2026-09-08 21:05:09,560 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:09,761 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:09,762 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:11,286 - rithmic.plant.ticker - ERROR - WebSocket connection closed unexpectedly while sending a message (template_id=18)
+Traceback (most recent call last):
+  File "/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages/async_rithmic/plants/base.py", line 286, in _send
+    await self.ws.send(message)
+  File "/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 465, in send
+    async with self.send_context():
+  File "/opt/homebrew/Cellar/python@3.11/3.11.12/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/eshaanganguly/Documents/projects/algos 3 topstep/.venv/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 934, in send_context
+    raise self.protocol.close_exc from original_exc
+websockets.exceptions.ConnectionClosedError: received 1011 (internal error) permission denied; then sent 1011 (internal error) permission denied
+2026-09-08 21:05:12,470 - rithmic.plant.ticker - INFO - Reconnection already in progress, waiting...
+2026-09-08 21:05:12,470 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:12,650 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:12,650 - rithmic.plant.ticker - INFO - Retrying send after successful reconnect
+2026-09-08 21:05:15,004 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:15,204 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:15,204 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:17,205 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:17,377 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:19,746 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:19,946 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:19,946 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:21,947 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:22,112 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:24,486 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:24,686 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:24,686 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:26,687 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:26,869 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:29,254 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:29,453 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:29,453 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+[02:05:29Z] flushed book=5 bbo=9722 trade=33888 (cumulative)
+2026-09-08 21:05:31,455 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:31,614 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:33,980 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:34,180 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:34,180 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:36,182 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:36,361 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:38,722 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:38,928 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:38,928 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:40,929 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:41,097 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:43,461 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:43,661 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:43,661 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:45,663 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:45,821 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:48,181 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:48,381 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:48,382 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:50,383 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:50,538 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:52,896 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:53,096 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:53,097 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:55,098 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:55,266 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:05:57,624 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:05:57,824 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:05:57,824 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:05:59,826 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:05:59,986 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:06:02,372 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:06:02,575 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:06:02,575 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:06:04,577 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:06:04,785 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:06:07,221 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:06:07,421 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:06:07,421 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:06:09,425 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:06:09,667 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:06:12,111 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:06:12,310 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:06:12,311 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:06:14,314 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:06:14,565 - rithmic.plant.ticker - INFO - Reconnection successful.
+2026-09-08 21:06:17,008 - rithmic.plant.ticker - WARNING - Received a ForcedLogout message from Rithmic - did you reach the maximum number of concurrent sessions ?
+2026-09-08 21:06:17,210 - rithmic.plant.ticker - WARNING - WebSocket connection closed unexpectedly
+2026-09-08 21:06:17,210 - rithmic.plant.ticker - INFO - Waiting 2 seconds before the next reconnection attempt ...
+2026-09-08 21:06:19,212 - rithmic.plant.ticker - INFO - Reconnection attempt #1
+2026-09-08 21:06:19,451 - rithmic.plant.ticker - INFO - Reconnection successful.
+[02:06:29Z] flushed book=16 bbo=9858 trade=34305 (cumulative)
+[02:07:29Z] flushed book=16 bbo=10067 trade=34728 (cumulative)
+[02:08:29Z] flushed book=16 bbo=10278 trade=34985 (cumulative)
+[02:09:29Z] flushed book=16 bbo=10490 trade=35460 (cumulative)
+[02:10:29Z] flushed book=16 bbo=10695 trade=35735 (cumulative)
+[02:11:30Z] flushed book=16 bbo=10905 trade=36172 (cumulative)
+[02:12:30Z] flushed book=16 bbo=11122 trade=36679 (cumulative)
+[02:13:30Z] flushed book=16 bbo=11335 trade=37328 (cumulative)
+[02:14:30Z] flushed book=16 bbo=11557 trade=38437 (cumulative)
+[02:15:30Z] flushed book=16 bbo=11787 trade=39213 (cumulative)
+[02:16:30Z] flushed book=16 bbo=12014 trade=40103 (cumulative)
+[02:17:30Z] flushed book=16 bbo=12239 trade=40712 (cumulative)
+[02:18:30Z] flushed book=16 bbo=12463 trade=41115 (cumulative)
+[02:19:31Z] flushed book=16 bbo=12679 trade=41781 (cumulative)
+[02:20:31Z] flushed book=16 bbo=12893 trade=42171 (cumulative)
+[02:21:31Z] flushed book=16 bbo=13105 trade=42510 (cumulative)
+[02:22:31Z] flushed book=16 bbo=13313 trade=42863 (cumulative)
+[02:23:31Z] flushed book=16 bbo=13524 trade=43146 (cumulative)
+[02:24:31Z] flushed book=16 bbo=13749 trade=44003 (cumulative)
+[02:25:31Z] flushed book=16 bbo=13964 trade=44676 (cumulative)
+[02:26:31Z] flushed book=16 bbo=14173 trade=45094 (cumulative)
+[02:27:31Z] flushed book=16 bbo=14389 trade=45653 (cumulative)
+[02:28:32Z] flushed book=16 bbo=14585 trade=45845 (cumulative)

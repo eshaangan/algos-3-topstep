@@ -1,0 +1,21 @@
+{
+  "symbol": "MES.c.0",
+  "start_date": "2026-01-01",
+  "end_date": "2026-01-31",
+  "downloaded_at": "2026-01-31T17:00:55.014049",
+  "bars_1m": {
+    "count": 28740,
+    "file": "ml_intraday_v3/data/jan2026_mes/mes_jan2026_1m.parquet",
+    "start": "2026-01-01 23:00:00+00:00",
+    "end": "2026-01-30 21:59:00+00:00"
+  },
+  "bars_5m": {
+    "count": 5748,
+    "file": "ml_intraday_v3/data/jan2026_mes/mes_jan2026_5m.parquet",
+    "start": "2026-01-01 23:00:00+00:00",
+    "end": "2026-01-30 21:55:00+00:00"
+  },
+  "trading_days": 26,
+  "bars_per_day_1m": 1105.3846153846155,
+  "bars_per_day_5m": 221.07692307692307
+}

@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "gates": {
+    "median_roc_auc_oos": {
+      "passed": true,
+      "value": 0.9991347912242086,
+      "threshold": 0.55,
+      "message": "Median OOS ROC-AUC 0.999 \u2265 0.550"
+    }
+  },
+  "summary": "\u2713 All 1 validation gates passed",
+  "passed_count": 1,
+  "total_count": 1
+}

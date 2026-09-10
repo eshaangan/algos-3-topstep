@@ -19,7 +19,17 @@ firms:
 
   lucid_flex_100k:
     label: "LucidFlex 100k (incumbent)"
-    verified: false
+    # VERIFIED 2026-09-09 against Lucid's own help centre (support.lucidtrading.com),
+    # not against an account dashboard. Every field below that the help centre states
+    # explicitly is quoted in `verified_quotes`. Automated fetch needs a browser
+    # User-Agent -- the site 403s a bare request, which is why this went unchecked.
+    verified: help_centre_2026_09_09
+    # ACCOUNT CONFIRMED BY USER 2026-09-09 from the Lucid dashboard:
+    #   LFE100-Z96Y99ZR-TEST001 | LUCIDFLEX 100K | EVAL | EOD DRAWDOWN | NO DLL | Active
+    # The "TEST001" suffix is Lucid's naming for an evaluation account, NOT a demo.
+    # Confirms drawdown_type=end_of_day_trailing and daily_loss_limit=null below.
+    account_id: "LFE100-Z96Y99ZR-TEST001"
+    account_status: "EVAL, active, confirmed on dashboard 2026-09-09"
     balance: 100000
     profit_target: 6000
     max_loss_limit: 3000
@@ -29,13 +39,41 @@ firms:
     consistency: 0.50           # evaluation only
     min_trading_days: 2
     flatten_et: "16:45"         # MANDATORY daily auto-flatten Mon-Fri
-    resumes_et: "18:00"
-    overnight_permitted: false
-    weekend_permitted: false
+    resumes_et: "18:00"         # "Trading resumes at 6:00 PM EST, Sunday through Thursday"
+    # CORRECTED 2026-09-09. These were both `false`, which contradicted this firm's own
+    # rule structure (myfundedfutures, with the identical shape, is marked true) and
+    # contradicted tzguard's legality logic, which correctly rules an 18:00 -> next-day
+    # 16:45 hold LEGAL. The flatten is the ONLY constraint: there is no separate
+    # prohibition on holding through the night or over a Sunday. The Sunday case is
+    # settled by the reopen being Sunday 6:00 PM ET.
+    # NOTE: these two keys are metadata only. tzguard reads flatten_et/resumes_et, and
+    # its `overnight_permitted` comes from account_rules.yaml, not from here.
+    overnight_permitted: true   # 18:00 entry may be held to 16:45 the NEXT day
+    weekend_permitted: true     # Sunday 18:00 entry is inside the reopen window
     news_restriction: none_documented
+    max_size: "6 minis or 60 micros"   # 100k tier; 25k=2/20, 50k=4/40, 150k=10/100
+    prohibited_practices:
+      microscalping: ">50% of profits from trades held 5 seconds or less"
+      hft: "hundreds of orders within minutes"
+      hedging: "OPPOSING positions across MULTIPLE ACCOUNTS -- not an intra-account spread"
+    verified_quotes:
+      allowed_trading_times: >
+        "All positions must be closed by 4:45 PM EST, Monday through Friday. Any open
+        positions will be automatically closed by Lucid Trading at 4:45 PM EST.
+        Important: Holding a position past this time does not result in a failed
+        account. Market Reopen Times: Trading resumes at 6:00 PM EST, Sunday through
+        Thursday. On market holidays with altered closing times, all positions must be
+        closed before the market closes, regardless of the usual 4:45 PM cutoff."
+      funded_consistency: >
+        "LucidFlex funded accounts have an optional Daily Loss Limit, no consistency
+        rule and no payout buffer. 90/10 profit split. EOD trailing drawdown."
+      sizes: "$100,000 -> Max Loss Limit $3,000, max size 6 mini or 60 micros"
     sources:
-      - https://tradetanto.com/learn/lucid-trading-rules-explained-every-plan-rule-and-limit
-      - https://saveonpropfirms.com/blog/lucidflex-guide
+      - https://support.lucidtrading.com/en/articles/11404729-allowed-trading-times
+      - https://support.lucidtrading.com/en/articles/12945795-lucidflex-funded-account
+      - https://support.lucidtrading.com/en/articles/11404742-prohibited-microscalping
+      - https://support.lucidtrading.com/en/articles/11404736-prohibited-high-frequency-trading
+      - https://support.lucidtrading.com/en/articles/11404734-prohibited-hedging
 
   myfundedfutures_pro_100k:
     label: "MyFundedFutures Pro/Core 100k"
