@@ -24,9 +24,9 @@ def normalise_bars(bars: pd.DataFrame, *, timestamp_col: str | None = None, inpu
     if timestamp_col:
         if timestamp_col not in out.columns:
             raise ValueError(f"missing timestamp column {timestamp_col!r}")
-        idx = pd.to_datetime(out.pop(timestamp_col), errors="raise")
+        idx = pd.DatetimeIndex(pd.to_datetime(out.pop(timestamp_col), errors="raise"))
     else:
-        idx = pd.to_datetime(out.index, errors="raise")
+        idx = pd.DatetimeIndex(pd.to_datetime(out.index, errors="raise"))
     if idx.tz is None:
         if not input_timezone:
             raise ValueError("naive timestamps require input_timezone")

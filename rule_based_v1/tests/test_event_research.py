@@ -11,6 +11,7 @@ from rule_based_v1.diagnostics.portfolio_mc import (
     run_path,
 )
 from rule_based_v1.validation.event_meta_gate import build_features, walk_forward_probabilities
+from rule_based_v1.validation.research_close_momentum import normalise_bars
 from rule_based_v1.validation.research_rebalancing import build_rebalance_events
 
 
@@ -71,3 +72,18 @@ def test_rebalance_direction_uses_prior_close_spread():
     assert list(events["direction"]) == [-1, 1]
     assert events.loc[0, "strategy_return"] > 0
     assert events.loc[1, "strategy_return"] > 0
+
+
+def test_close_momentum_normalises_timestamp_column():
+    bars = pd.DataFrame(
+        {
+            "timestamp": ["2026-01-05 14:30:00+00:00"],
+            "open": [100.0],
+            "high": [101.0],
+            "low": [99.0],
+            "close": [100.5],
+        }
+    )
+    out = normalise_bars(bars, timestamp_col="timestamp")
+    assert str(out.index.tz) == "America/New_York"
+    assert out.index[0].hour == 9
