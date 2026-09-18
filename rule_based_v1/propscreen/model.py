@@ -74,6 +74,9 @@ class Plan:
     split: float = 0.90
     fee_discounted: float | None = None
     reset_fee: float | None = None
+    activation_fee: float | None = None   # charged ON PASSING -- comes out of extraction
+    monthly: bool = False                 # True = recurring, price is per month
+    expected_months: float = 1.0          # measured: median campaign ~1 month at 2-4 micros
     max_minis: int | None = None
     payout_min_days: int | None = None
     payout_min_daily: float | None = None
@@ -93,8 +96,15 @@ class Plan:
 
     @property
     def price(self) -> float:
-        """What you would actually pay."""
-        return self.fee_discounted if self.fee_discounted is not None else self.fee
+        """What you would actually pay up front, before any activation fee.
+
+        A monthly plan is billed until the campaign ends. The median campaign
+        measured on MNQ is ~1 month at 2-4 micros, so `expected_months` defaults
+        to 1.0 -- but a slow campaign on a monthly plan is how these go negative,
+        so treat it as a sensitivity, not a constant.
+        """
+        base = self.fee_discounted if self.fee_discounted is not None else self.fee
+        return base * (self.expected_months if self.monthly else 1.0)
 
 
 @dataclass(frozen=True)
@@ -121,7 +131,9 @@ def score(plan: Plan, efficiency: float | None = None) -> Score:
         eff = efficiency
     p = min(base * mult, 1.0)
     extraction = plan.split * plan.drawdown * eff
-    ev = p * extraction - plan.price
+    # an activation fee is only paid if you PASS, so it nets off the extraction
+    net = extraction - (plan.activation_fee or 0.0)
+    ev = p * net - plan.price
     per = ev / plan.price
     if ev <= 0:
         verdict = "REJECT"
